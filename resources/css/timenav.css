@@ -1,0 +1,39 @@
+/* Time Navigation */
+.timestamp {
+	font-size:1.0em;
+    font-weight: normal;
+    margin-left: 0px;
+    line-height: 1.6em;
+    position: absolute;
+    left: 120px;
+}
+
+.timeBehind {
+	color: #FFFF66;
+	font-weight: bold;
+}
+
+.timeAhead {
+	color: #b2ff66;
+	font-style: italic;	
+}
+
+.timeSignificantlyOff {
+	font-weight: 500;
+	color: #ff6666;
+}
+
+#timeBackBtn, #timeForwardBtn {
+    cursor: pointer;
+}
+
+#timeBackBtn {
+    float: left;
+}
+
+#timestep-select {
+    width:85px;
+    border: none;
+    margin-right: 1px;
+    float: left;
+}
