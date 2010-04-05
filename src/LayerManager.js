@@ -33,6 +33,21 @@ var LayerManager = Class.extend(
     size: function () {
         return this._layers.length;
     },
+    
+    /**
+     * Returns the index of the given layer if it exists, and -1 otherwise
+     */
+    indexOf: function (id) {
+        var index = -1;
+        
+        $.each(this._layers, function (i, item) {
+            if (item.id === id) {
+                index = i;
+            }
+        });
+        
+        return index;
+    },
 
     /**
      * @description Removes a layer
@@ -74,11 +89,11 @@ var LayerManager = Class.extend(
     /**
      * @description Returns a string representation of the layers currently being displayed
      */
-    toString: function () {
+    serialize: function () {
         var layers = "";
 
         $.each(this._layers, function () {
-            layers += "[" + this.toString() + "],";
+            layers += "[" + this.serialize() + "],";
         });
         
         // Remove trailing comma

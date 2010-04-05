@@ -55,7 +55,7 @@ var TileLayer = Layer.extend(
         this.htmlId = "tile-" + this.id;
 
         this.domNode = $('<div class="tile-layer-container" style="position: absolute;"></div>').appendTo(
-                this.viewport.movingContainer
+            this.viewport.movingContainer
         );
         
         this._setupEventHandlers();
@@ -148,54 +148,55 @@ var TileLayer = Layer.extend(
             sourceId: this.sourceId,
             date:     this.controller.date.toISOString()
         };
-        
-        /**
-         * Gets information to the best match for a requested image
-         * 
-         * The AJAX request returns a JSON object with the following properties:
-         * 
-         *    jp2Width   Width of the original image
-         *    jp2Height  Height of the original image
-         *    jp2Scale   Pixel scale (in arcseconds per pixel) of the original image
-         *    rotated    Whether or not the original image was rotated 180 degrees
-         *    sunCenterX X-coordinate for the center of the sun in the original image
-         *    sunCenterY Y-coordinate for the center of the sun in the original image
-         *    
-         */
-        callback = function (image) {
-            var hv = self.controller;
 
-            //Only load image if it is different form what is currently displayed
-            if (image.filename === this.filename) {
-                return;
-            }
-            
-            $.extend(self, image);
-     
-            self.viewport.checkTiles(true);
-            self.reset(false);
-                       
-            // Update viewport sandbox if necessary
-            self.viewport.updateSandbox();
-
-            // Add to tileLayer Accordion if it's not already there
-            if (!hv.tileLayerAccordion.hasId(self.id)) {
-                hv.tileLayerAccordion.addLayer(self);
-            }
-                            
-            // Otherwise update the accordion entry information
-            else {
-                hv.tileLayerAccordion.updateTimeStamp(self);
-                hv.tileLayerAccordion.updateLayerDesc("#" + self.htmlId, self.name);
-                hv.tileLayerAccordion.updateOpacitySlider(self.id, self.opacity);
-            }
-        };
-        
         this._loadStaticProperties();
         
         // Ajax request
-        $.post(this.controller.api, params, callback, "json");
+        $.post(this.controller.api, params, $.proxy(this.onLoadImage, this), "json");
     },
+    
+    /**
+     * Gets information to the best match for a requested image
+     * 
+     * The AJAX request returns a JSON object with the following properties:
+     * 
+     *    jp2Width   Width of the original image
+     *    jp2Height  Height of the original image
+     *    jp2Scale   Pixel scale (in arcseconds per pixel) of the original image
+     *    rotated    Whether or not the original image was rotated 180 degrees
+     *    sunCenterX X-coordinate for the center of the sun in the original image
+     *    sunCenterY Y-coordinate for the center of the sun in the original image
+     *    
+     */
+    onLoadImage: function (image) {
+        var index, accordion = this.controller.tileLayerAccordion;
+
+        //Only load image if it is different form what is currently displayed
+        if (image.filename === this.filename) {
+            return;
+        }
+        
+        $.extend(this, image);
+ 
+        this.viewport.checkTiles(true);
+        this.reset(false);
+                   
+        // Update viewport sandbox if necessary
+        this.viewport.updateSandbox();
+
+        // Add to tileLayer Accordion if it's not already there
+        if (!accordion.hasId(this.id)) {
+            index = this.tileLayers.indexOf(this.id);
+            accordion.addLayer(this, index);
+        }
+                        
+        // Otherwise update the accordion entry information
+        else {
+            accordion.updateTimeStamp(this);
+            accordion.updateLayerDesc("#" + this.htmlId, this.name);
+            accordion.updateOpacitySlider(this.id, this.opacity);
+        }
+    },        
     
     /**
      * @description Refresh displayed tiles
@@ -507,19 +508,7 @@ var TileLayer = Layer.extend(
         // If loading fails...
         img.error(function (e) {
             img.unbind("error");
-            
-            if (self.controller.backupEnabled) {
-            
-                // If it still doesn't work, load the transparent tile
-                $(this).error(function () {
-                    $(this).attr("src", emptyTile);
-                });
-                
-                $(this).attr("src", self.getTileURL(self.controller.backupServer, x, y));
-                
-            } else {
-                $(this).attr("src", emptyTile);
-            }
+            $(this).attr("src", emptyTile);
         });
         
         // Wait until image is done loading specify dimensions in order to prevent Firefox from displaying place-holders
@@ -557,6 +546,7 @@ var TileLayer = Layer.extend(
             "x"                : x,
             "y"                : y,
             "format"           : format,
+            "date"             : this.date,
             "tileScale"        : this.viewport.imageScale,
             "ts"               : this.tileSize,
             "jp2Width"         : this.jp2Width,
@@ -569,7 +559,6 @@ var TileLayer = Layer.extend(
             "sunCenterOffsetX" : this.origSunCenterOffsetX,
             "sunCenterOffsetY" : this.origSunCenterOffsetY                        
         };
-        
         return url + "?" + $.param(params);
     },
 
@@ -577,7 +566,7 @@ var TileLayer = Layer.extend(
      * @description Returns a stringified version of the tile layer for use in URLs, etc
      * @return string String representation of the tile layer
      */
-    toString: function () {
+    serialize: function () {
         return this.observatory + "," + this.instrument + "," + this.detector + "," + this.measurement + "," +
             (this.visible ? "1" : "0") + "," + this.opacity;
     },

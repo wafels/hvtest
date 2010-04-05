@@ -135,7 +135,7 @@ div.text-btn:hover {
 }
 
 span.ui-icon-hover {
-    background-image: url(../../lib/jquery.ui-1.7.1/css/dot-luv-modified/images/ui-icons_d18f61_256x240.png) !important;
+    background-image: url(../../lib/jquery.ui-1.8/css/dot-luv-modified/images/ui-icons_d18f61_256x240.png) !important;
 }
 
 .italic {
@@ -244,3 +244,7 @@ div.jGrowl div.jGrowl-notification, div.jGrowl div.jGrowl-closer {
    background-color: Azure;  /* GhostWhite #D18F61; lightBlue;*/
    color: #262424;
 }
+
+/* Google Chrome Frame Installer */
+.chromeFrameOverlayContent  {border:1px solid #303030;}
+.chromeFrameOverlayUnderlay {background: #000; opacity: 0.5;}

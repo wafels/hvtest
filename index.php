@@ -16,6 +16,7 @@ if ((!file_exists($ini)) || (!$config = parse_ini_file($ini)))
         <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/chrome-frame/1/CFInstall.min.js"></script>
         <script type="text/javascript" src="http://html5shiv.googlecode.com/svn/trunk/html5.js"></script>
         <![endif]-->
+
         <link rel="shortcut icon" href="favicon.ico" />
 
         <meta name="description" content="Helioviewer - Solar and heliospheric image visualization tool" />
@@ -30,16 +31,15 @@ if ((!file_exists($ini)) || (!$config = parse_ini_file($ini)))
 
         <!-- jQuery -->
         <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.4.2/jquery.min.js" type="text/javascript"></script>
-        <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.7.1/jquery-ui.min.js" type="text/javascript"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js" type="text/javascript"></script>
         <script src="lib/jquery.class/jquery.class.js" type="text/javascript"></script>
         <!--<script src="lib/jquery.qtip-2.0-r282/jquery.qtip.js" type="text/javascript"></script>
         <script src="lib/jquery.qtip-2.0-r282/jquery.qtip.tips.js" type="text/javascript"></script>-->
         <script src="lib/jquery.qtip-1.0-r34/jquery.qtip-1.0.min.js" type="text/javascript"></script>
 
-        <!-- TODO: move jquery.dynaccordion to /src with rest of custom code -->
-        <script src="lib/jquery.dynaccordion/ui.dynaccordion.js" type="text/javascript"></script>
+        <script src="src/jquery.ui.dynaccordion.js" type="text/javascript"></script>
 
-        <link rel="stylesheet" href="lib/jquery.ui-1.7.1/css/dot-luv-modified/jquery-ui-1.7.1.custom.css" type="text/css" />
+        <link rel="stylesheet" href="lib/jquery.ui-1.8/css/dot-luv-modified/jquery-ui-1.8.custom.css" type="text/css" />
 
         <!-- Mousewheel support -->
         <script src="lib/jquery.mousewheel.3.0.2/jquery.mousewheel.min.js" type="text/javascript"></script>
@@ -52,8 +52,8 @@ if ((!file_exists($ini)) || (!$config = parse_ini_file($ini)))
         <script src="lib/jquery.imgareaselect-0.8/jquery.imgareaselect-0.8.js" type="text/javascript"></script>
 
         <!-- CookieJar -->
-        <script type="text/javascript" src="lib/Cookiejar/jquery.json.js"></script>
-        <script type="text/javascript" src="lib/Cookiejar/jquery.cookie.js"></script>
+        <script type="text/javascript" src="lib/jquery.json-2.2/jquery.json-2.2.min.js"></script>
+        <script type="text/javascript" src="lib/jquery.cookie/jquery.cookie.js"></script>
         <script type="text/javascript" src="lib/Cookiejar/jquery.cookiejar.pack.js"></script>
 
         <!-- date.js -->
@@ -69,12 +69,6 @@ if ((!file_exists($ini)) || (!$config = parse_ini_file($ini)))
         <!-- ShadowBox -->
         <link rel="stylesheet" type="text/css" href="lib/shadowbox-3.0.3/shadowbox.css">
         <script type="text/javascript" src="lib/shadowbox-3.0.3/shadowbox.js"></script>
-        <script type="text/javascript">
-            Shadowbox.init({
-                overlayOpacity: 0.5,
-                troubleElements: ["object", "embed"]
-            });
-        </script>
 
         <!-- Helioviewer-Specific -->
         <?php
@@ -123,11 +117,20 @@ if ((!file_exists($ini)) || (!$config = parse_ini_file($ini)))
         <link rel="stylesheet" type="text/css" href="resources/css/dot-luv.css">
 
         <script type="text/javascript">
-            var config, state, defaults, defaultsJSON, api;
+            var config, state, settings, settingsJSON, api;
+
+            Shadowbox.init({
+                overlayOpacity: 0.5,
+                troubleElements: ["object", "embed"]
+            });
 
             $(function () {
+                if ($.browser.msie && ($.browser.version < 8)) {
+                    CFInstall.check({mode: "overlay"});
+                }
+
                 <?php
-                    printf("defaultsJSON = %s;\n", json_encode($config));
+                    printf("settingsJSON = %s;\n", json_encode($config));
 
                     // Application state
                     $state = array();
@@ -151,9 +154,9 @@ if ((!file_exists($ini)) || (!$config = parse_ini_file($ini)))
                     // Convert to JSON
                     printf("\t\tstate = %s;\n", json_encode($state));
                 ?>
-                config = new Config(defaultsJSON);
-                defaults = config.toArray();
-                helioviewer = new Helioviewer('#helioviewer-viewport', state, defaults);
+                config = new Config(settingsJSON);
+                settings = config.toArray();
+                helioviewer = new Helioviewer('#helioviewer-viewport', state, settings);
             });
         </script>
 
@@ -234,7 +237,7 @@ if ((!file_exists($ini)) || (!$config = parse_ini_file($ini)))
 
                                     <!-- Fullscreen toggle -->
                                     <div id='fullscreen-btn' title="Toggle fullscreen display.">
-                                        <div class='ui-icon ui-icon-arrow-4-diag'></div>
+                                        <span class='ui-icon ui-icon-arrow-4-diag'></span>
                                     </div>
                                 </div>
                             </div>
