@@ -50,107 +50,82 @@ class Module_WebClient implements Module
             try {
                 $this->{$this->_params['action']}();
             } catch (Exception $e) {
-                // Output plain-text for browser requests to make Firebug debugging easier
-                include_once "lib/FirePHPCore/fb.php";
-                FB::error($e->getMessage());
-                throw new Exception($e->getMessage());
+                handleError($e->getMessage(), $e->getCode());
             }
         }
     }
 
-    /**
-     * printDoc
-     *
-     * @return void
-     */
-    public static function printDoc()
-    {
-
-    }
 
     /**
-     * 'Opens' the requested file in the current window as an attachment,
-     *  which pops up the "Save file as" dialog.
-     *
+     * 'Opens' the requested file in the current window as an attachment,  which pops up the "Save file as" dialog.
+     * 
      * @TODO test this to make sure it works in all browsers.
      *
      * @return void
      */
     public function downloadFile()
     {
-        $url = $this->_params['url'];
+        $file = HV_CACHE_DIR . "/" . $this->_params['uri'];
 
-        // Convert web url into directory url so stat() works.
-        // Need to use stat() instead of filesize() because filesize fails
-        // for every file on Linux due to security permissions with apache.
-        // To get the file size, do $stat['size']
-        $url = str_replace(HV_WEB_ROOT_URL, HV_ROOT_DIR, $url);
-        $stat = stat($url);
-
-        if (strlen($url) > 1) {
-            header("Pragma: public");
-            header("Expires: 0");
-            header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
-            header("Cache-Control: private", false); // required for certain browsers
-            header("Content-Disposition: attachment; filename=\"" . basename($url) . "\";");
-            header("Content-Transfer-Encoding: binary");
-
-            header("Content-Length: " . $stat['size']);
-
-            echo file_get_contents($url);
-        } else {
-            throw new Exception("Unable to find the specified requested file.");
+        // Make sure file exists
+        if (!file_exists($file)) {
+            throw new Exception("Unable to locate the requested file: $file");
         }
+
+        // Set HTTP headers
+        header("Pragma: public");
+        header("Expires: 0");
+        header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
+        header("Cache-Control: private", false); // required for certain browsers
+        header("Content-Disposition: attachment; filename=\"" . basename($file) . "\"");
+        header("Content-Transfer-Encoding: binary");
+        header("Content-Length: " . filesize($file));
+
+        // Mime type
+        $parts = explode(".", $file);
+        $extension = end($parts);
+        
+        if (in_array($extension, array("jp2", "jpx"))) {
+            $mimetype = "image/$extension";
+        } else if (in_array($extension, array("ogg", "ogv", "webm"))) {
+            $mimetype = "video/$extension";
+        } else {        
+            $fileinfo = new finfo(FILEINFO_MIME);
+            $mimetype = $fileinfo->file($file);
+        }
+        header("Content-type: " . $mimetype);
+
+        echo file_get_contents($file);
     }
 
     /**
-     * http://localhost/hv/api/index.php?action=getClosestImage
-     * &date=2003-10-05T00:00:00Z&source=0&server=api/index.php
-     *
+     * http://helioviewer.org/api/index.php?action=getClosestImage&date=2003-10-05T00:00:00Z&source=0&s=1
+     * 
      * TODO 01/29/2010 Check to see if server number is within valid range of know authenticated servers.
      *
      * @return void
      */
     public function getClosestImage ()
     {
-        // Tile locally
-        if (HV_LOCAL_TILING_ENABLED && ($this->_params['server'] == 0)) {
-            include_once 'src/Database/ImgIndex.php';
-            $imgIndex = new Database_ImgIndex();
+        include_once 'src/Database/ImgIndex.php';
+        
+        $imgIndex = new Database_ImgIndex();
 
-            // Convert human-readable params to sourceId if needed
-            if (!isset($this->_params['sourceId'])) {
-                $this->_params['sourceId'] = $imgIndex->getSourceId(
-                    $this->_params['observatory'], $this->_params['instrument'],
-                    $this->_params['detector'], $this->_params['measurement']
-                );
-            }
-
-            $result = $imgIndex->getClosestImage($this->_params['date'], $this->_params['sourceId']);
-
-            // Prepare cache for tiles
-            $this->_createImageCacheDir($this->_params['sourceId'], $result['date']);
-
-            $json = json_encode($result);
-        } else {
-            if (HV_DISTRIBUTED_TILING_ENABLED) {
-                // Redirect request to remote server
-                if ($this->_params['server'] != 0) {
-                    $baseURL = constant("HV_TILE_SERVER_" . $this->_params['server']);
-                    $source  = $this->_params['sourceId'];
-                    $date    = $this->_params['date'];
-                    $url     = "$baseURL?action=getClosestImage&sourceId=$source&date=$date&server=0";
-                    $json = file_get_contents($url);
-                } else {
-                    $msg = "Local tiling is disabled on server. See local_tiling_enabled is Config.Example.ini " .
-                           "for more information";
-                    throw new Exception($msg);
-                }
-            } else {
-                $err = "Both local and remote tiling is disabled on the server.";
-                throw new Exception($err);
-            }
+        // Convert human-readable params to sourceId if needed
+        if (!isset($this->_params['sourceId'])) {
+            $this->_params['sourceId'] = $imgIndex->getSourceId(
+                $this->_params['observatory'], $this->_params['instrument'],
+                $this->_params['detector'], $this->_params['measurement']
+            );
         }
+
+        $result = $imgIndex->getClosestImage($this->_params['date'], $this->_params['sourceId']);
+
+        // Prepare cache for tiles
+        $this->_createImageCacheDir($result['filepath']);
+
+        $json = json_encode($result);
+
         header('Content-Type: application/json');
         echo $json;
     }
@@ -165,9 +140,9 @@ class Module_WebClient implements Module
         include_once 'src/Database/ImgIndex.php';
 
         $imgIndex = new Database_ImgIndex();
-        $dataSources = json_encode($imgIndex->getDataSources());
+        $dataSources = json_encode($imgIndex->getDataSources($this->_params['verbose']));
 
-        header('Content-type: application/json');
+        header('Content-type: application/json;charset=UTF-8');
 
         print $dataSources;
     }
@@ -179,42 +154,9 @@ class Module_WebClient implements Module
      */
     public function getJP2Header ()
     {
-        // Retrieve header locally
-        if (HV_LOCAL_TILING_ENABLED && ($this->_params['server'] == 0)) {
-            $filepath = HV_JP2_DIR . $this->_params["file"];
-
-            // Query header information using Exiftool
-            $cmd = escapeshellcmd(HV_EXIF_TOOL . " $filepath") . ' | grep Fits';
-            exec($cmd, $out, $ret);
-
-            $fits = array();
-            foreach ($out as $index => $line) {
-                $data = explode(":", $line);
-                $param = substr(strtoupper(str_replace(" ", "", $data[0])), 8);
-                $value = $data[1];
-                array_push($fits, $param . ": " . $value);
-            }
-            $json = json_encode($fits);
-        } else {
-            if (HV_DISTRIBUTED_TILING_ENABLED) {
-                // Redirect request to remote server
-                if ($this->_params['server'] != 0) {
-                    $baseURL = constant("HV_TILE_SERVER_" . $this->_params['server']);
-                    $url     = "$baseURL?action=getJP2Header&file={$this->_params['file']}&server=0";
-                    $json    = file_get_contents($url);
-                } else {
-                    $msg = "Local tiling is disabled on server. See local_tiling_enabled is Config.Example.ini" .
-                           "for more information";
-                    throw new Exception($msg);
-                }
-            } else {
-                $err = "Both local and remote tiling is disabled on the server.";
-                throw new Exception($err);
-            }
-        }
-
-        header('Content-type: application/json');
-        echo $json;
+        include_once 'src/Image/JPEG2000/JP2ImageXMLBox.php';
+        $xmlBox = new Image_JPEG2000_JP2ImageXMLBox(HV_JP2_DIR . $this->_params["file"]);
+        $xmlBox->printXMLBox();
     }
 
     /**
@@ -224,58 +166,64 @@ class Module_WebClient implements Module
      */
     public function getTile ()
     {
-        include_once 'src/Image/Tiling/HelioviewerTile.php';
-        $tile = new Image_Tiling_HelioviewerTile(
-            $this->_params['uri'], $this->_params['date'], $this->_params['x'], $this->_params['y'],
-            $this->_params['tileScale'], $this->_params['ts'],
-            $this->_params['jp2Width'], $this->_params['jp2Height'],
-            $this->_params['jp2Scale'], $this->_params['sunCenterOffsetX'],
-            $this->_params['sunCenterOffsetY'], $this->_params['format'],
-            $this->_params['obs'], $this->_params['inst'],
-            $this->_params['det'], $this->_params['meas']
+        require_once 'src/Image/JPEG2000/JP2Image.php';
+        require_once 'src/Image/HelioviewerImageLayer.php';
+        
+        $params = $this->_params;
+        
+        // Create directories in cache
+        $this->_createImageCacheDir(dirname($this->_params['uri']));
+        
+        // Tile filepath
+        $filepath = HV_CACHE_DIR . $this->getCacheFilename(
+            $params['uri'], $params['imageScale'], $params['x1'], 
+            $params['x2'], $params['y1'], $params['y2'], $params['format']
         );
+        
+        // JP2 filepath
+        $jp2Filepath = HV_JP2_DIR . $params['uri'];
+        
+        // Instantiate a JP2Image
+        $jp2 = new Image_JPEG2000_JP2Image(
+            $jp2Filepath, $this->_params['jp2Width'], $this->_params['jp2Height'], $this->_params['jp2Scale']
+        );
+        
+        $roi = array(
+           "top"    => $params['y1'],
+           "left"   => $params['x1'],
+           "bottom" => $params['y2'],
+           "right"  => $params['x2']
+        );
+
+        $tile = new Image_HelioviewerImageLayer(
+            $jp2, $filepath, $params['size'],
+            $params['size'], $params['imageScale'], $roi, 
+            $params['instrument'], $params['detector'], $params['measurement'], 1, 
+            $params['offsetX'], $params['offsetY'], 100, 
+            $params['date'], true
+        );
+        
+        return $tile->display();  
     }
-
+    
     /**
-     * launchJHV
-     *
-     * @return void
+     * Builds a filename for a cached tile or image based on boundaries and scale
+     * 
+     * @param string $uri    The uri of the original jp2 image
+     * @param float  $scale  The scale of the extracted image
+     * @param float  $x1     The left boundary in arcseconds
+     * @param float  $x2     The right boundary in arcseconds
+     * @param float  $y1     The top boundary in arcseconds
+     * @param float  $y2     The bottom boundary in arcseconds
+     * @param string $format jpg or png
+     * 
+     * @return string
      */
-    public function launchJHV ()
+    private function getCacheFilename($uri, $scale, $x1, $x2, $y1, $y2, $format)
     {
-        header('content-type: application/x-java-jnlp-file');
-        header('content-disposition: attachment; filename="JHelioviewer.jnlp"');
-        echo '<?xml version="1.0" encoding="utf-8"?>' . "\n";
-
-        ?>
-        <jnlp spec="1.0+" codebase="http://achilles.nascom.nasa.gov/~dmueller/jhv/" href="JHelioviewer.jnlp">
-            <information>
-                <title>JHelioviewer</title>
-                <vendor>ESA</vendor>
-                <homepage href="index.html" />
-                <description>JHelioviewer web launcher</description>
-                <offline-allowed />
-            </information>
-
-            <resources>
-                <j2se version="1.5+" max-heap-size="1000M"/>
-                <jar href="JHelioviewer.jar" />
-            </resources>
-
-            <security>
-                <all-permissions />
-            </security>
-
-            <application-desc main-class="org.helioviewer.JavaHelioViewer">
-                <?php
-
-        if ((isset($this->_params['files'])) && ($this->_params['files'] != "")) {
-            echo "        <argument>$this->files</argument>\n";
-        }
-                ?>
-            </application-desc>
-        </jnlp>
-    <?php
+        return dirname($uri) . "/" . substr(basename($uri), 0, -4) . "_" . $scale 
+                . "_" . round($x1) . "_" . round($x2) . "x_" . round($y1) . "_"
+                . round($y2) . "y." . $format;
     }
 
     /**
@@ -297,104 +245,63 @@ class Module_WebClient implements Module
         //mail('test@mail.com', 'My Subject', $message);
     }
 
-
     /**
      * Obtains layer information, ranges of pixels visible, and the date being
      * looked at and creates a composite image (a Screenshot) of all the layers.
      *
-     * All possible parameters: obsDate, imageScale, layers, imageSize,
-     * filename, edges, sharpen
-     *
-     * API example: http://localhost/helioviewer/api/index.php
-     *     ?action=takeScreenshot&obsDate=1041465600&imageScale=5.26
-     *     &layers=SOH,EIT,EIT,304,1,100x0,1034,0,1034,-230,-215/SOH,LAS,0C2,0WL,1,100x0,1174,28,1110,-1,0
-     *     &imageSize=588,556&filename=example&sharpen=false&edges=false
-     *
+     * See the API webpage for example usage.
+     * 
+     * Parameters quality, filename, and display are optional parameters and can be left out completely.
+     * 
      * Note that filename does NOT have the . extension on it. The reason for
      * this is that in the media settings pop-up dialog, there is no way of
      * knowing ahead of time whether the image is a .png, .tif, .flv, etc, and
      * in the case of movies, the file is both a .flv and .mov/.asf/.mp4
      *
-     * @return void
+     * @return image/jpeg or JSON
      */
     public function takeScreenshot()
     {
-        include_once 'src/Image/Screenshot.php';
+        include_once 'src/Image/Screenshot/HelioviewerScreenshotBuilder.php';
+        
+        $builder = new Image_Screenshot_HelioviewerScreenshotBuilder();
+        $tmpDir  = HV_CACHE_DIR . "/screenshots";
 
-        $obsDate    = $this->_params['obsDate'];
-        $imageScale = $this->_params['imageLevel'];
-        $quality    = $this->_params['quality'];
-        $layerStrings = explode("/", $this->_params['layers']);
-
-        $imgCoords = explode(",", $this->_params['imageSize']);
-        $imageSize = array("width" => $imgCoords[0], "height" => $imgCoords[1]);
-        $filename  = $this->_params['filename'];
-
-        $options = array();
-        $options['enhanceEdges'] = $this->_params['edges'] || false;
-        $options['sharpen']      = $this->_params['sharpen'] || false;
-
-        if (sizeOf($layerStrings) < 1) {
-            throw new Exception('Invalid layer choices! You must specify at least 1 layer.');
+        $response = $builder->takeScreenshot($this->_params, $tmpDir, array());
+        
+        // Display screenshot
+        if ($this->_params['display']) {
+            $fileinfo = new finfo(FILEINFO_MIME);
+            $mimetype = $fileinfo->file($response);
+            header("Content-Disposition: inline; filename=\"" . basename($response) . "\"");
+            header("Content-type: " . $mimetype);
+            die(file_get_contents($response));
         }
-
-        $layers = $this->_formatLayerStrings($layerStrings);
-
-        $screenshot = new Image_Screenshot(
-            $obsDate, $imageScale, $options, $imageSize, $filename, $quality
-        );
-        $screenshot->buildImages($layers);
-
-        $composite = $screenshot->getComposite();
-        if (!file_exists($composite)) {
-            throw new Exception('The requested screenshot is either unavailable or does not exist.');
-        }
-
-        if ($this->_params == $_GET) {
-            header('Content-type: image/png');
-            echo file_get_contents($composite);
-        } else {
-            header('Content-type: application/json');
-            // Replace '/var/www/helioviewer', or wherever the directory is,
-            // with 'http://localhost/helioviewer' so it can be displayed.
-            echo json_encode(str_replace(HV_ROOT_DIR, HV_WEB_ROOT_URL, $composite));
-        }
+        
+        // Print JSON
+        header('Content-Type: application/json');
+        echo json_encode(array("url" => str_replace(HV_ROOT_DIR, HV_WEB_ROOT_URL, $response)));
     }
-
+    
     /**
-     * getViewerImage (aka "getCompositeImage")
+     * Creates the directory structure which will be used to cache
+     * generated tiles.
      *
-     * Example usage: (outdated!)
-     *     http://helioviewer.org/api/index.php?action=getViewerImage
-     *         &layers=SOH_EIT_EIT_195&timestamps=1065312000&imageScale=2.63
-     *         &tileSize=512&xRange=-1,0&yRange=-1,0
-     *     http://helioviewer.org/api/index.php?action=getViewerImage
-     *         &layers=SOH_EIT_EIT_195,SOH_LAS_0C2_0WL
-     *         &timestamps=1065312000,1065312360&imageScale=5.26
-     *         &tileSize=512&xRange=-1,0&yRange=-1,0&edges=false
-     *
-     * Notes:
-     *     Building a UTC timestamp in javascript
-     *         var d = new Date(Date.UTC(2003, 9, 5));
-     *         var unix_ts = d.getTime() * 1000;
-     *
-     * TODO
-     *     = If no params are passed, print out API usage description
-     *       (and possibly a query builder form)...
-     *     = Add support for fuzzy timestamp matching. Could default to exact
-     *       matching unless user specifically requests fuzzy date-matching.
-     *     = Separate out layer details into a Layer PHP class?
-     *     = Update getViewerImage to use "layers" instead of "layers" + "timestamps"
+     * @param string $filepath The filepath where the image is stored
      *
      * @return void
+     *
+     * Note: mkdir may not set permissions properly due to an issue with umask.
+     *       (See http://www.webmasterworld.com/forum88/13215.htm)
      */
-    public function getViewerImage ()
+    private function _createImageCacheDir($filepath)
     {
-        include_once 'src/Image/CompositeImage.php';
+        $cacheDir = HV_CACHE_DIR . $filepath;
 
-        //Create and display composite image
-        $img = Image_CompositeImage::compositeImageFromQuery($this->_params);
-        $img->printImage();
+        if (!file_exists($cacheDir)) {
+            mkdir($cacheDir, 0777, true);
+            chmod($cacheDir, 0777);
+        }
     }
 
     /**
@@ -409,8 +316,8 @@ class Module_WebClient implements Module
 
         case "downloadFile":
             $expected = array(
-               "required" => array('url'),
-               "urls"     => array('url')
+               "required" => array('uri'),
+               "files"    => array('uri')
             );
             break;
 
@@ -421,29 +328,44 @@ class Module_WebClient implements Module
 
             if (isset($this->_params["sourceId"])) {
                 $expected["required"] = array('date', 'sourceId');
-                $expected["ints"]     = array('sourceId', 'server');
+                $expected["ints"]     = array('sourceId');
             } else {
                 $expected["required"] = array('date', 'observatory', 'instrument', 'detector', 'measurement');
-                $expected["ints"]     = array('server');
             }
             break;
 
         case "getDataSources":
+            $expected = array(
+               "bools" => array('verbose')
+            );
             break;
 
         case "getTile":
-            $required = array('uri', 'x', 'y', 'date', 'tileScale', 'ts', 'jp2Width','jp2Height', 'jp2Scale',
-                              'sunCenterOffsetX', 'sunCenterOffsetY', 'format', 'obs', 'inst', 'det', 'meas');
+            $required = array('uri', 'x1', 'x2', 'y1', 'y2', 'date', 'imageScale', 'size', 'jp2Width','jp2Height', 'jp2Scale',
+                              'offsetX', 'offsetY', 'format', 'observatory', 'instrument', 'detector', 'measurement');
             $expected = array(
-               "required" => $required
+                "required" => $required,
+                "files"    => array('uri')
             );
             break;
 
         case "getJP2Header":
+            $expected = array(
+                "required" => array('file'),
+                "files" => array('file')
+            );
             break;
-        case "getViewerImage":
-            break;
-        case "formatLayerString":
+
+        // Any booleans that default to true cannot be listed here because the
+        // validation process sets them to false if they are not given.
+        case "takeScreenshot":
+            $expected = array(
+                "required" => array('obsDate', 'imageScale', 'layers', 'x1', 'x2', 'y1', 'y2'),
+                "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2'),
+                "dates"	   => array('obsDate'),
+                "ints"     => array('quality'),
+                "bools"    => array('display')
+            );
             break;
         default:
             break;
@@ -457,105 +379,371 @@ class Module_WebClient implements Module
     }
 
     /**
-     * Takes the string representation of a layer from the javascript and
-     * formats it so that only useful/necessary information is included.
-     *
-     * @param {Array} $layers -- an array of strings in the format:
-     *     "obs,inst,det,meas,visible,opacityxxStart,xSize,yStart,ySize"
-     *      The extra "x" was put in the middle so that the string could be
-     *      broken in half and parsing one half by itself rather than parsing
-     *      10 different strings and putting the half that didn't need parsing
-     *      back together.
-     *
-     * @return {Array} $formatted -- The array containing properly
-     *     formatted strings
+     * Prints the WebClient module's documentation header
+     * 
+     * @return void
      */
-    private function _formatLayerStrings($layers)
+    public static function printDocHeader()
     {
-        $formatted = array();
-
-        foreach ($layers as $layer) {
-            $layerInfo = explode("x", $layer);
-
-            // $meta is now: [xStart,xSize,yStart,ySize,hcOffsetx,hcOffsety]
-            $meta = preg_split("/,/", $layerInfo[1]);
-            $offsetX = $meta[4];
-            $offsetY = $meta[5];
-
-            // Add a "+" in front of positive numbers so that the offsets
-            // are readable by imagemagick
-            $meta[4] = ($offsetX >= 0? "+" : "") . $offsetX;
-            $meta[5] = ($offsetY >= 0? "+" : "") . $offsetY;
-
-            // Extract relevant information from $layerInfo[0]
-            // (obs,inst,det,meas,visible,opacity).
-            $rawName = explode(",", $layerInfo[0]);
-            $opacity = $rawName[5];
-            //Get rid of the "visibility" boolean in the middle of the string.
-            array_splice($rawName, 4);
-
-            $name = implode("_", $rawName);
-            // Stick opacity on the end. the $image string now looks like:
-            // "obs_inst_det_meas,xStart,xSize,yStart,ySize,hcOffsetx,hcOffsety,opacity"
-            $image = $name . "," . implode(",", $meta) . "," . $opacity;
-            array_push($formatted, $image);
-        }
-
-        return $formatted;
+        ?>
+            <li><a href="index.php#CustomView">Loading Custom Settings</a></li>
+            <li>
+                <a href="index.php#TilingAPI">Tiling</a>
+                <ul>
+                    <li><a href="index.php#getClosestImage">Finding an Image</a></li>
+                    <li><a href="index.php#getTile">Creating a Tile</a></li>
+                </ul>
+            </li>
+        <?php
     }
-
+    
     /**
-     * Creates the directory structure which will be used to cache
-     * generated tiles.
-     *
-     * @param int    $sourceId The image source id
-     * @param string $date     The image date
+     * printDoc
      *
      * @return void
-     *
-     * Note: mkdir may not set permissions properly due to an issue with umask.
-     *       (See http://www.webmasterworld.com/forum88/13215.htm)
      */
-    private function _createImageCacheDir($sourceId, $date)
+    public static function printDoc()
     {
-        // Base directory
-        $filepath = HV_CACHE_DIR . "/";
-
-        // Date information
-        $year  = substr($date, 0, 4);
-        $month = substr($date, 5, 2);
-        $day   = substr($date, 8, 2);
-       
-        // Work-around 03/23/2010
-        // Nicknames not currently included in filename or query. Hard-coding future
-        // versions of JP2 images are modified to include nicknames
-        if ($sourceId == 0) {
-            $filepath .= "EIT/171";
-        } else if ($sourceId == 1 ) {
-            $filepath .= "EIT/195";
-        } else if ($sourceId == 2 ) {
-            $filepath .= "EIT/284";
-        } else if ($sourceId == 3 ) {
-            $filepath .= "EIT/304";
-        } else if ($sourceId == 4 ) {
-            $filepath .= "LASCO-C2/white-light";
-        } else if ($sourceId == 5 ) {
-            $filepath .= "LASCO-C3/white-light";
-        } else if ($sourceId == 6 ) {
-            $filepath .= "MDI/magnetogram";
-        } else if ($sourceId == 7 ) {
-            $filepath .= "MDI/continuum";
-        } else if ($sourceId == 8) {
-            $filepath .= "AIA/171";
-        }
+        $rootURL = substr(HV_API_ROOT_URL, 0, -13) . "index.php?";
+        ?>
+        <!-- Custom View API-->
+        <div id="CustomView">
+            <h1>Custom View API:</h1>
+            <p>The custom view API enables the user to load a specific set of parameters into Helioviewer: "view," here, simply
+            means a given set of observation parameters. This is useful for dynamically loading a specific view or observation
+            into Helioviewer using a URL.</p>
         
-        $filepath .= "/$year/$month/$day/";
+            <div class="summary-box">
+                <span style="text-decoration: underline;">Usage:</span>
+                <br />
+                <br />
+                <?php echo $rootURL; ?>
+                <br />
+                <br />
+        
+                Supported Parameters:<br />
+                <br />
+        
+                <table class="param-list" cellspacing="10">
+                    <tbody valign="top">
+                        <tr>
+                            <td width="20%"><b>date</b></td>
+                            <td width="25%"><i>ISO 8601 UTC Date</i></td>
+                            <td width="55%">Date and time to display</td>
+                        </tr>
+                        <tr>
+                            <td><b>imageScale</b></td>
+                            <td><i>Float</i></td>
+                            <td>Image scale in arc-seconds/pixel</td>
+                        </tr>
+                        <tr>
+                            <td><b>imageLayers</b></td>
+                            <td><i>2d List</i></td>
+                            <td>A comma-separated list of the image layers to be
+                            displayed. Each image layer should be of the form:
+                            [OBSERVATORY,INSTRUMENT,DETECTOR, MEASUREMENT,VISIBLE,OPACITY].</td>
+                        </tr>
+                    </tbody>
+                </table>
+        
+                <br />
+        
+                <span class="example-header">Example:</span> <span class="example-url">
+                <a href="<?php echo $rootURL;?>date=2003-10-05T00:00:00Z&amp;imageScale=2.63&amp;imageLayers=[SOHO,EIT,EIT,171,1,100],[SOHO,LASCO,C2,white-light,1,100]">
+                   <?php echo $rootURL;?>date=2003-10-05T00:00:00Z&imageScale=2.63&imageLayers=[SOHO,EIT,EIT,171,1,100],[SOHO,LASCO,C2,white-light,1,100]
+                </a>
+                </span>
+            </div>
+        </div>
 
-        if (!file_exists($filepath)) {
-            mkdir($filepath, 0777, true);
-            chmod($filepath, 0777);
-        }
+        <br />
+        
+        <!-- Tiling API -->
+        <div id="TilingAPI">
+            <h1>Tiling API:</h1>
+            <p>Requesting a image tile in Helioviewer.org occurs in two steps. During the first step a request is made
+               in order to find the nearest image to the specified time. Once an image has been found, the URI associated
+               with the image can then be used in subsequent tile requests.</p>
+        
+            <br />
+        
+            <ol style="list-style-type: upper-latin;">
+     
+            <!-- Closest Image API -->
+            <li>
+            <div id="getClosestImage">Finding the Closest Image:
+            <p>The result of this first request will include some basic information about the 
+               nearest image match available. This information can then be used to make tile requests.</p>
+    
+            <br />
+    
+    
+            <div class="summary-box">
+                <span style="text-decoration: underline;">Usage:</span>
+                <br />
+                <br />
+                <a href="<?php echo HV_API_ROOT_URL;?>?action=getClosestImage">
+                    <?php echo HV_API_ROOT_URL;?>?action=getClosestImage
+                </a>
+                
+                <br /><br />
+                Supported Parameters:
+                <br /><br />
+        
+                <table class="param-list" cellspacing="10">
+                    <tbody valign="top">
+                        <tr>
+                            <td width="20%"><b>date</b></td>
+                            <td width="25%"><i>ISO 8601 UTC Date</i></td>
+                            <td width="55%">The desired image date</td>
+                        </tr>
+                        <tr>
+                            <td><b>observatory</b></td>
+                            <td><i>String</i></td>
+                            <td><i>[Optional]</i> Observatory</td>
+                        </tr>
+                        <tr>
+                            <td><b>instrument</b></td>
+                            <td><i>String</i></td>
+                            <td><i>[Optional]</i> Instrument</td>
+                        </tr>
+                        <tr>
+                            <td><b>detector</b></td>
+                            <td><i>String</i></td>
+                            <td><i>[Optional]</i> Detector</td>
+                        </tr>
+                        <tr>
+                            <td><b>measurement</b></td>
+                            <td><i>String</i></td>
+                            <td><i>[Optional]</i> Measurement</td>
+                        </tr>
+                        <tr>
+                            <td><b>sourceId</b></td>
+                            <td><i>Integer</i></td>
+                            <td><i>[Optional]</i> The image data source identifier.</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <br /><br />
+                Result:
+                <br /><br />
+        
+                <table class="param-list" cellspacing="10">
+                    <tbody valign="top">
+                        <tr>
+                            <td width="20%"><b>filename</b></td>
+                            <td width="25%"><i>String</i></td>
+                            <td width="55%">The filename of the matched image</td>
+                        </tr>
+                        <tr>
+                            <td><b>filepath</b></td>
+                            <td><i>String</i></td>
+                            <td>The location of the matched image</td>
+                        </tr>
+                        <tr>
+                            <td><b>date</b></td>
+                            <td><i>Date String</i></td>
+                            <td>The date of of the matched image</td>
+                        </tr>
+                        <tr>
+                            <td><b>scale</b></td>
+                            <td><i>Float</i></td>
+                            <td>The image's native spatial scale, in arc-seconds/pixel</td>
+                        </tr>
+                        <tr>
+                            <td><b>width</b></td>
+                            <td><i>Integer</i></td>
+                            <td>Image width</td>
+                        </tr>
+                        <tr>
+                            <td><b>height</b></td>
+                            <td><i>Integer</i></td>
+                            <td>Image width</td>
+                        </tr>
+                        <tr>
+                            <td><b>sunCenterX</b></td>
+                            <td><i>Float</i></td>
+                            <td>Distance from image left to the solar center, in pixels</td>
+                        </tr>
+                        <tr>
+                            <td><b>sunCenterY</b></td>
+                            <td><i>Float</i></td>
+                            <td>Distance from image bottom to the solar center, in pixels</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <br />
+        
+                <span class="example-header">Examples:</span> <span class="example-url">
+                    <a href="<?php echo HV_API_ROOT_URL;?>?action=getClosestImage&date=2010-06-24T00:00:00.000Z&sourceId=3">
+                       <?php echo HV_API_ROOT_URL;?>?action=getClosestImage&date=2010-06-24T00:00:00.000Z&sourceId=3
+                    </a>
+                    <br /><br />
+                    <a href="<?php echo HV_API_ROOT_URL;?>?action=getClosestImage&date=2010-06-24T00:00:00.000Z&s=1&sourceId=3">
+                       <?php echo HV_API_ROOT_URL;?>?action=getClosestImage&date=2010-06-24T00:00:00.000Z&s=1&sourceId=3
+                    </a>
+                </span>
+                
+            </div>
+    
+            <br />
+            
+            <!-- Closest Image API Notes -->
+            <div class="summary-box" style="background-color: #E3EFFF;">
+            <span style="text-decoration: underline;">Notes:</span>
+            <br />
+            <ul>
+                <li>
+                <p>At least one of the methods for specifying the image source, either a sourceId or the image 
+                observatory, instrument, detector and measurement must be included in the request. </p>
+                </li>
+            </ul>
+            </div>
+            
+            </li>
+            
+            <br />
+            
+            <!-- getTile API -->
+            <li>
+            <div id="getTile">Creating a Tile:
+            <p>Once you have determined the image for which you wish to retrieve a tile from using the above
+               <a href="#getClosestImage" />getClosestImage</a> request, you are ready to begin requesting tiles
+               for that image. Tiles are requesting by specifying the identifier for the image you wish to tile, in
+               this case simply the filename of the image, the spatial scale that the tile should be generated at,..</p>
+    
+            <br />
+    
+    
+            <div class="summary-box">
+                <span style="text-decoration: underline;">Usage:</span>
+                <br />
+                <br />
+                <a href="<?php echo HV_API_ROOT_URL;?>?action=getTile">
+                    <?php echo HV_API_ROOT_URL;?>?action=getTile
+                </a>
+                            
+                <br /><br />
+                Supported Parameters:
+                <br /><br />
+        
+                <table class="param-list" cellspacing="10">
+                    <tbody valign="top">
+                        <tr>
+                            <td width="20%"><b>uri</b></td>
+                            <td width="25%"><i>String</i></td>
+                            <td width="55%">The filepath to the JP2 image that will be tiled. The filepath is relative to the main JP2
+                                directory, parts like /var/www/jp2 can be left out.</td>
+                        </tr>
+                        <tr>
+                            <td><b>y1</b></td>
+                            <td><i>Integer</i></td>
+                            <td>The offset of the image's top boundary from the center of the sun, in arcseconds. This can be calculated, 
+                                if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversion</a>.</td>
+                        </tr>
+                        <tr>
+                            <td><b>x1</b></td>
+                            <td><i>Integer</i></td>
+                            <td>The offset of the image's left boundary from the center of the sun, in arcseconds. This can be calculated, 
+                                if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversions</a>.</td>
+                        </tr>
+                        <tr>
+                            <td><b>y2</b></td>
+                            <td><i>Integer</i></td>
+                            <td>The offset of the image's bottom boundary from the center of the sun, in arcseconds. This can be calculated, 
+                                if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversion</a>.</td>
+                        </tr>
+                        <tr>
+                            <td><b>x2</b></td>
+                            <td><i>Integer</i></td>
+                            <td>The offset of the image's right boundary from the center of the sun, in arcseconds. This can be calculated, 
+                                if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversions</a>.</td>
+                        </tr>
+                        <tr>
+                            <td><b>format</b></td>
+                            <td><i>String</i></td>
+                            <td>The format of the tile. Should be png if the tile has transparency, as with LASCO images, and jpg if it does not.</td>
+                        </tr>
+                        <tr>
+                            <td><b>date</b></td>
+                            <td><i>ISO 8601 UTC Date</i></td>
+                            <td>The date of the image</td>
+                        </tr>
+                        <tr>
+                            <td><b>imageScale</b></td>
+                            <td><i>Float</i></td>
+                            <td>The scale of the image in the viewport, in arcseconds per pixel.</td>
+                        </tr>
+                        <tr>
+                            <td><b>size</b></td>
+                            <td><i>Integer</i></td>
+                            <td>The desired tile size in pixels.</td>
+                        </tr>
+                        <tr>
+                            <td><b>jp2Scale</b></td>
+                            <td><i>Float</i></td>
+                            <td>The native scale of the JP2 image in arcseconds per pixel.</td>
+                        </tr>
+                        <tr>
+                            <td><b>jp2Height</b></td>
+                            <td><i>Integer</i></td>
+                            <td>The height of the JP2 image in pixels.</td>
+                        </tr>
+                        <tr>
+                            <td><b>jp2Width</b></td>
+                            <td><i>Integer</i></td>
+                            <td>The width of the JP2 image in pixels.</td>
+                        </tr>
+                        <tr>
+                            <td><b>observatory</b></td>
+                            <td><i>String</i></td>
+                            <td>Observatory</td>
+                        </tr>
+                        <tr>
+                            <td><b>instrument</b></td>
+                            <td><i>String</i></td>
+                            <td>Instrument</td>
+                        </tr>
+                        <tr>
+                            <td><b>detector</b></td>
+                            <td><i>String</i></td>
+                            <td>Detector</td>
+                        </tr>
+                        <tr>
+                            <td><b>measurement</b></td>
+                            <td><i>String</i></td>
+                            <td>Measurement</td>
+                        </tr>
+                        <tr>
+                            <td><b>offsetX</b></td>
+                            <td><i>Float</i></td>
+                            <td>The offset of the center of the sun from the center of the JP2 image in pixels
+                                at the image's native resolution.</td>
+                        </tr>
+                        <tr>
+                            <td><b>offsetY</b></td>
+                            <td><i>Float</i></td>
+                            <td>The offset of the center of the sun from the center of the JP2 image in pixels
+                                at the image's native resolution.</td>
+                        </tr>
+                    </tbody>
+                </table>   
+                <br />
+                <span class="example-header">Examples:</span> <span class="example-url">
+                    <a href="<?php echo HV_API_ROOT_URL;?>?action=getTile&uri=/EIT/171/2010/06/02/2010_06_02__01_00_16_255__SOHO_EIT_EIT_171.jp2&x1=-2700.1158&x2=-6.995800000000215&y1=-19.2516&y2=2673.8684&format=jpg&date=2010-06-02+01:00:16&imageScale=5.26&size=512&jp2Width=1024&jp2Height=1024&jp2Scale=2.63&observatory=SOHO&instrument=EIT&detector=EIT&measurement=171&offsetX=2.66&offsetY=7.32">
+                       <?php echo HV_API_ROOT_URL;?>?action=getTile&uri=/EIT/171/2010/06/02/2010_06_02__01_00_16_255__SOHO_EIT_EIT_171.jp2
+                        &x1=-2700.1158&x2=-6.995800000000215&y1=-19.2516&y2=2673.8684&format=jpg&date=2010-06-02+01:00:16&imageScale=5.26
+                        &size=512&jp2Width=1024&jp2Height=1024&jp2Scale=2.63&observatory=SOHO&instrument=EIT&detector=EIT&measurement=171
+                        &offsetX=2.66&offsetY=7.32
+                    </a>
+                    <br /><br />
+                </span>
+            </li>
+            </ol>
+        </div>
+        <?php
     }
-
 }
 ?>

@@ -15,17 +15,17 @@ var ZoomControls = Class.extend(
     /**
      * @constructs
      * @description Creates a new ZoomControl
-     * @param {Object} controller A Reference to the Helioviewer application class
-     * @param {Object} options Custom ZoomControl settings
      */
-    init: function (controller, options) {       
-        $.extend(this, options);
-        this.controller = controller;
+    init: function (id, imageScale, minImageScale, maxImageScale) {       
+        this.id            = id;
+        this.imageScale    = imageScale;
+        this.minImageScale = minImageScale;
+        this.maxImageScale = maxImageScale;
 
         this._buildUI();
         this._initSlider();
         this._setupTooltips();
-        this._initEvents();
+        this._initEventHandlers();
     },
 
     /**
@@ -38,7 +38,7 @@ var ZoomControls = Class.extend(
         $("#zoomControlSlider > .ui-slider-handle").attr("title", description);
         
         targets = "#zoomControlZoomOut, #zoomControlZoomIn, #zoomControlHandle, #zoomControlSlider > .ui-slider-handle";
-        this.controller.tooltips.createTooltip($(targets));
+        $(document).trigger('create-tooltip', [targets]);
     },
   
     /**
@@ -54,7 +54,7 @@ var ZoomControls = Class.extend(
      * @param {Object} v jQuery slider value
      */
     _setImageScale: function (v) {
-        this.controller.viewport.zoomTo(this.increments[v]);      
+        $(document).trigger('image-scale-changed', [this.increments[v]]);
     },
     
     /**
@@ -81,7 +81,7 @@ var ZoomControls = Class.extend(
         for (i = this.minImageScale; i <= this.maxImageScale; i = i * 2) {
             this.increments.push(i);
         }
-        
+
         // Reverse orientation so that moving slider up zooms in
         this.increments.reverse();
        
@@ -122,10 +122,44 @@ var ZoomControls = Class.extend(
     },
     
     /**
+     * Handles mouse-wheel movements
+     * 
+     * @param {Event} event Event class
+     */
+    _onMouseWheelMove: function (e, delta) {
+        if (delta > 0) {
+            this.zoomInBtn.click();
+        } else {
+            this.zoomOutBtn.click();
+        }
+        return false;
+    },
+    
+    /**
      * @description Initializes zoom control-related event-handlers
      */
-    _initEvents: function () {
+    _initEventHandlers: function () {
         this.zoomInBtn.click($.proxy(this._onZoomInBtnClick, this));
         this.zoomOutBtn.click($.proxy(this._onZoomOutBtnClick, this));
+        $("#helioviewer-viewport").mousewheel($.proxy(this._onMouseWheelMove, this));
+        
     }
 });
+
+/**
+ * Helper function to hide the zoom controls
+ */
+var hideZoomControls = function () {
+    $("#zoomSliderContainer").hide("fast");
+    $("#zoomControlZoomIn").hide("fast");
+    $("#zoomControlZoomOut").hide("fast");
+};
+
+/**
+ * Helper function to show the zoom controls
+ */
+var showZoomControls = function () {
+    $("#zoomSliderContainer").show("fast");
+    $("#zoomControlZoomIn").show("fast");
+    $("#zoomControlZoomOut").show("fast");
+};

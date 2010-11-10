@@ -29,11 +29,12 @@ class Image_JPEG2000_JP2ImageXMLBox
      * Create an instance of Image_JPEG2000_JP2Image_XMLBox
      *
      * @param string $file JPEG 2000 Image location
+     * @param string $root Where the data is coming from
      */
-    public function __construct($file)
+    public function __construct($file, $root = "fits")
     {
         $this->_file = $file;
-        $this->getXMLBox("fits");
+        $this->getXMLBox($root);
     }
 
     /**
@@ -47,9 +48,8 @@ class Image_JPEG2000_JP2ImageXMLBox
     public function getXMLBox ($root)
     {
         if (!file_exists($this->_file)) {
-            $msg = "Unable to extract XMLbox for {$this->_file}. File does not exist!";
-            logErrorMsg($msg, true);
-            throw new Exception("Unable to find file: {$this->_file}.");
+            $msg = "Unable to access file. Do you have the proper permissions?";
+            throw new Exception($msg);
         }
 
         $fp = fopen($this->_file, "rb");
@@ -67,11 +67,21 @@ class Image_JPEG2000_JP2ImageXMLBox
 
         fclose($fp);
         
-        // TEMP Work-around 2010/04/12 for AIA Invalid XML
-        $xml = str_replace("&", "&amp;", $xml);
+        $this->_xmlString = '<?xml version="1.0" encoding="utf-8"?>' . "\n" . $xml;
 
         $this->_xml = new DOMDocument();
-        $this->_xml->loadXML($xml);
+        $this->_xml->loadXML($this->_xmlString);
+    }
+    
+    /**
+     * Prints xml information
+     * 
+     * @return void
+     */
+    public function printXMLBox ()
+    {
+        header('Content-type: text/xml');
+        echo $this->_xmlString;
     }
 
     /**
@@ -85,8 +95,9 @@ class Image_JPEG2000_JP2ImageXMLBox
             $width  = $this->_getElementValue("NAXIS1");
             $height = $this->_getElementValue("NAXIS2");
         } catch (Exception $e) {
-            echo 'Unable to locate image dimensions in header tags!';
+            throw new Exception('Unable to locate image dimensions in header tags!');
         }
+        
         return array($width, $height);
     }
 
@@ -100,10 +111,14 @@ class Image_JPEG2000_JP2ImageXMLBox
         try {
             $scale = $this->_getElementValue("CDELT1");
         } catch (Exception $e) {
-            // TEMP Work-around 2010/04/12: Include support for AIA 171
-            $scale =  0.6075; // ESTIMATE        
-            //echo 'Unable to locate image scale in header tags!';            
+            throw new Exception("Unable to locate image scale in header tags!");            
         }
+        
+        // Check to make sure header information is valid
+        if ((filter_var($scale, FILTER_VALIDATE_FLOAT) === false) || ($scale <= 0)) {
+            throw new Exception("Invalid value for CDELT1: $scale");
+        }
+        
         return $scale;
     }
 
@@ -121,10 +136,7 @@ class Image_JPEG2000_JP2ImageXMLBox
             $x = $this->_getElementValue("CRPIX1");
             $y = $this->_getElementValue("CRPIX2");
         } catch (Exception $e) {
-            // TEMP Work-around 2010/04/12: Include support for AIA 171
-            $x = 2048;
-            $y = 2048;
-            //echo 'Unable to locate sun center center in header tags!';
+            throw new Exception('Unable to locate sun center center in header tags!');
         }
         return array($x, $y);
     }

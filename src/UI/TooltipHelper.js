@@ -17,27 +17,23 @@ var TooltipHelper = Class.extend(
      * @constructs 
      */ 
     init: function (legacyMode) {
-        if (legacyMode === undefined) {
+        if ((typeof legacyMode === undefined) || !legacyMode) {
             this.legacyMode = false;
-        }
-        else {
-            this.legacyMode = legacyMode;
-        }
-        
-        if (this.legacyMode) {
-            loadCSS("resources/css/tooltips-LEGACY.css");
-            this._setupTooltipStyles();
-        }           
-        else {
             loadCSS("lib/jquery.qtip-nightly/jquery.qtip.css");
             loadCSS("resources/css/tooltips.css");
-        } 
+        } else {
+            this.legacyMode = true;
+            loadCSS("resources/css/tooltips-LEGACY.css");
+            this._setupTooltipStyles();
+        }
+        
+        $(document).bind("create-tooltip", $.proxy(this.createTooltip, this));
     },
     
     /**
      * @description Creates a simple informative tooltip
      */    
-    createTooltip: function (selector, direction) {
+    createTooltip: function (event, selector, direction) {
         if (direction === undefined) {
             direction = 'topLeft';
         }
@@ -126,7 +122,7 @@ var TooltipHelper = Class.extend(
         }
 
         // Apply settings and create tooltip
-        selector.qtip({
+        $(selector).qtip({
             position: {
                 adjust: {
                     x: 4,
@@ -211,6 +207,24 @@ var TooltipHelper = Class.extend(
                 width: 1,
                 radius: 6,
                 color: '#6e6e6e'
+            }
+        };
+        
+        $.fn.qtip.styles.mediaDark = {
+            textAlign : 'left',
+            width     : 215,
+            height    : 'auto',
+            color     : '#fff',
+            "z-index" : 20,
+            background: '#2A2A2A',
+            title     : {
+                'color'      : '#fff',
+                'background' : "#2A2A2A"
+            },
+            border    : { 
+                width : 1,
+                radius: 6, 
+                color : '#2A2A2A'
             }
         };
     }

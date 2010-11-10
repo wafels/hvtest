@@ -3,7 +3,7 @@
 
 ###############################################################################
 # Helioviewer.org JPEG 2000 Ingestion Tool
-# Last Updated: 2009/04/17
+# Last Updated: 2009/07/16
 #
 # This script is intended to help with the automated processing of new images
 # for Helioviewer.org. The updater tool works by scanning a directory or set 
@@ -37,78 +37,84 @@ import sys,os,commands,shutil,time
 def main(argv):
     ''' Processes incoming JP2 files and moves them to proper location '''
     installer   = "/var/www/install/install.py"
-    destination = "/var/www/jp2/LATEST"
+    destination = "/var/www/jp2/v0.8"
     dbname="hvdb"
     dbuser="helioviewer"
     dbpass="helioviewer"
     dbtype="mysql"
 
-    dirs = ["/var/www/jp2/incoming/v0.8"]
+    dirs = ["/home/user/incoming/v0.8/jp2"]
     
-    processIncomingImages(installer, destination, dirs, dbname, dbuser, dbpass, dbtype)
-
-def processIncomingImages(installer, destination, dirs, dbname, dbuser, dbpass, dbtype):
-    ''' Checks for new images and process/move to the JP2 archive specified '''
-    
-    # Temporary directory
-    tmpdir = "/tmp/%d" % time.time()
-    os.mkdir(tmpdir)
-    
-    # Move images to a temporary working directory
     for dir in dirs:
-        getNewImages(dir, tmpdir)
+        processIncomingImages(installer, destination, dir, dbname, dbuser, dbpass, dbtype)
         
-    # Create a list of files to process
-    allImages = traverseDirectory(tmpdir).replace(tmpdir, destination)
+    print "Done!"
+
+def processIncomingImages(installer, destination, dir, dbname, dbuser, dbpass, dbtype):
+    ''' Checks for new images and process/move to the JP2 archive specified '''
+        
+    # Get a list of files to process
+    allImages = traverseDirectory(dir)
     
-    numImages = len(allImages.split(" "))
-    print "Found %d images." % numImages
+    numImages = len(allImages)
+    print "Found %d images in %s." % (numImages, dir)
     
-    # Move files to main archive (shutil.move will not merge directories)
-    status, output = commands.getstatusoutput("cp -r %s/* %s/" % (tmpdir, destination))
+    if numImages is 0:
+        return
+        
+    destFiles = []
+        
+    # Determine how long base directory is in order to get a relative path
+    lenDir = len(dir)
+    
+    if dir[-1] != "/":
+         lenDir += 1    
+    
+    # Move files to main archive
+    for file in allImages:
+        dest = os.path.join(destination, file[lenDir:])
+        destFiles.append(dest)
+
+        d = os.path.dirname(dest)
+        
+        if not os.path.isdir(d):
+            os.makedirs(d)
+
+        shutil.move(file, dest)
     
     print "Adding images to database."
     
     # If a large number of files are to be processed break-up to avoid exceeding command-line character limit
-    if (numImages > 1000):
-        images = chunks(allImages.split(" "), 1000)        
-    else:
-        images = [allImages]
+    images = chunks(destFiles, 500)        
+        
+    '''
+    for imageArr in images:
+        from subprocess import Popen, PIPE
+        cmd = ["python ", installer, "--update", "-d", dbname, "-u", dbuser, "-p", dbpass, "-m", dbtype, "-b", destination]
+        cmd.extend(imageArr)
+        proc   = Popen(cmd, stdout=PIPE, shell=False)
+        output = proc.communicate()
+    '''
         
     # Add to database
-    for imageStr in images:
-        cmd = "python %s --update -d %s -u %s -p %s -m %s -b %s %s" % (installer, dbname, dbuser, dbpass, dbtype, destination, imageStr)
+    for imageArr in images:
+        imageStr = " ".join(imageArr)
+        cmd = "python %s --update -d %s -u %s -p %s -m %s -b %s %s" % (installer, dbname, dbuser, dbpass.replace("$", "\$"), dbtype, destination, imageStr)
         status, output = commands.getstatusoutput(cmd)
 
-    # Remove tmpdir
-    shutil.rmtree(tmpdir)
-    
-    print "Done!"
-
-def getNewImages(incoming, tmpdir):
-    ''' Finds any new images and move them to a specified working directory to be processed '''
-    subdirs = os.listdir(incoming)
-    
-    # Don't do anything unless there are files to process
-    if len(subdirs) is 0:
-        return
-    
-    for subdir in subdirs:
-        shutil.move(incoming + "/" + subdir, tmpdir + "/" + subdir)
-    
 def traverseDirectory(path):
-    ''' Traverses file-tree starting with the specified path and builds  
-        space-separated string containing the list of files matched '''
-    images = ""
+    ''' Traverses file-tree starting with the specified path and builds a
+        list of the available images '''
+    images = []
 
     for child in os.listdir(path):
         node = os.path.join(path, child)
         if os.path.isdir(node):
             newImgs = traverseDirectory(node)
-            images += newImgs
+            images.extend(newImgs)
         else:
             if node[-3:] == "jp2":
-                images += node + " "
+                images.append(node)
 
     return images
 

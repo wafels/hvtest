@@ -8,7 +8,6 @@ class HelioviewerConsoleInstaller:
 
     def __init__(self, options):
         self.options = options
-        self.logfile = open("error.log", "a")
         
     def getFilePath(self):
         ''' Prompts the user for the directory information '''
@@ -104,7 +103,7 @@ class HelioviewerConsoleInstaller:
         print """\
 ====================================================================
 = Helioviewer Database Population Script                           =
-= Last updated: 2009/04/12                                         =
+= Last updated: 2010/10/07                                         =
 =                                                                  =
 = This script processes JP2 images, extracts their associated      =
 = meta-information and stores it away in a database.               =

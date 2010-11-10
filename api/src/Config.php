@@ -30,10 +30,12 @@
  */
 class Config
 {
-    private $_bools  = array("local_tiling_enabled", "distributed_tiling_enabled", "disable_cache");
+    private $_bools  = array("distributed_mode_enabled", "disable_cache", "helioqueuer_enabled",
+                             "enable_movie_button", "enable_screenshot_button");
+                             
     private $_ints   = array("build_num", "bit_depth", "default_timestep", "prefetch_size", "num_colors",
-                             "png_compression_quality", "jpeg_compression_quality", "max_jpx_frames",
-                             "max_movie_frames");
+                             "png_compression_quality", "jpeg_compression_quality", "ffmpeg_max_threads", 
+                             "max_jpx_frames", "max_movie_frames");
     private $_floats = array("default_image_scale", "min_image_scale", "max_image_scale");
 
     public  $servers;
@@ -52,22 +54,24 @@ class Config
         $this->_fixTypes();
 
         foreach ($this->config as $key => $value) {
-            if ($key !== "tile_server") {
+            if ($key !== "server") {
                 define("HV_" . strtoupper($key), $value);
             }
         }
+        
+        if ($this->config['distributed_mode_enabled']) {
+            array_unshift($this->config["server"], "api/index.php");
+        } else {
+            $this->config["server"] = array("api/index.php");
+        }
 
-        define("HV_TILE_SERVER_0", "api/index.php");
-        foreach ($this->config["tile_server"] as $id => $url) {
-            define("HV_TILE_SERVER_" . ($id + 1), $url);
+        foreach ($this->config["server"] as $id => $url) {
+            define("HV_SERVER_" . ($id), $url);
         }
 
         $this->_setAdditionalParams();
-
-        $this->_setupLogging(true);
-
+        
         $dbconfig = substr($file, 0, strripos($file, "/")) . "/Database.php";
-
         include_once $dbconfig;
     }
 
@@ -95,37 +99,15 @@ class Config
     }
 
     /**
-     * Makes sure that error log exists and selects desired logging verbosity
-     *
-     * @param bool $verbose Whether or not to force verbose logging.
-     *
-     * @return void
-     */
-    private function _setupLogging($verbose)
-    {
-        if ($verbose) {
-            error_reporting(E_ALL | E_STRICT);
-        }
-        $errorLog = HV_ERROR_LOG;
-        if (!file_exists($errorLog)) {
-            touch($errorLog);
-        }
-    }
-
-    /**
      * Some useful values can be determined automatically...
      *
      * @return void
      */
     private function _setAdditionalParams()
     {
-        //define("HV_ROOT_DIR", substr(getcwd(), 0, -4));
-        //define("HV_WEB_ROOT_URL", "http://" . $_SERVER["SERVER_NAME"]
-        //    . substr($_SERVER["SCRIPT_NAME"], 0, -14));
+        define("HV_LOG_DIR", HV_ROOT_DIR . "/log");
+        define("HV_API_ROOT_URL", "http://" . $_SERVER['HTTP_HOST'] . $_SERVER['PHP_SELF']);
         define("HV_CACHE_DIR", HV_ROOT_DIR . "/cache");
-        define("HV_TMP_DIR", HV_ROOT_DIR . "/cache/tmp");
-        define("HV_ERROR_LOG", HV_ROOT_DIR . "/log/error");
-        define("HV_EMPTY_TILE", HV_ROOT_DIR . "/resources/images/transparent_512.png");
-        define("HV_TMP_ROOT_URL", HV_WEB_ROOT_URL . "/cache/tmp");
+        define("HV_CACHE_URL", HV_WEB_ROOT_URL . "/cache");
     }
 }

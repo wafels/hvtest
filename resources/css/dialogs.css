@@ -53,10 +53,6 @@ td.layers-name {
 	padding-left: 1em;
 }
 
-td.time-input-field input {
-	width: 6em;
-}
-
 #select-options-tabs input, #select-options-tabs select {
 	font-size: 8pt;
 	padding: 1px;
@@ -74,7 +70,7 @@ td.time-input-field input {
 	overflow:visible;
 	padding:0.2em 0.6em 0.3em;
 	width:auto;
-	font-family:Arial,sans-serif;
+	font-family:arial,helvetica,liberation sans,bitstream vera sans,freesans,clean,sans-serif;
 	font-size:12pt;
 }
 
@@ -96,4 +92,10 @@ td.time-input-field input {
 
 #shadowbox-form h2 {
 	font-size: 14pt;
+}
+
+.fits-header-dialog {
+    overflow: auto;
+    position: relative;
+    padding:0px;
 }

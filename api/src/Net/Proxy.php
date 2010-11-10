@@ -26,41 +26,89 @@
  */
 class Net_Proxy
 {
-    private $_url;
+    private $_baseURL;
     
     /**
      * Net_Proxy constructor
      * 
-     * @param string $baseURL     Base URL to query
-     * @param string $queryString GET query parameters
+     * @param string $baseURL Base URL to query
+     * 
+     * @return void
      */
-    public function __construct($baseURL, $queryString)
+    public function __construct($baseURL)
     {
-        $this->_url = $baseURL . $queryString;
+        $this->_baseURL = $baseURL;
     }
 
     /**
      * Queries remote site and displays results
      * 
-     * @param bool $curl If true then cURL will be used to send request
+     * @param array $params Query parameters
+     * @param bool  $curl   If true then cURL will be used to send request
      * 
      * @return mixed Contents of mirrored page
      */
-    public function query($curl = false)
+    public function query($params, $curl = false)
     {
+        $url = $this->_baseURL . http_build_query($params);
+        
         if ($curl) {
             // Fetch Results
             $curl_handle=curl_init();
-            curl_setopt($curl_handle, CURLOPT_URL, $this->_url);
+            curl_setopt($curl_handle, CURLOPT_URL, $url);
             curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 30);
             curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1); 
-        
+            
             $results = curl_exec($curl_handle);
             curl_close($curl_handle);
             return $results;
         } else {
-            return file_get_contents($this->_url);
+            return file_get_contents($url);
         }
     }
+    
+    /**
+     * Performs a POST request
+     * 
+     *  @param array $params Query parameters
+     *  @param bool  $curl   Whether or not to use cURL to perform the query
+     *  
+     *  @return $string query response text
+     */
+    public function post($params, $curl = false)
+    {
+        $url = $this->_baseURL;
+        
+        if ($curl) {
+            // Fetch Results
+            $curl_handle=curl_init();
+            curl_setopt($curl_handle, CURLOPT_URL, $url);
+            curl_setopt($curl_handle, CURLOPT_POST, 1);
+            curl_setopt($curl_handle, CURLOPT_POSTFIELDS, $params);
+            curl_setopt($curl_handle, CURLOPT_CONNECTTIMEOUT, 30);
+            curl_setopt($curl_handle, CURLOPT_RETURNTRANSFER, 1); 
+            
+            $results = curl_exec($curl_handle);
+            curl_close($curl_handle);
+            return $results;
+        } else {
+            return file_get_contents($url);
+        }
+    }
+    
+    /**
+     *   cURL POST Request Example
+     *   
+     *   $curl = curl_init(HV_HELIOQUEUER_API_URL);
+     *           
+     *   curl_setopt($curl, CURLOPT_POST, 1);
+     *   curl_setopt($curl, CURLOPT_POSTFIELDS, $params);
+     *   curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+     *    
+     *   $response = curl_exec($curl);
+     *   curl_close($curl);
+     *   
+     *   echo $response;
+     */
 }
 ?>

@@ -3,8 +3,7 @@
 */
 
 /* HTML ELEMENTS */
-html, body    {background: url(../../resources/images/backgrounds/gradient_v5-optimized.png); font-size: 13px;}
-h1            {font:normal 20px Verdana,Arial,Helvetica,sans-serif;}
+html, body    {background: url(../../resources/images/backgrounds/gradient_v5-optimized.png); font-family: arial,helvetica,liberation sans,bitstream vera sans,freesans,clean,sans-serif;}
 button        {cursor:pointer}
 strong    	  {font-weight:bold;}
 input, select {background-color:#F4F4F4;}
@@ -79,13 +78,13 @@ input, select {background-color:#F4F4F4;}
 }
 
 /* Message Console */
-.message-console-link {
+#message-console .message-console-link {
 	text-decoration: none;
 	font-weight: bold;
 	color: #3d76e0;
 }
 
-.message-console-link:hover {
+#message-console .message-console-link:hover {
 	text-decoration: underline;
 	color: #e03d76;
 }
@@ -240,13 +239,14 @@ span.ui-icon-hover {
 }
 
 /* jGrowl */
-body > div.jGrowl.top-right {
-    top: 56px;
-    right: 42px;
+#message-console {
+    position: absolute;
+    top: 13px;
+    right: 0px;
 }
 
-div.jGrowl div.jGrowl-notification, div.jGrowl div.jGrowl-closer {
-   background-color: Azure;  /* GhostWhite #D18F61; lightBlue;*/
+#message-console .jGrowl-notification, #message-console .jGrowl-closer {
+   background: Azure;
    color: #262424;
 }
 

@@ -45,7 +45,9 @@ class Validation_InputValidator
             "floats"   => "checkFloats",
             "bools"    => "checkBools",
             "dates"    => "checkDates",
-            "urls"     => "checkURLs"
+            "urls"     => "checkURLs",
+            "files"    => "checkFilePaths",
+            "uuids"    => "checkUUIDs"
         );
 
         // Run validation checks
@@ -117,6 +119,28 @@ class Validation_InputValidator
             }
         }
     }
+    
+    /**
+     * Checks filepaths to check for attempts to access parent directories
+     * 
+     * @param array $files   Filepaths that should be validated
+     * @param array &$params The parameters that were passed in
+     * 
+     * @return void
+     */
+    public static function checkFilePaths($files, &$params)
+    {
+        foreach ($files as $file) {
+            if (isset($params[$file])) {
+                if (strpos($params[$file], '..')) {
+                    throw new Exception("Invalid file requested: .. not allowed in filenames.");
+                } elseif (preg_match('/[^\/.-\w]/', $params[$file])) {
+                    throw new Exception("Invalid file requested. Valid characters for filenames include letters, " .
+                    "digits, underscores, hyphens and periods.");
+                }
+            }
+        }
+    }
 
     /**
      * Typecasts validates and fixes types for integer parameters
@@ -159,6 +183,26 @@ class Validation_InputValidator
             }
         }
     }
+    
+    /**
+     * Validates UUIDs
+     *
+     * @param array $uuids   A list of uuids which are used by an action.
+     * @param array &$params The parameters that were passed in
+     *
+     * @return void
+     */
+    public static function checkUUIDs($uuids, &$params)
+    {
+        foreach ($uuids as $uuid) {
+            if (isset($params[$uuid])) {
+                if (!preg_match('/^[a-z0-9]{8}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{12}$/', $params[$uuid])) {
+                    throw new Exception("Invalid identifier. Valid characters for UUIDs include " .
+                    "lowercase letters, digits, and hyphens.");
+                }
+            }
+        }
+    }
 
     /**
      * Typecasts validates URL parameters
@@ -190,7 +234,9 @@ class Validation_InputValidator
     public static function checkDates($dates, &$params)
     {
         foreach ($dates as $date) {
-            Validation_InputValidator::checkUTCDate($params[$date]);
+            if (isset($params[$date])) {
+                Validation_InputValidator::checkUTCDate($params[$date]);
+            }
         }
     }
 

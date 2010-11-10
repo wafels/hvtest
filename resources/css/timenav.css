@@ -8,27 +8,25 @@
     left: 120px;
 }
 
-.timeBehind {
-	color: #FFFF66;
-	font-weight: bold;
-}
-
-.timeAhead {
-	color: #b2ff66;
-	font-style: italic;	
-}
-
-.timeSignificantlyOff {
-	font-weight: 500;
-	color: #ff6666;
-}
-
 #timeBackBtn, #timeForwardBtn {
     cursor: pointer;
 }
 
 #timeBackBtn {
-    float: left;
+	float: left;
+}
+
+#timeNowBtn {
+	position: absolute;
+	top: 7px;
+	right: 50px;
+	font-size: 11px;
+	font-style: italic;
+	cursor: pointer;
+	font-weight: 700;
+}
+#timeNowBtn:hover {
+	color: #D18F61;
 }
 
 #timestep-select {

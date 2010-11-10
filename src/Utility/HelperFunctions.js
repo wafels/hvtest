@@ -1,12 +1,12 @@
 /**
  * @fileOverview Various helper functions used throughout Helioviewer.
- * @author <a href="mailto:vincent.k.hughitt@nasa.gov">Keith Hughitt</a>
+ * @author <a href="mailto:keith.hughitt@nasa.gov">Keith Hughitt</a>
  * 
  * TODO: Move helper functions to a separate namespcae? (e.g. $hv)
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
-bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
-/*global console, $, navigator, Storage,  */
+bitwise: false, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
+/*global console: true, $, navigator, Storage, hideZoomControls, showZoomControls */
 "use strict";
 /**
  * @description Outputs a UTC Date string of the format "YYYY/MM/dd"
@@ -31,23 +31,27 @@ Date.prototype.toUTCTimeString = function () {
 };
 
 /**
- * @description Takes a localized javascript date and returns a date set to the UTC time.
+ * Takes a localized javascript date and returns a date set to the UTC time.
  * 
- * NOTE (11/03/2009) Sign for numsecs below should be reversed?
  */
 Date.prototype.toUTCDate = function () {
-    var utcOffset = this.getUTCOffset(),
-        sign = utcOffset[0],
-        hours = parseInt(utcOffset.substr(1, 2), 10),
-        mins = parseInt(utcOffset.substr(3, 4), 10),
-    
-        numSecs = (3600 * hours) + (60 * mins);
-    
-    if (sign === "+") {
-        numSecs = - numSecs;
-    }
-    
-    this.addSeconds(numSecs);
+    return new Date(Date.UTC(
+        this.getFullYear(), this.getMonth(), this.getDate(), this.getHours(), this.getMinutes(), this.getSeconds()
+    ));
+};
+
+/**
+ * Normalizes behavior for Date.toISOString
+ * 
+ * Browsers with native support for toISOString return a quoted date string, whereas other browsers
+ * return unquoted date string.
+ * 
+ * @see http://code.google.com/p/datejs/issues/detail?id=54
+ * 
+ */
+var toISOString = Date.prototype.toISOString;
+Date.prototype.toISOString = function () {
+    return toISOString.call(this).replace(/"/g, '');
 };
 
 /**
@@ -63,33 +67,6 @@ String.prototype.padLeft = function (padding, minLength) {
         str = pad + str;
     }
     return str;
-};
-/**
- * @description Trims a string from the left.
- * @param {String} padding Character to trim.
- * @returns {String} The resulting string.
- */
-String.prototype.trimLeft = function (padding) {
-    var str = this,
-        pad = '' + padding;
-    while (str[0] === pad) {
-        str = str.substr(1);
-    }
-    return str;
-};
-
-/**
- * @description Allows JSON objects to be stored in Storage for browsers that have support for native JSON
- * http://hacks.mozilla.org/2009/06/localstorage/
- */
-var extendLocalStorage = function () {
-    Storage.prototype.setObject = function (key, value) {
-        this.setItem(key, JSON.stringify(value));
-    };
-     
-    Storage.prototype.getObject = function (key) {
-        return JSON.parse(this.getItem(key));
-    };   
 };
 
 /**
@@ -147,19 +124,12 @@ var getOS = function () {
  * @returns {Object} Polar coordinates (r, theta) resulting from conversion 
  */
 Math.toPolarCoords = function (x, y) {
-    var radians = Math.atan(y / x);
-    
-    if  ((x > 0) && (y < 0)) {
+    var radians = Math.atan(-x / y);
+
+    if (y < 0) {
+        radians += (Math.PI);
+    } else if ((x >= 0) && (y >= 0)) {
         radians += (2 * Math.PI);
-    }
-    else if (x < 0) {
-        radians += Math.PI;
-    }
-    else if ((x === 0) && (y > 0)) {
-        radians = Math.PI / 2;
-    }
-    else if ((x === 0) && (y < 0)) {
-        radians = (3 * Math.PI) / 2;
     }
         
     return {
@@ -186,7 +156,7 @@ Math.lg = function (x) {
 //    
 //    // console.log
 //    console.log = function (msg) {
-//        $.jGrowl(msg, { header: '[DEBUG] ' });
+//        $("#message-console").jGrowl(msg, { header: '[DEBUG] ' });
 //    };
 //    
 //    // console.dir
@@ -200,9 +170,20 @@ Math.lg = function (x) {
 //            }
 //        }
 //            
-//        $.jGrowl(str, { header: '[DEBUG] ' });
+//        $("#message-console").jGrowl(str, { header: '[DEBUG] ' });
 //    };
 //}
+if (typeof(console) === "undefined") {
+    window.console = {};
+
+    console.log = function (msg) {
+        return false;
+    };
+    
+    console.dir = function (obj) {
+        return false;
+    };
+}
 
 /**
  * @description Checks to see if a given variable is a numeric type
@@ -254,4 +235,209 @@ var helioprojectiveToSolarRadii = function (hx, hy, scale, rsun) {
     };
 };
 
+/**
+ * Takes in a time difference in seconds and converts it to 'fuzzy' time, namely 
+ * "5 minutes ago" or "3 days ago"
+ * 
+ * @input {int} timeDiff -- Difference in time between two values in seconds
+ */
+var toFuzzyTime = function (timeDiff) {
+    if (timeDiff <= 60) {
+        return Math.ceil(timeDiff) + " seconds";
+    } else if (timeDiff <= 119) {
+        // Since it's flooring values, any number under 2 minutes (120 seconds) 
+        // should come up as "1 minute ago" rather than "1 minutes ago"
+        return "1 minute";
+    
+    } else if (timeDiff <= 3600) {
+        return Math.floor(timeDiff / 60) + " minutes";
+    
+    } else if (timeDiff <= 7199) {
+        // Same as above, any number under 2 hours (7200 seconds)
+        // should come up as "1 hour ago" rather than "1 hours ago"
+        return "1 hour";
+    
+    } else if (timeDiff <= 86400) {
+        return Math.floor(timeDiff / 3600) + " hours";
+    
+    } else if (timeDiff <= 172799) {
+        // Same as above, any number under 2 days (172800 seconds)
+        // should come up as "1 day ago" rather than "1 days ago"
+        return "1 day";
+    
+    } else {
+        return Math.floor(timeDiff / 86400) + " days";
+    }    
+};
 
+/**
+ * Takes in pixel coordinates and converts them to arcseconds. 
+ * Pixel coordinates must be relative to the center of the sun. 
+ * 
+ * @input {Object} coordinates -- contains values for x1, x2, y1, and y2
+ * @input {Float}  scale       -- the scale of the image in arcsec/pixel
+ * 
+ * @return object
+ */
+var pixelsToArcseconds = function (coordinates, scale) {
+    return {
+        x1 : coordinates.x1 * scale,
+        x2 : coordinates.x2 * scale,
+        y1 : coordinates.y1 * scale,
+        y2 : coordinates.y2 * scale
+    };
+};
+
+/**
+ * Converts tile coordinates into arcseconds. Finds relative tile size (if you enlarged or shrunk the tile
+ * so that the image in the tile is at the same resolution as the jp2 image) and uses that to calculate
+ * pixels, then arcseconds. 
+ * 
+ * Since x and y are with respect to the center of the image and we want arcseconds 
+ * to be the same, we do not need to do any adjusting. 
+ * 
+ * A tile at (0,0) has its top left corner in the exact center of the jp2 image, so its heliocentric 
+ * pixel coordinates would be 0*relativeTileSize, or 0,0 as well. A tile at (-1,-1) is one tile up and to
+ * the left of the (0,0) tile, so its heliocentric pixel coordinates would be calculated as
+ * -1*relativeTileSize, and so on.
+ * 
+ * Pixels are adjusted by the solar center offset to make sure that multiple layers are aligned correctly.
+ * Finally, pixel coordinates are multiplied by the scale of the jp2 image (arcseconds per pixel) to get the
+ * measurement in arcseconds. 
+ * 
+ * @input {int}   x        tile x-coordinate
+ * @input {int}   y        tile y-coordinate
+ * @input {float} scale    scale of the image in the viewport
+ * @input {float} jp2Scale scale of the jp2 image on disk
+ * @input {int}   tileSize desired size of the tile (usually 512px)
+ * @input {float} offsetX  x-offset of the sun's center from the center of the jp2 image
+ * @input {float} offsetY  y-offset of the sun's center from the center of the jp2 image
+ */
+var tileCoordinatesToArcseconds = function (x, y, scale, jp2Scale, tileSize, offsetX, offsetY) {
+    var relativeTileSize, top, left, bottom, right;
+    relativeTileSize = tileSize * scale / jp2Scale;
+
+    top  = y * relativeTileSize - offsetY;
+    left = x * relativeTileSize - offsetX;
+    bottom = top  + relativeTileSize;
+    right  = left + relativeTileSize;
+
+    return {
+        y1 : top  * jp2Scale,
+        x1 : left * jp2Scale,
+        y2 : bottom * jp2Scale,
+        x2 : right  * jp2Scale
+    };
+};
+
+/**
+ * Takes in a container and adds an event listener so that when the
+ * container is hovered over, its icon will highlight too, and when 
+ * done hovering, the icon goes back to normal. Necessary for some of
+ * the movie/screenshot dialog box icons, which do not seem to highlight
+ * correctly otherwise.
+ * 
+ * @input {Object} container -- jQuery-selected html element that contains 
+ *                              the icon.
+ *                              
+ * @return void
+ */
+var addIconHoverEventListener = function (container) {
+    if (container) {
+        container.hover(
+            function () {
+                var icon = container.find(".ui-icon");
+                icon.addClass("ui-icon-hover");
+            },
+            function () {
+                var icon = container.find(".ui-icon");
+                icon.removeClass("ui-icon-hover");
+            }
+        );
+    }
+};
+
+/**
+ * Helper function to hide all buttons that exist in the viewport.
+ * hideZoomControls is in ZoomControls.js
+ */
+var hideButtonsInViewport = function () {
+    hideZoomControls();
+    $("#social-buttons").hide("fast");
+    $("#center-button").hide("fast");
+    $("#fullscreen-btn").hide("fast");
+};
+
+/**
+ * Helper function to show all buttons that exist inside the viewport.
+ * showZoomControls is in ZoomControls.js
+ */
+var showButtonsInViewport = function () {
+    showZoomControls();
+    $("#social-buttons").show("fast");
+    $("#center-button").show("fast");
+    $("#fullscreen-btn").show("fast");
+};
+
+/**
+ * Takes in a string of layers and formats it into an array, removing square
+ * brackets
+ */
+var layerStringToLayerArray = function (layers) {
+    var layerArray = [], rawArray = layers.split("],");
+    
+    $.each(rawArray, function () {
+        layerArray.push(this.replace(/[\[\]]/g, ""));
+    });
+    return layerArray;
+};
+
+/**
+ * Takes a single-layer string and returns an array of the layer's name
+ * by chopping off the "visible" and "opacity" numbers at the end.
+ */
+var extractLayerName = function (layer) {
+    return layer.split(",").slice(0, -2);
+};
+
+/**
+ * Breaks up a given layer identifier (e.g. SOHO,LASCO,C2,white-light) into its
+ * component parts and returns a JavaScript representation.
+ *
+ * @param {String} The layer identifier as an underscore-concatenated string
+ * 
+ * @returns {Object} A simple JavaScript object representing the layer parameters
+ */
+var parseLayerString = function (str) {
+    var params = str.split(",");
+    return {
+        observatory : params[0],
+        instrument  : params[1],
+        detector    : params[2],
+        measurement : params[3],
+        visible     : Boolean(parseInt(params[4], 10)),
+        opacity     : parseInt(params[5], 10),
+        server      : parseInt(params[6], 10) || 0
+    };
+};
+
+/**
+ * RFC 4122, section 4.4 UUID Generation
+ * @see http://stackoverflow.com/questions/105034/how-to-create-a-guid-uuid-in-javascript
+ * 
+ * @return A unique identifier
+ */
+function createUUID() {
+    // http://www.ietf.org/rfc/rfc4122.txt
+    var uuid, i, s = [],
+        hexDigits = "0123456789ABCDEF";
+    
+    for (i = 0; i < 32; i += 1) {
+        s[i] = hexDigits.substr(Math.floor(Math.random() * 0x10), 1);
+    }
+    s[12] = "4";  // bits 12-15 of the time_hi_and_version field to 0010
+    s[16] = hexDigits.substr((s[16] & 0x3) | 0x8, 1);  // bits 6-7 of the clock_seq_hi_and_reserved to 01
+
+    uuid = s.join("");
+    return uuid;
+}

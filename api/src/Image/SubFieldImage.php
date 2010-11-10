@@ -8,11 +8,11 @@
  * @category Image
  * @package  Helioviewer
  * @author   Keith Hughitt <keith.hughitt@nasa.gov>
- * @author   Jaclyn Beck <jabeck@nmu.edu>
+ * @author   Jaclyn Beck <jaclyn.r.beck@gmail.com>
  * @license  http://www.mozilla.org/MPL/MPL-1.1.html Mozilla Public License 1.1
  * @link     http://launchpad.net/helioviewer.org
  */
-require 'JPEG2000/JP2Image.php';
+
 /**
  * Represents a JPEG 2000 sub-field image.
  *
@@ -25,24 +25,15 @@ require 'JPEG2000/JP2Image.php';
  * @category Image
  * @package  Helioviewer
  * @author   Keith Hughitt <keith.hughitt@nasa.gov>
- * @author   Jaclyn Beck <jabeck@nmu.edu>
+ * @author   Jaclyn Beck <jaclyn.r.beck@gmail.com>
  * @license  http://www.mozilla.org/MPL/MPL-1.1.html Mozilla Public License 1.1
  * @link     http://launchpad.net/helioviewer.org
  */
 class Image_SubFieldImage
 {
-    /**
-    protected $subfieldFile; //image
-    protected $subfieldWidth; //imageWidth
-    protected $subfieldHeight;
-    protected $subfieldRelWidth; //imageRelWidth ... = $this->imageWidth  * $this->desiredToActual;
-    protected $subfieldRelHeight;
-    protected $region; // {top: , left: , bottom: , right: }
-    **/
-    protected $sourceJp2;
+    protected $jp2;
     protected $outputFile;
     protected $roi;
-    protected $format;
     protected $desiredScale;
     protected $desiredToActual;
     protected $scaleFactor;
@@ -50,27 +41,24 @@ class Image_SubFieldImage
     protected $subfieldHeight;
     protected $subfieldRelWidth;
     protected $subfieldRelHeight;
-    protected $jp2Width;
+    protected $jp2Width; 
     protected $jp2Height;
     protected $jp2RelWidth;
     protected $jp2RelHeight;
-    protected $alphaMask  = false;
-    protected $colorTable = false;
-    protected $padding    = false;
-    protected $skipResize = false;
+    protected $compress;
 
     /**
      * Creates an Image_SubFieldImage instance
      *
-     * @param string $sourceJp2    Original JP2 image from which the subfield should be derrived
-     * @param string $outputFile   Location to output the subfield image to
+     * @param string $jp2          Original JP2 image from which the subfield should be derrived
      * @param array	 $roi          Subfield region of interest
-     * @param string $format       File format to use when saving the subfield image
-     * @param int    $jp2Width     Width of the JP2 image at it's natural resolution
-     * @param int    $jp2Height    Height of the JP2 image at it's natural resolution
-     * @param float  $jp2Scale     Pixel scale of the original JP2 image
      * @param float  $desiredScale The requested pixel scale that the subfield image should generated at
-     * 
+     * @param string $outputFile   Location to output the subfield image to
+     * @param float  $offsetX      Offset of the center of the sun from the center of the image on the x-axis
+     * @param float  $offsetY      Offset of the center of the sun from the center of the image on the y-axis
+     * @param int    $opacity      The opacity of the image from 0 to 100
+     * @param bool   $compress     Whether to compress the image after extracting or not (true for tiles)
+     *
      * @TODO: Add optional parameter "noResize" or something similar to allow return images
      * which represent the same region, but may be at a different scale (e.g. tiles). The normal
      * case (for movies, etc) would be to resize to the requested scale on the server-side.
@@ -78,30 +66,159 @@ class Image_SubFieldImage
      * @TODO: Rename "jp2scale" syntax to "nativeImageScale" to get away from JP2-specific terminology
      *        ("desiredScale" -> "desiredImageScale" or "requestedImageScale")
       */
-    public function __construct($sourceJp2, $outputFile, $roi, $format, $jp2Width, $jp2Height, $jp2Scale, $desiredScale)
+    public function __construct($jp2, $roi, $desiredScale, $outputFile, $offsetX, $offsetY, $opacity, $compress)
     {
-        $this->sourceJp2  = new Image_JPEG2000_JP2Image($sourceJp2, $jp2Width, $jp2Height, $jp2Scale);
         $this->outputFile = $outputFile;
+        $this->jp2        = $jp2;
         $this->roi        = $roi;
-        $this->format     = $format;
 
-        $this->jp2Width  = $jp2Width;
-        $this->jp2Height = $jp2Height;
         $this->subfieldWidth  = $roi["right"] - $roi["left"];
         $this->subfieldHeight = $roi["bottom"] - $roi["top"];
 
         $this->desiredScale    = $desiredScale;
-        $this->desiredToActual = $desiredScale / $jp2Scale;
+        $this->desiredToActual = $desiredScale / $jp2->getScale();
         $this->scaleFactor     = log($this->desiredToActual, 2);
         $this->reduce          = max(0, floor($this->scaleFactor));
 
         $this->subfieldRelWidth  = $this->subfieldWidth  / $this->desiredToActual;
         $this->subfieldRelHeight = $this->subfieldHeight / $this->desiredToActual;
-
-        $this->jp2RelWidth  = $jp2Width  /  $this->desiredToActual;
-        $this->jp2RelHeight = $jp2Height /  $this->desiredToActual;
+        
+        $this->jp2RelWidth  = $jp2->getWidth()  /  $this->desiredToActual;
+        $this->jp2RelHeight = $jp2->getHeight() /  $this->desiredToActual;
+        
+        $this->offsetX = $offsetX;
+        $this->offsetY = $offsetY;
+        $this->opacity = $opacity;
+        
+        $this->compress = $compress;
+    }
+    
+    /**
+     * Called by classes that may not have direct access to protected function buildImage.
+     * Change buildImage to buildImageNoImagick() to use command-line calls instead of imagick.
+     * 
+     * @return void
+     */
+    public function build() 
+    {
+        $this->buildImage();
     }
 
+    /**
+     * Sets parameters (gravity and size) for any padding which should be applied to extracted subfield image
+     * 
+     * @param array $padding An associative array containing the width,height, and gravity values to use during padding.
+     * 
+     * @return void
+     */
+    public function setPadding($padding) 
+    { 
+        $this->padding = $padding;
+        //Allow browser to rescale tiles which are not larger than the requested size
+        /*if (!($padding && ($padding['width'] > $this->width))) {
+            $this->setSkipResize(true);
+        }*/
+    }
+    
+    /**
+     * Saves the new filepath
+     * 
+     * @param string $filepath The new file path to the image
+     * 
+     * @return void
+     */
+    public function setNewFilePath($filepath)
+    {
+        $this->outputFile = $filepath;
+    }
+    
+    /**
+     * Gets the SubfieldImage's output file
+     * 
+     * @return string outputFile
+     */
+    public function outputFile() 
+    {
+        return $this->outputFile;
+    }
+
+    /**
+     * Getters that are needed for determining padding, as they must be accessed from Tile or ImageLayer classes.
+     * 
+     * @return int jp2RelWidth
+     */
+    public function jp2RelWidth() 
+    {
+        return $this->jp2RelWidth;
+    }
+    
+    /**
+     * Gets the jp2 image's relative height
+     * 
+     * @return int jp2RelHeight
+     */
+    public function jp2RelHeight() 
+    {
+        return $this->jp2RelHeight;
+    }
+    
+    /**
+     * Gets the extracted image's relative width
+     * 
+     * @return int subfieldRelWidth
+     */
+    public function subfieldRelWidth()
+    {
+        return $this->subfieldRelWidth;
+    }
+    
+    /**
+     * Gets the extracted image's relative height
+     * 
+     * @return int subfieldRelHeight
+     */    
+    public function subfieldRelHeight()
+    {
+        return $this->subfieldRelHeight;
+    }
+    
+    /**
+     * Figures out where the extracted image lies inside the final image
+     * if the final image is larger.
+     * 
+     * @param Array $roi   The region of interest in arcseconds of the final image.
+     * @param Float $scale The scale of the image in arcseconds / pixel
+     * 
+     * @return array with padding
+     */
+    public function computePadding($roi, $scale)
+    {
+        $width  = ($roi['right']  - $roi['left']) / $scale;
+        $height = ($roi['bottom'] - $roi['top'])  / $scale;
+
+        $centerX = $this->jp2->getWidth()  / 2 + $this->offsetX;
+        $centerY = $this->jp2->getHeight() / 2 + $this->offsetY;
+        
+        $leftToCenter = ($this->roi['left'] - $centerX);
+        $topToCenter  = ($this->roi['top']  - $centerY);
+        $scaleFactor  = $this->jp2->getScale() / $scale;
+        $relLeftToCenter = $leftToCenter * $scaleFactor;
+        $relTopToCenter  = $topToCenter  * $scaleFactor;
+
+        $left = ($roi['left'] / $scale) - $relLeftToCenter;
+        $top  = ($roi['top']  / $scale) - $relTopToCenter;
+
+        // Rounding to prevent inprecision during later implicit integer casting (Imagick->extentImage)
+        // http://www.php.net/manual/en/language.types.float.php#warn.float-precision
+        return array(
+           "gravity" => "northwest",
+           "width"   => round($width),
+           "height"  => round($height),
+           "offsetX" => ($left < 0.001 && $left > -0.001)? 0 : round($left),
+           "offsetY" => ($top  < 0.001 && $top  > -0.001)? 0 : round($top)
+        );
+    }
+    
     /**
      * Builds the requested subfield image.
      *
@@ -135,68 +252,110 @@ class Image_SubFieldImage
     protected function buildImage()
     {
         try {
-            $grayscale    = substr($this->outputFile, 0, -3) . "pgm";
-            $intermediate = substr($this->outputFile, 0, -3) . "png";
+            $input = substr($this->outputFile, 0, -3) . "pgm";
 
             // Extract region (PGM)
-            $this->sourceJp2->extractRegion($grayscale, $this->roi, $this->reduce);
-            
-            // Generate GD-readable grayscale image (PNG)
-            $toIntermediateCmd = HV_PATH_CMD . "convert $grayscale -depth 8 -quality 10 -type Grayscale $intermediate";
-            exec(escapeshellcmd($toIntermediateCmd));
+            $this->jp2->extractRegion($input, $this->roi, $this->reduce);
 
-            //Apply color-lookup table
-            //if ($this->colorTable && ($_GET["det"] != "AIA")) {
+            // Convert to GD-readable format
+            $grayscale = new IMagick($input);
+            $grayscale->setImageFormat('PNG');
+            $grayscale->setImageType(IMagick::IMGTYPE_GRAYSCALE); 
+            $grayscale->setImageDepth(8);
+            $grayscale->setImageCompressionQuality(10);
+            
+            $grayscaleString = $grayscale->getimageblob();
+
+            // Assume that no color table is needed
+            $coloredImage = $grayscale;
+            
+            // Apply color table if one exists
             if ($this->colorTable) {
-                $this->_setColorPalette($intermediate, $this->colorTable, $intermediate);
-            }
-
-            // IM commands for transparency, padding, rescaling, etc.
-            if ($this->hasAlphaMask()) {
-                $cmd = HV_PATH_CMD . " convert " . $this->applyAlphaMask($intermediate);
-            } else {
-                $cmd = HV_PATH_CMD . " convert $intermediate -background black ";
-            }
-
-            // Compression settings & Interlacing
-            $cmd .= $this->setImageParams();
-
-            if ($this->padding && !$this->hasAlphaMask()) {
-                $cmd .= $this->_getPaddingString();
-            }
-
-            // 02/23/10
-            // ONLY WANT TO RESIZE DOWN TO 512x512 WHEN IMAGE IS BIGGER (Same numbers used in padding last step tell
-            // you how big tile is at this point).
-            //if (!$this->skipResize) {
-            //    $cmd .= " -resize {$this->subfieldRelWidth}x{$this->subfieldRelHeight}! ";    
-            //}
+                $coloredImageString = $this->setColorPalette($grayscaleString);
             
-            // For resize to match requested tilesize. Once a suitable solution is found to improve rendering of
-            // client-side rescaled tiles, this can be removed (02/26/2010)
-            $cmd .= " -resize {$this->tileSize}x{$this->tileSize}!";
+                $coloredImage = new IMagick();        
+                $coloredImage->readimageblob($coloredImageString);
+            }            
             
-            //var_dump($this);
-            //die (escapeshellcmd("$cmd $this->outputFile"));
-
-            // Execute command
-            exec(escapeshellcmd("$cmd $this->outputFile"), $out, $ret);
-            if ($ret != 0) {
-                throw new Exception("Unable to build subfield image.\n\tCommand: $cmd $this->outputFile");
-            }
-
-            if ($this->outputFile != $intermediate) {
-                unlink($intermediate);
-            }
-
-            unlink($grayscale);
+            // Set alpha channel for images with transparent components
+            $this->setAlphaChannel($coloredImage);
+            
+            // Apply compression and interlacing
+            $this->compressImage($coloredImage);
+            
+            // Resize extracted image to correct size before padding.
+            $coloredImage->resizeImage(round($this->subfieldRelWidth), round($this->subfieldRelHeight), IMagick::FILTER_TRIANGLE, 0.6);
+            $coloredImage->setImageBackgroundColor('transparent');
+            
+            // Places the current image on a larger field of black if the final image is larger than this one
+            $coloredImage->extentImage($this->padding['width'], $this->padding['height'], -$this->padding['offsetX'], -$this->padding['offsetY']);
+            
+            /* 
+             * Need to extend the time limit that writeImage() can use so it doesn't throw fatal errors when movie frames are being made.
+             * It seems that even if this particular instance of writeImage doesn't take the full time frame, if several instances of it are
+             * running PHP will complain.  
+             */
+            //set_time_limit(60);
+            
+            $coloredImage->writeImage($this->outputFile);
+            
+            // Clean up
+            $grayscale->destroy();
+            $coloredImage->destroy();
+            unlink($input);
 
         } catch(Exception $e) {
-            logErrorMsg($e->getMessage(), true);
-            
+            throw $e;
+                      
             //Clean-up and exit
             $this->_abort($this->outputFile);
         }
+    }
+    
+
+    /**
+     * Sets compression for images that are not ImageLayers
+     * 
+     * @param Object &$imagickImage An initialized Imagick object
+     * 
+     * @return void
+     */
+    protected function compressImage(&$imagickImage)
+    {
+        if (!$this->compress) {
+            return;
+        }
+        
+        // Get extension
+        $parts = explode(".", $this->outputFile);
+        $extension = end($parts);
+
+        // Apply compression based on image type
+        if ($extension === "png") {
+            $imagickImage->setImageCompression(IMagick::COMPRESSION_LZW);
+            $imagickImage->setImageCompressionQuality(HV_PNG_COMPRESSION_QUALITY);
+            $imagickImage->setInterlaceScheme(IMagick::INTERLACE_PLANE);
+        } elseif ($extension === "jpg") {
+            $imagickImage->setImageCompression(IMagick::COMPRESSION_JPEG);
+            $imagickImage->setImageCompressionQuality(HV_JPEG_COMPRESSION_QUALITY);
+            $imagickImage->setInterlaceScheme(IMagick::INTERLACE_LINE);
+        }
+        
+        $imagickImage->setImageDepth(HV_BIT_DEPTH);
+    }
+    
+    /**
+     * Default behavior for images is to just set their opacity.
+     * LASCOImage.php has a applyAlphaMaskCmd that overrides this one and applies
+     * an alpha mask and does some special commands for opacity
+     * 
+     * @param Object &$imagickImage IMagick Object
+     * 
+     * @return string
+     */
+    protected function setAlphaChannel(&$imagickImage)
+    {
+        $imagickImage->setImageOpacity($this->opacity / 100);
     }
 
     /**
@@ -209,84 +368,6 @@ class Image_SubFieldImage
     protected function setColorTable($clut)
     {
         $this->colorTable = $clut;
-    }
-    
-    /**
-     * Set true to skip final resizing and return unscaled subfield image
-     * 
-     * @param bool $value Whether or not the resizing step should be skipped
-     * 
-     * @return void
-     */
-    protected function setSkipResize($value)
-    {
-        $this->skipResize = $value;
-    }
-
-    /**
-     * Enable/Disable alpha mask support
-     *
-     * @param string $value Locatation of the base image to use for an alpha mask
-     *
-     * @return void
-     */
-    protected function setAlphaMask($value)
-    {
-        $this->alphaMask = $value;
-    }
-    
-    /**
-     * Sets parameters (gravity and size) for any padding which should be applied to extracted subfield image
-     * 
-     * @param array $padding An associative array containing the width,height, and gravity values to use during padding.
-     * 
-     * @return void
-     */
-    protected function setPadding($padding)
-    {
-        $this->padding = $padding;
-    }
-    
-    /**
-     * Returns a string formatted for ImageMagick which defines how an image should be padded
-     * 
-     * @see http://www.imagemagick.org/Usage/thumbnails/#pad
-     * 
-     * @return string 
-     */
-    private function _getPaddingString()
-    {
-        return "-gravity {$this->padding['gravity']} -extent {$this->padding['width']}x{$this->padding['height']}";
-    }
-
-    /**
-     * Returns true if the image has an associated alpha mask
-     *
-     * @return bool Whether or not the subfield image uses an associated alpha mask for transparent regions.
-     */
-    protected function hasAlphaMask()
-    {
-        return $this->alphaMask;
-    }
-
-    /**
-     * Set Image Parameters
-     *
-     * @return string Image compression and quality related flags.
-     */
-    protected function setImageParams()
-    {
-        $args = " -quality ";
-        if ($this->format == "png") {
-            // 03/02/2010: -colors 256 does not work well with older versions of IM (<6.5.1)
-            //$args .= HV_PNG_COMPRESSION_QUALITY . " -interlace plane -colors " . HV_NUM_COLORS;
-            $args .= HV_PNG_COMPRESSION_QUALITY . " -interlace plane";
-        } else {
-            $args .= HV_JPEG_COMPRESSION_QUALITY . " -interlace line";
-        }
-        $args .= " -depth " . HV_BIT_DEPTH . " ";
-
-        return $args;
     }
 
     /**
@@ -314,66 +395,55 @@ class Image_SubFieldImage
             unlink($filename);
         }
 
-        if ($this->hasAlphaMask()) {
-            $mask = substr($filename, 0, -4) . "-mask.tif";
-        }
-        if (file_exists($mask)) {
-            unlink($mask);
-        }
-
         die();
     }
 
     /**
      * Applies the specified color lookup table to the image using GD
+     * Override this in any ImageType class that doesn't have a color
+     * table, i.e. MDI and AIA (for now)
      *
      * Note: input and output are usually the same file.
      *
-     * @param string $input  Location of input image
-     * @param string $clut   Location of the color lookup table to use
-     * @param string $output Location to save new image to
+     * @param string &$input  Location of input image
      *
-     * @return void
-     */
-    private function _setColorPalette ($input, $clut, $output)
-    {
-        $gd = null;
-        try {
-            if (file_exists($input)) {
-                $gd = imagecreatefrompng($input);
-            } else {
-                throw new Exception("Unable to apply color-table: $input does not exist.");
-            }
+     * @return String binary string representation of image after processing
+     */    
+    protected function setColorPalette(&$input)
+    {	
+        $clut = $this->colorTable;
 
-            if (!$gd) {
-                throw new Exception("Unable to apply color-table: $input is not a valid image.");
-            }
+        // Read in image string
+        $gd = imagecreatefromstring($input);
 
-        } catch(Exception $e) {
-            logErrorMsg($e->getMessage(), true);
+        if (!$gd) {
+            throw new Exception("Unable to apply color-table: $input is not a valid image.");
         }
+
         $ctable = imagecreatefrompng($clut);
 
+        // Apply color table
         for ($i = 0; $i <= 255; $i++) {
-            $rgba = imagecolorsforindex($ctable, $i);
-            imagecolorset($gd, $i, $rgba["red"], $rgba["green"], $rgba["blue"]);
+            $rgb = imagecolorat($ctable, 0, $i);
+            $r = ($rgb >> 16) & 0xFF;
+            $g = ($rgb >> 8) & 0xFF;
+            $b = $rgb & 0xFF;
+            imagecolorset($gd, $i, $r, $g, $b);
         }
 
-        // Enable interlacing
-        imageinterlace($gd, true);
+        // Write new image string
+        ob_start();
 
-        //$this->format == "jpg" ? imagejpeg($gd, $output, HV_JPEG_COMPRESSION_QUALITY) : imagepng($gd, $output);
-        //if ($this->format == "jpg")
-        //    imagejpeg($gd, $output, HV_JPEG_COMPRESSION_QUALITY);
-        //else
-        imagepng($gd, $output);
+        imagepng($gd, NULL);
+        $blob = ob_get_contents();
+        
+        ob_end_clean();
 
-        // Cleanup
-        if ($input != $output) {
-            unlink($input);
-        }
+        // Clean up
         imagedestroy($gd);
         imagedestroy($ctable);
+            
+        return $blob;
     }
 
     /**
@@ -383,59 +453,35 @@ class Image_SubFieldImage
      */
     public function display()
     {
-        try {
-            //header("Cache-Control: public, max-age=" . $lifetime * 60);
-            $headers = apache_request_headers();
-            
-            // Enable caching of images served by PHP
-            // http://us.php.net/manual/en/function.header.php#61903
-            $lastModified = 'Last-Modified: '.gmdate('D, d M Y H:i:s', filemtime($this->outputFile)).' GMT';
-            if (isset($headers['If-Modified-Since']) && (strtotime($headers['If-Modified-Since']) == filemtime($this->outputFile))) {
-                // Cache is current (304)
-                header($lastModified, true, 304);    
-            } else {
-                // Image not in cache or out of date (200)
-                header($lastModified, true, 200);
-
-                header('Content-Length: '.filesize($this->outputFile));
-
-                if ($this->format == "png") {
-                    header("Content-Type: image/png");
-                } else {
-                    header("Content-Type: image/jpeg");
-                }
-
-                // Filename & Content-length
-                $exploded = explode("/", $this->outputFile);
-                $filename = end($exploded);
-                header("Content-Disposition: inline; filename=\"$filename\"");
-                
-                if (!readfile($this->outputFile)) {
-                    throw new Exception("Unable to read tile from cache: $filename");
-                }
-
-            }
-        } catch (Exception $e) {
-            logErrorMsg($error, true);
-        }
-    }
-
-    /**
-     * Returns the image's width and height
-     *
-     * @param string $filename The image filepath
-     *
-     * @return array the width and height of the given image
-     */
-    private function _getImageDimensions($filename)
-    {
-        if (list($width, $height, $type, $attr) = getimagesize($filename)) {
-            return array (
-                'width'  => $width,
-                'height' => $height
-            );
+        //header("Cache-Control: public, max-age=" . $lifetime * 60);
+        $headers = apache_request_headers();
+        
+        // Enable caching of images served by PHP
+        // http://us.php.net/manual/en/function.header.php#61903
+        $lastModified = 'Last-Modified: '.gmdate('D, d M Y H:i:s', filemtime($this->outputFile)).' GMT';
+        if (isset($headers['If-Modified-Since']) && (strtotime($headers['If-Modified-Since']) == filemtime($this->outputFile))) {
+            // Cache is current (304)
+            header($lastModified, true, 304);    
         } else {
-            $this->_abort($filename);
+            // Image not in cache or out of date (200)
+            header($lastModified, true, 200);
+
+            header('Content-Length: '.filesize($this->outputFile));
+
+            // Set content-type
+            $fileinfo = new finfo(FILEINFO_MIME);
+            $mimetype = $fileinfo->file($this->outputFile);
+            header("Content-type: " . $mimetype);
+
+            // Filename & Content-length
+            $filename = basename($this->outputFile);
+            
+            header("Content-Disposition: inline; filename=\"$filename\"");
+            
+            if (!readfile($this->outputFile)) {
+                throw new Exception("Unable to read tile from cache: $filename");
+            }
+
         }
     }
 }

@@ -1,168 +1,77 @@
 /**
  * @fileOverview Contains the main application class and controller for Helioviewer.
  * @author <a href="mailto:keith.hughitt@nasa.gov">Keith Hughitt</a>
- * @author <a href="mailto:patrick.schmiedel@gmx.net">Patrick Schmiedel</a>
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
   bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
-/*global Class, $, Calendar, EventLayerAccordion, EventLayerManager, EventTimeline, FullscreenControl, 
-  KeyboardManager, ImageSelectTool, LayerManager, MediaSettings, MovieBuilder, MessageConsole, Shadowbox, TileLayer,
-  TileLayerAccordion, TileLayerManager, TimeControls, TooltipHelper, UserSettings, ZoomControls, Viewport, 
-  ScreenshotBuilder, document, window, localStorage, extendLocalStorage, getUTCTimestamp, Time */
+/*global document, window, $, UIController, ImageSelectTool, MovieBuilder, TooltipHelper, ViewportController, 
+  ScreenshotBuilder, ScreenshotHistory, MovieHistory, Shadowbox, addIconHoverEventListener */
 "use strict";
-var Helioviewer = Class.extend(
+var Helioviewer = UIController.extend(
     /** @lends Helioviewer.prototype */
     {
     /**
      * Creates a new Helioviewer instance.
      * @constructs
      * 
-     * @param {String} viewportId Viewport container selector.
-     * @param {Object} view       Client-specified settings to load
-     * @param {Object} settings   Server settings
+     * @param {Object} urlSettings    Client-specified settings to load. Includes imageLayers,
+     *                                date, and imageScale. May be empty.
+     * @param {Object} serverSettings Server settings loaded from Config.ini
      */
-    init: function (viewportId, view, settings) {
-        $.extend(this, settings);
-        this.load        = view;
-        this.api         = "api/index.php";
-        this.viewportId  = viewportId;
-
-        // Determine browser support
-        this._checkBrowser();
+    init: function (urlSettings, serverSettings) {
+        // Calling super will load settings, init viewport, and call _loadExtensions()
+        this._super(urlSettings, serverSettings);
         
-        // Load user-settings
-        this._loadUserSettings();
-        
-        // Loading indicator
-        this._initLoadingIndicator();
-        
-        // Get available data sources
-        this._getDataSources();
-        
-        // Tooltip helper
-        this.tooltips = new TooltipHelper(true);
-
-        // Layer Managers
-        this.tileLayers  = new TileLayerManager(this);
-        this.eventLayers = new EventLayerManager(this);
-        
-        this._initViewport();
-        this._initUI();
-        this._initEvents();
-        
-        this.mediaSettings     = new MediaSettings(this);                
-        this.movieBuilder      = new MovieBuilder(this);
-        this.imageSelectTool   = new ImageSelectTool(this);
-        this.screenshotBuilder = new ScreenshotBuilder(this);
-        
-        // Display welcome message on user's first visit
-        if (this.userSettings.get('showWelcomeMsg')) {
-            $(document).trigger("message-console-info", ["<b>Welcome to Helioviewer.org</b>, a solar data browser." + 
-            " First time here? Be sure to check out our <a class=\"message-console-link\" " +
-            "href=\"http://helioviewer.org/wiki/index.php?title=Helioviewer.org_User_Guide\" target=\"_blank\">" +
-            "User Guide</a>.", {life: 15000}]);
-            $(document).trigger("save-setting", ["showWelcomeMsg", false]);
-        }
-    },
-    
-    /**
-     * @description Returns the current observation date as a JavaScript Date object
-     */
-    getDate: function () {
-        return this.date.getDate();  
-    },
-
-    /**
-     * @description Initialize Helioviewer's user interface (UI) components
-     */
-    _initUI: function () {
-        var mouseCoords;
-
-        // Observation date & controls
-        this.date = new Time(this);
-
-        //Zoom-controls
-        this.zoomControls = new ZoomControls(this, {
-            id: '#zoomControls',
-            imageScale    : this.userSettings.get('imageScale'),
-            minImageScale : this.minImageScale,
-            maxImageScale : this.maxImageScale
-        });
-
-        //Time-navigation controls
-        this.timeControls = new TimeControls(this, this.timeIncrementSecs, '#date', '#time', '#timestep-select',
-                                             '#timeBackBtn', '#timeForwardBtn');
-
-        //Message console
-        this.messageConsole = new MessageConsole();
-
-        //Tile & Event Layer Accordions (accordions must come before LayerManager instance...)
-        this.tileLayerAccordion  = new TileLayerAccordion(this,  '#tileLayerAccordion');
-        this.eventLayerAccordion = new EventLayerAccordion(this, '#eventAccordion');
-
-        //Fullscreen button
-        this.fullScreenMode = new FullscreenControl(this, "#fullscreen-btn", 500);
-
-        // Setup dialog event listeners
         this._setupDialogs();
-        
-        // Tooltips
-        this.tooltips.createTooltip($("#timeBackBtn, #timeForwardBtn, #center-button"));
-        this.tooltips.createTooltip($("#fullscreen-btn"), "topRight");
-        
-        //Movie builder
-        //this.movieBuilder = new MovieBuilder({id: 'movieBuilder', controller: this});
-
-        // Timeline
-        //this.timeline = new EventTimeline(this, "timeline");
-    },   
-    
-    /**
-     * @description Checks browser support for various features used in Helioviewer
-     * TODO: Check for IE: localStorage exists in IE8, but works differently
-     */
-    _checkBrowser: function () {
-        // Native JSON (2009/07/02: Temporarily disabled: see notes in UserSettings.js)
-        //$.support.nativeJSON = (typeof(JSON) !== "undefined") ? true: false;
-        $.support.nativeJSON = false;
-        
-        // Web storage (local)
-        $.support.localStorage = !!window.localStorage;
-        
-        // (2009/07/02) Temporarily disabled on IE (works differently)
-        if ($.browser.msie) {
-            $.support.localStorage = false;
-        }
-        
-        // CSS3 text-shadows
-        // (2009/07/16 Temporarily disabled while re-arranging social buttons & meta links)
-        //$.support.textShadow = 
-        //    ((navigator.userAgent.search(/Firefox\/[1-3]\.[0-1]/) === -1) && (!$.browser.msie)) ? true : false;
-        $.support.textShadow = false;
-        
-
-        // Add JSON support to local storage
-        if ($.support.nativeJSON && $.support.localStorage) {
-            extendLocalStorage();
-        }
-
+        this._initEventHandlers();
+        this._displayGreeting();
     },
     
     /**
-     * @description Returns a tree representing available data sources
+     * Loads the message console, keyboard shortcut manager, tooltips, zoom controls, and
+     * full screen controls. the movie builder, screenshot builder, and image select tool.
      */
-    _getDataSources: function () {
-        var callback, self = this;
+    _loadExtensions: function () {
+        this._super(); // Call super method in UIController to load a few extensions
         
-        callback = function (data) {
-            self.dataSources = data;
-            
-            // Add initial layers
-            $.each(self.userSettings.get('tileLayers'), function () {
-                self.tileLayers.addLayer(new TileLayer(self, this));
-            });
-        };
-        $.post(this.api, {action: "getDataSources"}, callback, "json");
+        this._initTooltips();
+
+        var screenshotHistory = new ScreenshotHistory(this.userSettings.get('screenshot-history')),
+            movieHistory      = new MovieHistory(this.userSettings.get('movie-history'));
+
+        this.imageSelectTool   = new ImageSelectTool();
+        
+        this.movieBuilder      = new MovieBuilder(this.viewport, movieHistory);
+        this.screenshotBuilder = new ScreenshotBuilder(this.viewport, this.serverSettings.servers, screenshotHistory);
+    },
+    
+    /**
+     * Initializes tooltip manager and adds custom tooltips for basic navigation elements
+     */
+    _initTooltips: function () {
+        this.tooltips = new TooltipHelper(true);
+        $(document).trigger('create-tooltip', ["#timeBackBtn, #timeForwardBtn, #center-button"])
+                   .trigger('create-tooltip', ["#fullscreen-btn", "topRight"]);
+    },
+    
+    /**
+     * Initializes Helioviewer's viewport
+     */
+    _initViewport: function () {
+        this.viewport = new ViewportController({
+            id             : '#helioviewer-viewport',
+            api            : this.api,
+            requestDate    : this.timeControls.getDate(),
+            timestep       : this.timeControls.getTimeIncrement(),
+            servers        : this.serverSettings.servers,
+            maxTileLayers  : this.serverSettings.maxTileLayers,
+            minImageScale  : this.serverSettings.minImageScale,
+            maxImageScale  : this.serverSettings.maxImageScale,
+            prefetch       : this.serverSettings.prefetchSize,
+            tileLayers     : this.userSettings.get('tileLayers'),
+            imageScale     : this.userSettings.get('imageScale'),
+            warnMouseCoords: this.userSettings.get('warnMouseCoords')
+        });   
     },
     
     /**
@@ -171,169 +80,68 @@ var Helioviewer = Class.extend(
     _setupDialogs: function () {
         
         // About dialog
-        $("#helioviewer-about").click(function () {
-            if ($(this).hasClass("dialog-loaded")) {
-                var d = $('#about-dialog');
-                if (d.dialog('isOpen')) {
-                    d.dialog('close');
-                }
-                else {
-                    d.dialog('open');
-                }
-            } else {
-                $('#about-dialog').load(this.href).dialog({
-                    autoOpen: true,
-                    title: "Helioviewer - About",
-                    width: 480,
-                    height: 300,
-                    draggable: true
-                });
-                $(this).addClass("dialog-loaded");
-            }
-            return false; 
+        this._setupDialog("#helioviewer-about", "#about-dialog", {
+            "title": "Helioviewer - About",
+            height : 300
         });
 
         //Keyboard shortcuts dialog
-        $("#helioviewer-usage").click(function () {
-            if ($(this).hasClass("dialog-loaded")) {
-                var d = $('#usage-dialog');
-                if (d.dialog('isOpen')) {
-                    d.dialog('close');
-                }
-                else {
-                    d.dialog('open');
-                }
-            } else {
-                $('#usage-dialog').load(this.href).dialog({
-                    autoOpen: true,
-                    title: "Helioviewer - Usage Tips",
-                    width: 480,
-                    height: 480,
-                    draggable: true
-                });
-                $(this).addClass("dialog-loaded");
-            }
-            return false; 
+        this._setupDialog("#helioviewer-usage", "#usage-dialog", {
+            "title": "Helioviewer - Usage Tips"
         });
     },
     
     /**
-     * Selects a server to handle all tiling and image requests for a given layer
+     * Sets up event handlers for a single dialog
      */
-    selectTilingServer: function () {
-        var rand;
+    _setupDialog: function (btn, dialog, options) {
+        // Default options
+        var defaults = {
+            title     : "Helioviewer.org",
+            autoOpen  : true,
+            draggable : true,
+            width     : 480,
+            height    : 480            
+        };        
         
-        // Choose server to use
-        if (this.distributed === true) {
-            if (this.localQueriesEnabled) {
-                rand = Math.floor(Math.random() * (this.tileServers.length));
+        // Button click handler
+        $(btn).click(function () {
+            var d   = $(dialog),
+                btn = $(this);
+
+            if (btn.hasClass("dialog-loaded")) {
+                if (d.dialog('isOpen')) {
+                    d.dialog('close');
+                }
+                else {
+                    d.dialog('open');
+                }
             } else {
-                rand = Math.floor(Math.random() * (this.tileServers.length - 1)) + 1;
-            }                    
-            return rand;                    
-        }
-        // If distribted tiling is disabled, local tiling must be enabled
-        else {
-            return 0;
-        }
-    },
-
-    /**
-     * @description Loads user settings from URL, cookies, or defaults if no settings have been stored.
-     */
-    _loadUserSettings: function () {
-        var defaults, timestamp, layerSettings, layers, rand, self = this;
-        
-        // Optional debugging information
-        // TODO 01/20/2010: Provide finer control over what should be logged, e.g. "debug=[tiles,keyboard]"
-        if (this.load.debug && (this.load.debug.toLowerCase() === "true")) {
-            this.debug = true;
-        }
-        
-        defaults = this._getDefaultUserSettings();
-        
-        this.userSettings = new UserSettings(defaults, this.minImageScale, this.maxImageScale);
-        
-        // Load any view parameters specified via API
-        if (this.load.date) {
-            timestamp = getUTCTimestamp(this.load.date);
-            $(document).trigger("save-setting", ["date", timestamp]);
-        }
-
-        if (this.load.imageScale) {
-            $(document).trigger("save-setting", ["imageScale", parseFloat(this.load.imageScale)]);
-        }
-
-        // Process and load and layer strings specified
-        if (this.load.imageLayers) {
-            layers = [];
-            
-            $.each(this.load.imageLayers, function () {
-                layerSettings        = TileLayerManager.parseLayerString(this);
-                layerSettings.server = self.selectTilingServer();
-                
-                // Load layer
-                layers.push(layerSettings);
-            });
-            $(document).trigger("save-setting", ["tileLayers", layers]);
-        }
-
-    },
-
-    /**
-     * @description Initialize Helioviewer's viewport(s).
-     */
-    _initViewport: function () {
-        this.viewport =    new Viewport(this, {
-            id: this.viewportId,
-            imageScale: this.userSettings.get('imageScale'),
-            prefetch: this.prefetchSize,
-            debug: false
+                d.load(this.href).dialog($.extend(defaults, options));
+                btn.addClass("dialog-loaded");
+            }
+            return false; 
         });
-        
-        this.updateShadows();
     },
 
     /**
      * @description Initialize event-handlers for UI components controlled by the Helioviewer class
      */
-    _initEvents: function () {
+    _initEventHandlers: function () {
         var self = this;
         
-        // Initiallize keyboard shortcut manager
-        this.keyboard = new KeyboardManager(this);
-        
-        $('#center-button').click($.proxy(this.viewport.center, this.viewport));
         $('#link-button').click($.proxy(this.displayURL, this));
         $('#email-button').click($.proxy(this.displayMailForm, this));
         $('#jhelioviewer-button').click($.proxy(this.launchJHelioviewer, this));
-
-        // Hover effect for text/icon buttons        
-        $('#social-buttons .text-btn').hover(function () {
-            $(this).children(".ui-icon").addClass("ui-icon-hover");
-        },
-            function () {
-            $(this).children(".ui-icon").removeClass("ui-icon-hover");
+        
+        // Handle image area select requests
+        $(document).bind("enable-select-tool", function (event, callback) {
+            self.imageSelectTool.enableAreaSelect(self.viewport.getViewportInformation(), callback);
         });
-    },
 
-    /**
-     * @description Sets up a simple AJAX-request loading indicator
-     */
-    _initLoadingIndicator: function () {
-        $(document).ajaxStart(function () {
-            $('#loading').show();
-        })
-        .ajaxStop(function () {
-            $('#loading').hide();
-        });  
-    },
-
-    /**
-     * @description Translates a given zoom-level into an image plate scale.
-     */
-    getImageScale: function () {
-        return this.viewport.imageScale;
+        $('#social-buttons .text-btn').each(function (i, item) {
+            addIconHoverEventListener($(this)); 
+        });
     },
     
     /**
@@ -347,7 +155,7 @@ var Helioviewer = Class.extend(
         url = this.toURL();
         
         // Shadowbox width
-        w = $('html').width() * 0.5;
+        w = $('html').width() * 0.7;
         
         Shadowbox.open({
             content:    '<div id="helioviewer-url-box">' +
@@ -384,10 +192,10 @@ var Helioviewer = Class.extend(
                         'Who would you like to send this page to?<br>' + 
                         '<form style="margin-top:15px;">' +
                         '<label>From:</label>' +
-                        '<input type="text" class="email-input-field" id="email-from" value="Your Email Address">' +
-                        '</input><br>' +
+                        '<input type="email" placeholder="from@example.com" class="email-input-field" ' +
+                        'id="email-from" value="Your Email Address"></input><br>' +
                         '<label>To:</label>' +
-                        '<input type="text" class="email-input-field" id="email-from" ' + 
+                        '<input type="email" placeholder="to@example.com" class="email-input-field" id="email-from" ' + 
                         'value="Recipient\'s Email Address"></input>' +
                         '<label style="float:none; margin-top: 10px;">Message: </label>' + 
                         '<textarea style="width: 370px; height: 270px; margin-top: 8px;">Check this out:\n\n' + url +
@@ -413,75 +221,40 @@ var Helioviewer = Class.extend(
     
     /**
      * Launches an instance of JHelioviewer
+     * 
+     * Helioviewer attempts to choose a 24-hour window around the current observation time. If the user is
+     * currently browsing near the end of the available data then the window for which the movie is created
+     * is shifted backward to maintain it's size.
      */
     launchJHelioviewer: function () {
-        window.open("http://www.jhelioviewer.org", "_blank");
+        var endDate, params;
+        
+        // If currently near the end of available data, shift window back
+        endDate = new Date(Math.min(this.timeControls.getDate().addHours(12), new Date()));
+
+        params = {
+            "action"    : "launchJHelioviewer",
+            "endTime"   : endDate.toISOString(),
+            "startTime" : endDate.addHours(-24).toISOString(),
+            "imageScale": this.viewport.getImageScaleInKilometersPerPixel(),
+            "layers"    : this.viewport.serialize()
+        };
+        window.open(this.api + "?" + $.param(params), "_blank");
     },
-    
+
     /**
-     * @description Adds an animated text shadow based on the position and size of the Sun (Firefox 3.5+)
-     * Added 2009/06/26
-     * TODO: Apply to other text based on it's position on screen? Adjust blue based on zoom-level?
-     *       Use viewport size to determine appropriate scales for X & Y offsets (normalize)
-     *       Re-use computeCoordinates?
+     * Displays welcome message on user's first visit
      */
-    updateShadows: function () {
-        // Not supported in older versions of Firefox, or in IE
-        if (!$.support.textShadow) {
+    _displayGreeting: function () {
+        if (!this.userSettings.get('showWelcomeMsg')) {
             return;
         }
-        
-        var viewportOffset, sunCenterOffset, coords, viewportCenter, offsetX, offsetY;
-        
-        viewportOffset  = $("#helioviewer-viewport").offset();
-        sunCenterOffset = $("#moving-container").offset();
 
-        // Compute coordinates of heliocenter relative to top-left corner of the viewport
-        coords = {
-            x: sunCenterOffset.left - viewportOffset.left,
-            y: sunCenterOffset.top - viewportOffset.top
-        };
-        
-        // Coordinates of heliocenter relative to the viewport center
-        viewportCenter = this.viewport.getCenter();
-        coords.x = coords.x - viewportCenter.x;
-        coords.y = coords.y - viewportCenter.y;
-        
-        // Shadow offset
-        offsetX = ((500 - coords.x) / 100) + "px";
-        offsetY = ((500 - coords.y) / 150) + "px";
-
-        //console.log("x: " + coords.x + ", y: " + coords.y);
-        $("#footer-links > .light").css("text-shadow", offsetX + " " + offsetY + " 3px #000");
-    },
-    
-    /**
-     * Creates a hash containing the default settings to use
-     * 
-     * @returns {Object} The default Helioviewer.org settings
-     */
-    _getDefaultUserSettings: function () {
-        return {
-            date            : getUTCTimestamp(this.defaultObsTime),
-            imageScale      : this.defaultImageScale,
-            version         : this.version,
-            warnMouseCoords : true,
-            showWelcomeMsg  : true,
-            tileLayers : [{
-                server     : this.selectTilingServer(),
-                observatory: 'SOHO',
-                instrument : 'EIT',
-                detector   : 'EIT',
-                measurement: '304',
-                visible    : true,
-                opacity    : 100
-            }],
-            eventIcons      : {
-                'VSOService::noaa'         : 'small-blue-circle',
-                'GOESXRayService::GOESXRay': 'small-green-diamond',
-                'VSOService::cmelist'      : 'small-yellow-square'
-            }
-        };
+        $(document).trigger("message-console-info", 
+            ["<b>Welcome to Helioviewer.org</b>, a solar data browser. First time here? Be sure to check out our " +
+             "<a href=\"http://helioviewer.org/wiki/index.php?title=Helioviewer.org_User_Guide\" " +
+             "class=\"message-console-link\" target=\"_blank\"> User Guide</a>.", {life: 15000}]
+        ).trigger("save-setting", ["showWelcomeMsg", false]);
     },
     
     /**
@@ -496,16 +269,17 @@ var Helioviewer = Class.extend(
         var url, date, imageScale, imageLayers;
         
         // Add timestamp
-        date = this.date.toISOString();
+        date = this.timeControls.toISOString();
     
         // Add image scale
-        imageScale = this.getImageScale();
+        imageScale = this.viewport.getImageScale();
         
         // Image layers
-        imageLayers = this.tileLayers.serialize();
+        imageLayers = this.viewport.serialize();
         
         // Build URL
-        url = this.rootURL + "/?date=" + date + "&imageScale=" + imageScale + "&imageLayers=" + imageLayers;
+        url = this.serverSettings.rootURL + "/?date=" + date + "&imageScale=" + imageScale +
+              "&imageLayers=" + imageLayers;
 
         return url;
     }

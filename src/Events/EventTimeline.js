@@ -1,60 +1,61 @@
 /**
- * @author <a href="mailto:vincent.k.hughitt@nasa.gov">Keith Hughitt</a> 
- * @fileOverview This class extends the base Simile Timeline
- * @see http://code.google.com/p/simile-widgets/
+ * @author Jonathan Harper
+ * @fileOverview TO BE ADDED
+ *
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
 bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
-/*global Class, $, Timeline, window */
+/*global Class, $, window, Timeline */
+
 "use strict";
-var EventTimeline = Class.extend(
-    /** @lends EventTimeline.prototype */
-    {
-    /**
-     * @description Creates a new EventTimeline. 
-     * @param {Object} controller Reference to the controller class (Helioviewer).
-     * @param {String} container The ID for the timeline's container.
-     * @constructs 
-     */ 
-    init: function (controller, container) {
-        this.controller = controller;
-        this.container  = container;
-        this.resizeTimerID = null;
+
+var EventTimeline = Class.extend({
+	
+    init: function (data, controller) {
+        this._data = data;
+        this.build(this._data);
+    },
+    
+    build: function (data) {
+        var _bandInfo, _timeline, _eventSource;
         
-        this.eventSource = new Timeline.DefaultEventSource();
-        var bandInfos = [
+        this._eventSource = new Timeline.DefaultEventSource();
+        
+        _bandInfo = [
             Timeline.createBandInfo({
-                eventSource:    this.eventSource,
-                width:          "70%", 
-                intervalUnit:   Timeline.DateTime.MONTH, 
+                eventSource : this._eventSource,
+                width: "50%",
+                intervalUnit: Timeline.DateTime.HOUR,
                 intervalPixels: 100
             }),
             Timeline.createBandInfo({
-                eventSource:    this.eventSource,
-                width:          "30%", 
-                intervalUnit:   Timeline.DateTime.YEAR, 
-                intervalPixels: 200
+                eventSource : this._eventSource,
+                width: "30%",
+                intervalUnit: Timeline.DateTime.WEEK,
+                intervalPixels: 100
+            }),
+            Timeline.createBandInfo({
+                eventSource : this._eventSource,
+                width: "20%",
+                intervalUnit: Timeline.DateTime.YEAR,
+                intervalPixels: 100
             })
-        ],
-        self = this;
+        ];
         
-        bandInfos[1].syncWith = 0;
-        bandInfos[1].highlight = true;
-        this.timeline = Timeline.create($(this.container), bandInfos);
-        this.timeline.loadJSON("http://localhost/dev/test.json", function (json, url) {
-            self.eventSource.loadJSON(json, url);
-        });
-    },
-
-    /**
-     * @description Event-hanlder for window resize
-     */
-    resize: function () {
-        if (this.resizeTimerID === null) {
-            this.resizeTimerID = window.setTimeout(function () {
-                this.resizeTimerID = null;
-                this.timeline.layout();
-            }, 500);
-        }
-    }    
+        _bandInfo[1].syncWith = 0;
+        _bandInfo[2].syncWith = 0;
+        
+        this._timeline = Timeline.create(document.getElementById("event-timeline"), _bandInfo);
+        
+        this._timeline.showLoadingMessage();
+        this._eventSource.loadJSON(data, '.');
+        this._timeline.hideLoadingMessage();
+	},
+	
+	reload: function (updateData) {
+        this._timeline.showLoadingMessage();
+        this._eventSource.clear();
+        this._eventSource.loadJSON(updateData, '.');
+        this._timeline.hideLoadingMessage();
+	}
 });

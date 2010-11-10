@@ -34,7 +34,8 @@ var TreeSelect = Class.extend(
     _initSelectMenus: function () {
         var self = this;
         
-        this._updateSelectMenus();
+        // Load initial options into select menus
+        this._updateSelectMenus(0);
         
         // Set initial choices in select menus
         $.each(this.selectIds, function (depth, id) {
@@ -52,7 +53,7 @@ var TreeSelect = Class.extend(
      * @param {Object} newChoice
      */
     _updateSelected: function (depth, newChoice) {
-        var nav, getFirstItem, i, self = this;
+        var nav, getFirstItem, i;
         
         this.selected[depth] = newChoice;
         
@@ -83,13 +84,8 @@ var TreeSelect = Class.extend(
     _updateSelectMenus: function (startDepth) {
         var select, i, nav, opt, self = this;
         
-        if (typeof(startDepth) === "undefined") {
-            startDepth = 0;
-        }
-        
         $.each(this.selectIds, function (depth, id) {
             if (depth >= startDepth) {
-                //console.log(id);
                 select = $(id);
                 
                 // remove old choices
@@ -114,9 +110,7 @@ var TreeSelect = Class.extend(
      * @description Returns the value associated with the currently selected leaf-node
      */
     _value: function () {
-        var nav, self = this;
-        
-        nav = "this.tree";
+        var nav = "this.tree";
         $.each(this.selected, function (i, choice) {
             nav += '["' + choice + '"]';
         });

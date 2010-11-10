@@ -75,7 +75,15 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
         if (!file_exists($filepath)) {
             list ($images, $timestamps) = $this->_queryJPXImageFrames();
             $this->_timestamps = $timestamps;
-            $this->buildJPXImage($images, $linked);
+            $this->_images     = $images;
+            
+            // Make sure that at least some movie frames were found
+            if (sizeOf($images) > 0) {
+                $this->buildJPXImage($images, $linked);
+            } else {
+                throw new Exception("No images were found for the requested time range.");
+            }            
+            
             $this->_writeFileGenerationReport();
         }
     }
@@ -96,9 +104,9 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
         // Get image sourceId
         $sourceId = $this->_getSourceId($imgIndex);
 
-        // Check request start and end dates
-        $this->_checkRequestDates();
-        
+        // Replace start and end request dates with actual matches in order to account for gaps at either side
+        $this->_checkRequestDates($imgIndex, $sourceId);
+
         $start = toUnixTimestamp($this->_startTime);
         $end   = toUnixTimestamp($this->_endTime);
         
@@ -114,7 +122,7 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
                                     "exceeding the maximum allowed number of frames (" . HV_MAX_JPX_FRAMES . ").";
             }
         } else {
-            // Chose an optimal cadence
+            // Choose an optimal cadence
             // If possible, all images between the start and end dates will be included in the jpx.  
             // If the number of images in the date range exceeds the maximum number of frames allowed, a lower 
             // cadence (increased time between images) is chosen.
@@ -134,16 +142,20 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
     /**
      * Retrieves filepaths and timestamps of all images of a given type between the start and end dates specified
      * 
+     * @param object $imgIndex an ImgIndex object with access to the database
+     * @param in     $sourceId the source ID of the image
+     * 
      * @return array Returns list of filepaths to images to use during JPX generation
      *               and also a list of the times for each image in the series.
      */
-    private function _queryJPXImageFramesByRange($imgIndex, $sourceId) {
+    private function _queryJPXImageFramesByRange($imgIndex, $sourceId)
+    {
         $images = array();
         $dates  = array();
         
         $results = $imgIndex->getImageRange($this->_startTime, $this->_endTime, $sourceId);
         
-        foreach($results as $img) {
+        foreach ($results as $img) {
             $filepath = HV_JP2_DIR . $img["filepath"] . "/" . $img["filename"];
             array_push($images, $filepath);
             array_push($dates, toUnixTimestamp($img['date']));
@@ -156,12 +168,15 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
      * Retrieves filepaths and timestamps for images at a specified cadence of a given type between 
      * the start and end dates specified
      * 
-     * @param int $sourceId  Image source id
+     * @param object $imgIndex  An ImgIndex object with access to the database
+     * @param int    $sourceId  Image source id
+     * @param int    $numFrames The number of frames to go into the JPX movie
      * 
      * @return array Returns list of filepaths to images to use during JPX generation
      *               and also a list of the times for each image in the series.
      */
-    private function _queryJPXImageFramesByCadence($imgIndex, $sourceId, $numFrames) {
+    private function _queryJPXImageFramesByCadence($imgIndex, $sourceId, $numFrames)
+    {
         $images = array();
         $dates  = array();
         
@@ -192,14 +207,21 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
      * they are adjusted so that they fall within the available data range. If the request range falls completely
      * outside of the range of available data then no movie is generated. 
      * 
+     * @param object $imgIndex An instance of ImgIndex
+     * @param int    $sourceId The source id of the image
+     * 
      * @return void 
      */
-    private function _checkRequestDates()
+    private function _checkRequestDates($imgIndex, $sourceId)
     {
-        // Retrieve first and last date for requested data source
-        // Update start and end date to ensure that it is within range
-        // Record a message if neccessary
-        // If the range is completely outside, discontinue JPX generation                
+        // TODO 08/02/2010: Make note when dates use differ significantly from request date.
+        // Perhaps instead of returning a "message" parameter, just return the items of interest: startTime,endTime,
+        // overmax, etc.
+        $startImage = $imgIndex->getClosestImageAfterDate($this->_startTime, $sourceId);
+        $endImage   = $imgIndex->getClosestImageBeforeDate($this->_endTime, $sourceId);
+        
+        $this->_startTime = isoDateToMySQL($startImage["date"]);
+        $this->_endTime   = isoDateToMySQL($endImage["date"]);
     }
 
     /**
@@ -257,7 +279,7 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
     
     /**
      * Creates a summary file for the generated JPX file including the filepath, image timestamps, and any
-     * warning or error messages encountered during the creation process.
+     * warning messages encountered during the creation process.
      *
      * @return void
      */
@@ -289,6 +311,26 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
         $this->_timestamps = $summary->frames;
         $this->_message    = $summary->message;
     }
+    
+    /**
+     * Returns the number of images that make up the JPX movie
+     * 
+     * @return int Number of images
+     */
+    public function getNumJPXFrames()
+    {
+        return sizeOf($this->_images); 
+    }
+    
+    /**
+     * Returns a message describing any errors encountered during the JPX generation process
+     *
+     * @return string Error message
+     */
+    public function getErrorMessage ()
+    {
+        return $this->_message;     
+    }
 
     /**
      * Converts a regular HTTP URL to a JPIP URL
@@ -309,12 +351,11 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
      * Prints summary information including HTTP/JPIP URI as JSON
      *
      * @param bool $jpip    Formats URI as JPIP URL if true
-     * @param bool $frames  Includes individual jpx frame timestamps if true
      * @param bool $verbose Includes any warning messages encountered during file generation if true
      *
      * @return void
      */
-    public function printJSON($jpip, $frames, $verbose)
+    public function printJSON($jpip, $verbose)
     {
         // Read in jpx meta-information from cache
         if (!isset($this->_timestamps)) {
@@ -331,7 +372,7 @@ class Image_JPEG2000_HelioviewerJPXImage extends Image_JPEG2000_JPXImage
         }
 
         // Image timestamps
-        if ($frames) {
+        if ($verbose) {
             $output["frames"] = $this->_timestamps;
         }
 
