@@ -4,56 +4,152 @@
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
   bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
-/*global document, window, $, UIController, ImageSelectTool, MovieBuilder, TooltipHelper, ViewportController, 
-  ScreenshotBuilder, ScreenshotHistory, MovieHistory, Shadowbox, addIconHoverEventListener */
+/*global document, window, $, Class, ImageSelectTool, MovieBuilder, 
+  TooltipHelper, ViewportController, ScreenshotBuilder, ScreenshotHistory,
+  MovieHistory, addIconHoverEventListener, UserVideoGallery, MessageConsole,
+  KeyboardManager, SettingsLoader, TimeControls, FullscreenControl,
+  ZoomControls, ScreenshotManagerUI, MovieManagerUI, assignTouchHandlers */
 "use strict";
-var Helioviewer = UIController.extend(
+var Helioviewer = Class.extend(
     /** @lends Helioviewer.prototype */
     {
     /**
      * Creates a new Helioviewer instance.
      * @constructs
      * 
-     * @param {Object} urlSettings    Client-specified settings to load. Includes imageLayers,
-     *                                date, and imageScale. May be empty.
+     * @param {Object} urlSettings Client-specified settings to load.
+     *  Includes imageLayers, date, and imageScale. May be empty.
      * @param {Object} serverSettings Server settings loaded from Config.ini
      */
-    init: function (urlSettings, serverSettings) {
-        // Calling super will load settings, init viewport, and call _loadExtensions()
-        this._super(urlSettings, serverSettings);
+    init: function (urlSettings, serverSettings, debug) {
+        this._checkBrowser(); // Determines browser support
         
+        this.serverSettings = serverSettings;
+        this.api            = "api/index.php";
+
+        // User settings are globally accessible
+        Helioviewer.userSettings = SettingsLoader.loadSettings(urlSettings, 
+            serverSettings);
+            
+        // Debugging helpers
+        if (debug) {
+            this._showDebugHelpers();
+        }
+        
+        this._initLoadingIndicator();
+        this._initTooltips();
+        
+        // Use URL date if specified
+        var urlDate = urlSettings.date ? Date.parseUTCDate(urlSettings.date) : false;
+
+        this.timeControls = new TimeControls('#date', '#time', 
+            '#timestep-select', '#timeBackBtn', '#timeForwardBtn', urlDate);
+
+        // Get available data sources and initialize viewport
+        this._initViewport();
+
+        this.messageConsole = new MessageConsole();
+        this.keyboard       = new KeyboardManager();
+        
+        // User Interface components
+        this.zoomControls   = new ZoomControls('#zoomControls', Helioviewer.userSettings.get('state.imageScale'),
+                                               this.serverSettings.minImageScale, this.serverSettings.maxImageScale); 
+
+        this.fullScreenMode = new FullscreenControl("#fullscreen-btn", 500);
+        
+        this.displayBlogFeed("api/?action=getNewsFeed", 3, false);
+        
+        this._userVideos = new UserVideoGallery(this.serverSettings.videoFeed);
+        
+        this.imageSelectTool = new ImageSelectTool();
+        
+        this._screenshotManagerUI = new ScreenshotManagerUI();
+        this._movieManagerUI      = new MovieManagerUI();
+
         this._setupDialogs();
         this._initEventHandlers();
         this._displayGreeting();
+        
+        // Play movie if id is specified
+        if (urlSettings.movieId) {
+            this._loadMovie(urlSettings.movieId);
+        }
     },
     
+    
     /**
-     * Loads the message console, keyboard shortcut manager, tooltips, zoom controls, and
-     * full screen controls. the movie builder, screenshot builder, and image select tool.
+     * @description Checks browser support for various features used in Helioviewer
      */
-    _loadExtensions: function () {
-        this._super(); // Call super method in UIController to load a few extensions
+    _checkBrowser: function () {
+        // Base support
+        $.extend($.support, {
+            "localStorage" : ('localStorage' in window) && window['localStorage'] !== null,
+            "nativeJSON"   : typeof (JSON) !== "undefined",
+            "video"        : !!document.createElement('video').canPlayType,
+            "h264"         : false,
+            "ogg"          : false,
+            "vp8"          : false
+        });
         
-        this._initTooltips();
-
-        var screenshotHistory = new ScreenshotHistory(this.userSettings.get('screenshot-history')),
-            movieHistory      = new MovieHistory(this.userSettings.get('movie-history'));
-
-        this.imageSelectTool   = new ImageSelectTool();
-        
-        this.movieBuilder      = new MovieBuilder(this.viewport, movieHistory);
-        this.screenshotBuilder = new ScreenshotBuilder(this.viewport, this.serverSettings.servers, screenshotHistory);
+        // HTML5 Video Support
+        if ($.support.video) {
+            var v = document.createElement("video");
+            
+            // VP8/WebM
+            if (v.canPlayType('video/webm; codecs="vp8"')) {
+                $.support.vp8 = true;
+            }
+            
+            // Ogg Theora
+            if (v.canPlayType('video/ogg; codecs="theora"')) {
+                $.support.ogg = true;
+            }
+            
+            // H.264
+            if (v.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"')) {
+                $.support.h264 = true;
+            }
+            
+        }
     },
     
     /**
-     * Initializes tooltip manager and adds custom tooltips for basic navigation elements
+     * @description Sets up a simple AJAX-request loading indicator
+     */
+    _initLoadingIndicator: function () {
+        $(document).ajaxStart(function () {
+            $('#loading').show();
+        })
+        .ajaxStop(function () {
+            $('#loading').hide();
+        });  
+    },
+    
+    /**
+     * Add tooltips to static HTML buttons and elements
      */
     _initTooltips: function () {
-        this.tooltips = new TooltipHelper(true);
-        $(document).trigger('create-tooltip', ["#timeBackBtn, #timeForwardBtn, #center-button"])
-                   .trigger('create-tooltip', ["#fullscreen-btn", "topRight"]);
+        // Overide qTip defaults
+        $.fn.qtip.defaults = $.extend(true, {}, $.fn.qtip.defaults, {
+            show: {
+                delay: 1000
+            },
+            style: {
+                classes: 'ui-tooltip-light ui-tooltip-shadow ui-tooltip-rounded'
+            }
+        });
+        
+        $("*[title]:not(#fullscreen-btn,.text-btn)").qtip();
+        
+        // Fullscreen
+        $("#fullscreen-btn, .text-btn").qtip({
+            position: {
+                my: "top right",
+                at: "bottom middle"
+            }
+        });
     },
-    
+
     /**
      * Initializes Helioviewer's viewport
      */
@@ -68,16 +164,32 @@ var Helioviewer = UIController.extend(
             minImageScale  : this.serverSettings.minImageScale,
             maxImageScale  : this.serverSettings.maxImageScale,
             prefetch       : this.serverSettings.prefetchSize,
-            tileLayers     : this.userSettings.get('tileLayers'),
-            imageScale     : this.userSettings.get('imageScale'),
-            warnMouseCoords: this.userSettings.get('warnMouseCoords')
+            tileLayers     : Helioviewer.userSettings.get('state.tileLayers'),
+            imageScale     : Helioviewer.userSettings.get('state.imageScale'),
+            centerX        : Helioviewer.userSettings.get('state.centerX'),
+            centerY        : Helioviewer.userSettings.get('state.centerY'),
+            warnMouseCoords: Helioviewer.userSettings.get('notifications.coordinates')
         });   
+    },
+    
+    /**
+     * Adds a movie to the user's history and displays the movie
+     * 
+     * @param string movieId Identifier of the movie to be shown
+     */
+    _loadMovie: function (movieId) {
+        if (!this._movieManagerUI.has(movieId)) {
+            this._movieManagerUI.addMovieUsingId(movieId);
+        } else {
+            this._movieManagerUI.playMovie(movieId);            
+        }
     },
     
     /**
      * @description Sets up event-handlers for dialog components
      */
     _setupDialogs: function () {
+        var self = this;
         
         // About dialog
         this._setupDialog("#helioviewer-about", "#about-dialog", {
@@ -85,9 +197,34 @@ var Helioviewer = UIController.extend(
             height : 300
         });
 
-        //Keyboard shortcuts dialog
+        // Keyboard shortcuts dialog
         this._setupDialog("#helioviewer-usage", "#usage-dialog", {
             "title": "Helioviewer - Usage Tips"
+        });
+        
+        // Settings dialog
+        this._setupDialog("#settings-button", "#settings-dialog", {
+            "buttons": {
+                "Ok": function () {
+                    $(this).dialog("close");
+                }
+            },
+            "title": "Helioviewer - Settings",
+            "width": 400,
+            "height": 'auto',
+            "resizable": false,
+            "create": function (e) {
+                var currentValue = Helioviewer.userSettings.get(
+                    "defaults.movies.duration"),
+                    select = $(this).find("#settings-movie-length");
+
+                // Select default value and bind event listener
+                select.find("[value = " + currentValue + "]").attr("selected", "selected");
+                select.bind('change', function (e) {
+                    Helioviewer.userSettings.set("defaults.movies.duration",
+                        parseInt(this.value, 10));
+                });                              
+            }
         });
     },
     
@@ -123,24 +260,43 @@ var Helioviewer = UIController.extend(
             return false; 
         });
     },
+    
+    /**
+     * Enables some debugging helpers that display extra information to help
+     * during development
+     */
+    _showDebugHelpers: function () {
+        var dimensions, win = $(window);
+        
+        dimensions = $("<div id='debug-dimensions'></div>").appendTo("body");
+
+        win.resize(function (e) {
+            dimensions.html(win.width() + "x" + win.height());
+        });
+    },
 
     /**
      * @description Initialize event-handlers for UI components controlled by the Helioviewer class
      */
     _initEventHandlers: function () {
-        var self = this;
+        var self = this, 
+            msg  = "Use the following link to refer to current page:";
         
-        $('#link-button').click($.proxy(this.displayURL, this));
-        $('#email-button').click($.proxy(this.displayMailForm, this));
-        $('#jhelioviewer-button').click($.proxy(this.launchJHelioviewer, this));
-        
-        // Handle image area select requests
-        $(document).bind("enable-select-tool", function (event, callback) {
-            self.imageSelectTool.enableAreaSelect(self.viewport.getViewportInformation(), callback);
+        $('#link-button').click(function (e) {
+            self.displayURL(self.toURL(), msg);
         });
-
+        //$('#email-button').click($.proxy(this.displayMailForm, this));
+        
+        // 12/08/2010: Disabling JHelioviewer JNLP launching until better support is added
+        //$('#jhelioviewer-button').click($.proxy(this.launchJHelioviewer, this));
+        
         $('#social-buttons .text-btn').each(function (i, item) {
             addIconHoverEventListener($(this)); 
+        });
+        
+        // Fix drag and drop for mobile browsers
+        $("#helioviewer-viewport, .ui-slider-handle").each(function () {
+            assignTouchHandlers(this);
         });
     },
     
@@ -148,33 +304,32 @@ var Helioviewer = UIController.extend(
      * displays a dialog containing a link to the current page
      * @param {Object} url
      */
-    displayURL: function () {
-        var url, w;
-        
-        // Get URL
-        url = this.toURL();
-        
-        // Shadowbox width
-        w = $('html').width() * 0.7;
-        
-        Shadowbox.open({
-            content:    '<div id="helioviewer-url-box">' +
-                        'Use the following link to refer to current page:' + 
-                        '<form style="margin-top: 5px;">' +
-                        '<input type="text" id="helioviewer-url-input-box" style="width:98%;" value="' + url + '">' +
-                        '</form>' +
-                        '</div>',
-            options: {
-                enableKeys : false,
-                onFinish   : function () {
-                    $("#helioviewer-url-input-box").select();
-                }
-            },
-            player:     "html",
-            title:      "URL",
-            height:     80,
-            width:      w
+    displayURL: function (url, msg) {
+        $("#helioviewer-url-box-msg").text(msg);
+        $("#url-dialog").dialog({
+            dialogClass: 'helioviewer-modal-dialog',
+            height    : 100,
+            width     : $('html').width() * 0.7,
+            modal     : true,
+            resizable : false,
+            title     : "URL",
+            open      : function (e) {
+                $('.ui-widget-overlay').hide().fadeIn();
+                $("#helioviewer-url-input-box").attr('value', url).select();
+            }
         });
+    },
+    
+    /**
+     * Displays a URL to a Helioviewer.org movie
+     * 
+     * @param string Id of the movie to be linked to
+     */
+    displayMovieURL: function (movieId) {
+        var url = this.serverSettings.rootURL + "/?movieId=" + movieId,
+            msg = "Use the following link to refer to this movie:";
+
+        this.displayURL(url, msg);           
     },
     
     /**
@@ -185,37 +340,69 @@ var Helioviewer = UIController.extend(
      */
     displayMailForm: function () {
         // Get URL
-        var url = this.toURL();
+        var html, url = this.toURL();
         
-        Shadowbox.open({
-            content:    '<div id="helioviewer-url-box">' +
-                        'Who would you like to send this page to?<br>' + 
-                        '<form style="margin-top:15px;">' +
-                        '<label>From:</label>' +
-                        '<input type="email" placeholder="from@example.com" class="email-input-field" ' +
-                        'id="email-from" value="Your Email Address"></input><br>' +
-                        '<label>To:</label>' +
-                        '<input type="email" placeholder="to@example.com" class="email-input-field" id="email-from" ' + 
-                        'value="Recipient\'s Email Address"></input>' +
-                        '<label style="float:none; margin-top: 10px;">Message: </label>' + 
-                        '<textarea style="width: 370px; height: 270px; margin-top: 8px;">Check this out:\n\n' + url +
-                        '</textarea>' + 
-                        '<span style="float: right; margin-top:8px;">' + 
-                        '<input type="submit" value="Send"></input>' +
-                        '</span></form>' +
-                        '</div>',
-            options: {
-                enableKeys : false,
-                onFinish: function () {
-                    $(".email-input-field").one("click", function (e) {
-                        this.value = "";
-                    });
+        html = '<div id="helioviewer-url-box">' +
+               'Who would you like to send this page to?<br>' + 
+               '<form style="margin-top:15px;">' +
+               '<label>From:</label>' +
+               '<input type="email" placeholder="from@example.com" class="email-input-field" ' +
+               'id="email-from" value="Your Email Address"></input><br>' +
+               '<label>To:</label>' +
+               '<input type="email" placeholder="to@example.com" class="email-input-field" id="email-from" ' + 
+               'value="Recipient\'s Email Address"></input>' +
+               '<label style="float:none; margin-top: 10px;">Message: </label>' + 
+               '<textarea style="width: 370px; height: 270px; margin-top: 8px;">Check this out:\n\n' + url +
+               '</textarea>' + 
+               '<span style="float: right; margin-top:8px;">' + 
+               '<input type="submit" value="Send"></input>' +
+               '</span></form>' +
+               '</div>';
+        
+    },
+    
+    /**
+     * Displays recent news from the Helioviewer Project blog
+     */
+    displayBlogFeed: function (feed, n, showDescription, descriptionWordLength) {
+        var url = this.serverSettings.newsURL, html = "";
+        
+        $.getFeed({
+            url: feed,
+            success: function (feed) {
+                var link, date, more, description;
+                
+                // Display message if there was an error retrieving the feed
+                if (!feed.items) {
+                    $("#social-panel").append("Unable to retrieve news feed...");
+                    return;
                 }
-            },
-            player:     "html",
-            title:      "Email",
-            height:     455,
-            width:      400
+
+                // Grab the n most recent articles
+                $.each(feed.items.slice(0, n), function (i, a) {
+                    link = "<a href='" + a.link + "' alt='" + a.title + "' target='_blank'>" + a.title + "</a><br />";
+                    date = "<div class='article-date'>" + a.updated.slice(0, 26) + "UTC</div>";
+                    html += "<div class='blog-entry'>" + link + date;
+                    
+                    // Include description?
+                    if (showDescription) {
+                        description = a.description;
+
+                        // Shorten if requested
+                        if (typeof descriptionWordLength === "number") {
+                            description = description.split(" ").slice(0, descriptionWordLength).join(" ") + " [...]";
+                        }
+                        html += "<div class='article-desc'>" + description + "</div>";
+                    }
+                    
+                    html += "</div>";
+                });
+                
+                more = "<div id='more-articles'><a href='" + url +
+                       "' alt='The Helioviewer Project Blog'>More...</a></div>";
+                
+                $("#social-panel").append(html + more);
+            }
         });
     },
     
@@ -246,42 +433,89 @@ var Helioviewer = UIController.extend(
      * Displays welcome message on user's first visit
      */
     _displayGreeting: function () {
-        if (!this.userSettings.get('showWelcomeMsg')) {
+        if (!Helioviewer.userSettings.get("notifications.welcome")) {
             return;
         }
 
         $(document).trigger("message-console-info", 
             ["<b>Welcome to Helioviewer.org</b>, a solar data browser. First time here? Be sure to check out our " +
-             "<a href=\"http://helioviewer.org/wiki/index.php?title=Helioviewer.org_User_Guide\" " +
-             "class=\"message-console-link\" target=\"_blank\"> User Guide</a>.", {life: 15000}]
-        ).trigger("save-setting", ["showWelcomeMsg", false]);
+             "<a href=\"http://wiki.helioviewer.org/wiki/index.php?title=Helioviewer.org_User_Guide\" " +
+             "class=\"message-console-link\" target=\"_blank\"> User Guide</a>.", {life: 20000}]
+        );
+        
+        Helioviewer.userSettings.set("notifications.welcome", false);
+    },
+    
+    /**
+     * Returns the current observation date
+     * 
+     * @return {Date} observation date
+     */
+    getDate: function () {
+        return this.timeControls.getDate();
+    },
+    
+    /**
+     * Returns the currently loaded layers
+     * 
+     * @return {String} Serialized layer string
+     */
+    getLayers: function () {
+        return this.viewport.serialize();
+    },
+    
+    /**
+     * Returns the currently displayed image scale
+     *
+     * @return {Float} image scale in arc-seconds/pixel
+     */
+    getImageScale: function () {
+        return this.viewport.getImageScale();
+    },
+    
+    /**
+     * Returns an array of the Helioviewer servers that should be used for requests
+     * 
+     * @return {Array} Helioviewer servers to use
+     */
+    getServers: function () {
+        return this.serverSettings.servers;
+    },
+    
+    /**
+     * Returns the top-left and bottom-right coordinates for the viewport region of interest
+     * 
+     * @return {Object} Current ROI 
+     */
+    getViewportRegionOfInterest: function () {
+        return this.viewport.getRegionOfInterest();
     },
     
     /**
      * Builds a URL for the current view
      *
      * @TODO: Add support for viewport offset, event layers, opacity
-     * @TODO: Make into a static method for use by Jetpack, etc? http://www.ruby-forum.com/topic/154386
      * 
      * @returns {String} A URL representing the current state of Helioviewer.org.
      */
     toURL: function () {
-        var url, date, imageScale, imageLayers;
-        
-        // Add timestamp
-        date = this.timeControls.toISOString();
-    
-        // Add image scale
-        imageScale = this.viewport.getImageScale();
-        
-        // Image layers
-        imageLayers = this.viewport.serialize();
-        
-        // Build URL
-        url = this.serverSettings.rootURL + "/?date=" + date + "&imageScale=" + imageScale +
-              "&imageLayers=" + imageLayers;
 
-        return url;
+        var params = {
+            "date"        : this.viewport.getMiddleObservationTime().toISOString(),
+            "imageScale"  : this.viewport.getImageScale(),
+            "centerX"     : Helioviewer.userSettings.get("state.centerX"),
+            "centerY"     : Helioviewer.userSettings.get("state.centerY"), 
+            "imageLayers" : this.viewport.serialize()
+        };
+        return this.serverSettings.rootURL + "/?" + 
+               decodeURIComponent($.param(params));
+    },
+    
+    /**
+     * Sun-related Constants
+     */
+    constants: {
+        au: 149597870700, // 1 au in meters (http://maia.usno.navy.mil/NSFA/IAU2009_consts.html)
+        rsun: 695700000  // radius of the sun in meters (JHelioviewer)
     }
 });
-

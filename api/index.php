@@ -1,6 +1,6 @@
 <?php
 /**
- * Helioviewer Web Server (Dynamo)
+ * Helioviewer Web Server
  *
  * PHP version 5
  *
@@ -10,20 +10,21 @@
  * @license  http://www.mozilla.org/MPL/MPL-1.1.html Mozilla Public License 1.1
  * @link     http://launchpad.net/helioviewer.org
  *
+ * TODO 06/28/2011
+ *  = Reuse database connection for statistics and other methods that need it? * 
+ * 
  * TODO 01/28/2010
  *  = Document getDataSources, getJP2Header, and getClosestImage methods.
  *  = Explain use of sourceId for faster querying.
  *
  * TODO 01/27/2010
- *  = Discuss with JHV team about using source ID's instead of string
- *    identifiers to speed up method calls.
  *  = Add method to WebClient to print config file (e.g. for stand-alone
  *    web-client install to connect with)
  *  = Add getPlugins method to JHelioviewer module (empty function for now)
  */
 require_once "src/Config.php";
 $config = new Config("../settings/Config.ini");
-
+date_default_timezone_set('UTC');
 register_shutdown_function('shutdownFunction');
 
 if (isset($_REQUEST['action'])) {
@@ -50,27 +51,33 @@ if (!(isset($params) && loadModule($params))) {
 function loadModule($params)
 {
     $valid_actions = array(
-        "downloadFile"        => "WebClient",
-        "getClosestImage"     => "WebClient",
-        "getDataSources"      => "WebClient",
-        "getJP2Header"        => "WebClient",
-        "getTile"             => "WebClient",
-        "takeScreenshot"      => "WebClient",
-        "getJP2Image"         => "JHelioviewer",
-        "getJPX"              => "JHelioviewer",
-        "launchJHelioviewer"  => "JHelioviewer",
-        "buildMovie"          => "Movies",
-        "getMovie"            => "Movies",
-        "playMovie"           => "Movies",
-        "queueMovie"          => "Movies",
-        "getETAForMovie"      => "Movies",
+        "downloadScreenshot"   => "WebClient",
+        "getClosestImage"      => "WebClient",
+        "getDataSources"       => "WebClient",
+        "getJP2Header"         => "WebClient",
+        "getNewsFeed"          => "WebClient",
+        "getTile"              => "WebClient",
+        "getUsageStatistics"   => "WebClient",
+        "takeScreenshot"       => "WebClient",
+        "getJP2Image"          => "JHelioviewer",
+        "getJPX"               => "JHelioviewer",
+        "launchJHelioviewer"   => "JHelioviewer",
+        "buildMovie"           => "Movies",
+        "downloadMovie"        => "Movies",
+        "getMovieStatus"       => "Movies",
+        "playMovie"            => "Movies",
+        "queueMovie"           => "Movies",
+        "uploadMovieToYouTube" => "Movies",
+        "checkYouTubeAuth"     => "Movies",
+        "getYouTubeAuth"       => "Movies",
+        "getUserVideos"        => "Movies",
         "getEventFRMs"           => "SolarEvents",
         "getEvents"              => "SolarEvents",
         "getScreenshotsForEvent" => "SolarEvents",
         "getMoviesForEvent"      => "SolarEvents"
     );
     
-    $helioqueuer_tasks = array ("queueMovie", "getMovie");
+    $helioqueuer_tasks = array ("queueMovie");
     
     include_once "src/Validation/InputValidator.php";
 
@@ -106,19 +113,7 @@ function loadModule($params)
             } else if (HV_HELIOQUEUER_ENABLED && in_array($params["action"], $helioqueuer_tasks)) {
                 $url = HV_HELIOQUEUER_API_URL . "/" . strtolower(preg_replace('/([A-Z])/', '/\1', $params['action']));
                 unset ($params['action']);
-                
-                // NOTE 08/26/2010: file_get_contents sometimes returns empty responses. switching to cURL 
-                
-                //$opts = array('http' =>
-                //    array(
-                //       'method'  => $_SERVER['REQUEST_METHOD'],
-                //        'header'  => 'Content-type: application/x-www-form-urlencoded',
-                //        'content' => http_build_query($params)
-                //    )
-                //);
-                
-                //$context  = stream_context_create($opts);
-                
+                                
                 // Set up handler to respond to warnings emitted by file_get_contents
                 function catchWarning($errno, $errstr, $errfile, $errline, array $errcontext) {
                     throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
@@ -126,31 +121,29 @@ function loadModule($params)
                 set_error_handler('catchWarning');
                 
                 include_once 'src/Net/Proxy.php';
-                header('Content-type: application/json;charset=UTF-8');
                 $proxy = new Net_Proxy($url . "?");
                 
                 if ($_SERVER['REQUEST_METHOD'] == "POST") {
-                    echo $proxy->post($params, true);    
+                    $response = $proxy->post($params, true);    
                 } else {
-                    echo $proxy->query($params, true);
+                    $response = $proxy->query($params, true);
                 }
                 
+                header('Content-type: application/json;charset=UTF-8');
                 
-                // Attempt to forward request to Helioqueuer
-                //try {
-                //    echo file_get_contents($url, false, $context);
-                //} catch (Exception $e) {
-                    // Helioqueuer inaccessable
-                //    if (preg_match("/Connection refused/", $e->getMessage())) {
-                //        handleError("Unable to access Helioqueuer. Is the server online?", true);
-                //    }                    
-                //}
+                // Make sure a response was recieved
+                if ($response) {
+                    echo $response;
+                } else {
+                    handleError("Helioqueuer is currently unresponsive");
+                }
                 
                 // Restore normal behavior for dealing with warnings
                 restore_error_handler();
 
             // Local requests
             } else {
+            	// Execute action
                 $moduleName = $valid_actions[$params["action"]];
                 $className  = "Module_" . $moduleName;
     
@@ -158,6 +151,21 @@ function loadModule($params)
     
                 $module = new $className($params);
                 $module->execute();
+                
+                // Update usage stats
+                $actions_to_keep_stats_for = array("getClosestImage", 
+                    "getTile", "takeScreenshot", "getJPX",
+                    "uploadMovieToYouTube");
+                
+				// Note that in addition to the above, buildMovie requests and 
+				// getCachedTile requests are also tracked.
+				// getCachedTile is a pseudo-action which is logged in 
+				// addition to getTile when the tile was already in the cache.
+                if (HV_ENABLE_STATISTICS_COLLECTION && in_array($params["action"], $actions_to_keep_stats_for)) {
+                    include_once 'src/Database/Statistics.php';
+                    $statistics = new Database_Statistics();
+                    $statistics->log($params["action"]);
+                }
             }
 
         }
@@ -195,7 +203,7 @@ function printAPIDocumentation()
 <body>
 
 <!-- Logo -->
-<img alt="Helioviewer Logo" src="resources/images/about.png" style="float: left;">
+<img alt="Helioviewer Logo" src="<?php echo HV_API_LOGO; ?>" style="float: left;">
 <h1 style="position: relative; top: 22px;">API</h1>
 <br />
 
@@ -214,7 +222,13 @@ function printAPIDocumentation()
         <ol style="list-style-type: upper-latin;">
             <li><a href="index.php#Identifiers">Identifiers</a></li>
             <li><a href="index.php#VariableTypes"> Variable Types </a></li>
-            <li><a href="index.php#ArcsecondConversions">Arcsecond Conversions</a></li>
+            <li><a href="index.php#Coordinates">Coordinates</a>
+                <ul>
+                    <li style='list-style-type: circle;'><a href="index.php#ArcsecondCoordinates">Arcseconds</a>
+                    <li style='list-style-type: circle;'><a href="index.php#PixelCoordinates">Pixels</a>
+                    <li style='list-style-type: circle;'><a href="index.php#ImageScale">Image Scale</a>
+                </ul>
+            </li>
         </ol>
     </li>
 </ol>
@@ -236,10 +250,10 @@ function printAPIDocumentation()
         offering  access to a variety of components used by Helioviewer. All of the interfaces are accessed using HTML query
         strings. The simplest APIs require only a single URI, and result in some resource being returned, e.g. a movie or
         <abbr title="JPEG 2000">JP2</abbr> image series, or some action being performed, e.g. loading a particular "view"
-        into Helioviewer. Some of the API's are more complex and involve two steps. For example, in order to get a
+        into Helioviewer. Some API methods are more complex and involve two steps. For example, in order to get a
         list of solar events for a certain period of time, first a query is usually made to see which Feature Recognition
         Methods (or FRMs) include events for that time period. A second query then returns a list of features/events are 
-        fetched using a second query. 
+        fetched using a second query.
         
         <br />
         <br />
@@ -250,8 +264,8 @@ function printAPIDocumentation()
             <?php echo HV_API_ROOT_URL;?>?action=methodName&amp;param1=value1&amp;param2=value2...
         </div>
     
-        <p>The base URL is the same for each of the APIs (<a href="<?php echo HV_API_ROOT_URL;?>;"><?php echo HV_API_ROOT_URL;?></a>).
-        The "action" parameter is required and specifies the specific functionality to access. In addition, other parameters
+        <p>The base URL is the same for each of the API methods (<a href="<?php echo HV_API_ROOT_URL;?>;"><?php echo HV_API_ROOT_URL;?></a>).
+        The "action" parameter is required for all requests and specifies the specific functionality to access. In addition, other parameters
         may also be required depending on the specific API being accessed. The one exception to this rule is the
         <a href="index.php#CustomView">Custom View API</a> which is accessed from
         <a href="http://www.helioviewer.org/index.php"> http://www.helioviewer.org/index.php</a> and does not require an
@@ -268,7 +282,7 @@ function printAPIDocumentation()
 </div>
 
 <div style="font-size: 0.85em; text-align: center; margin-top: 20px;">
-    Last Updated: 2010-10-26 | <a href="mailto:webmaster@helioviewer.org">Questions?</a>
+    Last Updated: 2011-07-06 | <a href="mailto:<?php echo HV_CONTACT_EMAIL; ?>">Questions?</a>
 </div>
 
 </body>
@@ -304,13 +318,26 @@ function printDocumentationAppendices()
                 <td><strong>Description:</strong></td>
             </tr>
             <tr>
+                <td>SDO</td>
+                <td>SDO (Solar Dynamics Observatory)</td>
+            </tr>
+            <tr>
                 <td>SOHO</td>
                 <td>SOHO (Solar and Heliospheric Observatory)</td>
             </tr>
             <tr>
+                <td>STEREO_A</td>
+                <td>STEREO_A (Solar Terrestrial Relations Observatory Ahead)</td>
+            </tr>
+            <tr>
+                <td>STEREO_B</td>
+                <td>STEREO_B (Solar Terrestrial Relations Observatory Behind)</td>
+            </tr>
+            <!--
+            <tr>
                 <td>TRACE</td>
                 <td>TRACE (Transition Region and Coronal Explorer)</td>
-            </tr>
+            </tr>-->
         </table>
 
         <br />
@@ -323,8 +350,16 @@ function printDocumentationAppendices()
                 <td><strong>Description:</strong></td>
             </tr>
             <tr>
+                <td>AIA</td>
+                <td>AIA (Atmospheric Imaging Assembly)</td>
+            </tr>
+            <tr>
                 <td>EIT</td>
                 <td>EIT (Extreme ultraviolet Imaging Telescope)</td>
+            </tr>
+            <tr>
+                <td>HMI</td>
+                <td>HMI (Helioseismic and Magnetic Imager)</td>
             </tr>
             <tr>
                 <td>LASCO</td>
@@ -335,9 +370,15 @@ function printDocumentationAppendices()
                 <td>MDI (The Michelson Doppler Imager)</td>
             </tr>
             <tr>
+                <td>SECCHI</td>
+                <td>SECCHI (Sun Earth Connection Coronal and Heliospheric Investigation)</td>
+            </tr>
+            <!--
+            <tr>
                 <td>TRACE</td>
                 <td>TRACE (Transition Region and Coronal Explorer)</td>
             </tr>
+             -->
         </table>
 
         <br />
@@ -350,6 +391,10 @@ function printDocumentationAppendices()
                 <td><strong>Description:</strong></td>
             </tr>
             <tr>
+                <td>AIA</td>
+                <td>AIA (Atmospheric Imaging Assembly)</td>
+            </tr>
+            <tr>
                 <td>C2</td>
                 <td>LASCO C2</td>
             </tr>
@@ -358,8 +403,24 @@ function printDocumentationAppendices()
                 <td>LASCO C3</td>
             </tr>
             <tr>
+                <td>COR1</td>
+                <td>Coronagraph 1</td>
+            </tr>
+            <tr>
+                <td>COR2</td>
+                <td>Coronagraph 2</td>
+            </tr>
+            <tr>
                 <td>EIT</td>
                 <td>EIT (Extreme ultraviolet Imaging Telescope)</td>
+            </tr>
+            <tr>
+                <td>EUVI</td>
+                <td>EUVI (Extreme ultraviolet Imager)</td>
+            </tr>
+            <tr>
+                <td>HMI</td>
+                <td>HMI (Helioseismic and Magnetic Imager)</td>
             </tr>
             <tr>
                 <td>MDI</td>
@@ -378,12 +439,28 @@ function printDocumentationAppendices()
                 <td><strong>Description:</strong></td>
             </tr>
             <tr>
+                <td>94</td>
+                <td>94 Ångström</td>
+            </tr>
+            <tr>
+                <td>131</td>
+                <td>131 Ångström</td>
+            </tr>
+            <tr>
                 <td>171</td>
                 <td>171 Ångström</td>
             </tr>
             <tr>
+                <td>193</td>
+                <td>193 Ångström</td>
+            </tr>
+            <tr>
                 <td>195</td>
                 <td>195 Ångström</td>
+            </tr>
+            <tr>
+                <td>211</td>
+                <td>211 Ångström</td>
             </tr>
             <tr>
                 <td>284</td>
@@ -392,6 +469,22 @@ function printDocumentationAppendices()
             <tr>
                 <td>304</td>
                 <td>304 Ångström</td>
+            </tr>
+            <tr>
+                <td>335</td>
+                <td>335 Ångström</td>
+            </tr>
+            <tr>
+                <td>1600</td>
+                <td>1600 Ångström</td>
+            </tr>
+            <tr>
+                <td>1700</td>
+                <td>1700 Ångström</td>
+            </tr>
+            <tr>
+                <td>4500</td>
+                <td>4500 Ångström</td>
             </tr>
             <tr>
                 <td>white-light</td>
@@ -457,6 +550,11 @@ function printDocumentationAppendices()
                     <td><strong>Example:</strong></td>
                 </tr>
                 <tr>
+                    <td>Boolean</td>
+                    <td>A boolean value.</td>
+                    <td>true</td>
+                </tr>
+                <tr>
                     <td>Integer</td>
                     <td>An integer.</td>
                     <td>12</td>
@@ -464,7 +562,7 @@ function printDocumentationAppendices()
                 <tr>
                     <td>Float</td>
                     <td>A floating point number.</td>
-                    <td>2.63</td>
+                    <td>2.4</td>
                 </tr>
                 <tr>
                     <td>String</td>
@@ -512,74 +610,224 @@ function printDocumentationAppendices()
         </li>
         <br />
 
-        <!-- Appendix C: Pixel and Arcsecond Conversions -->
+        <!-- Appendix C: Working with Coordinates -->
         <li>
-        <div id="ArcsecondConversions">Pixel to Arcsecond Conversions
-        <p>This appendix contains a list of JPEG2000 image scales for some layer types and how to convert 
-            between pixels on the image and arcseconds.</p>
+        <div id="Coordinates">Working with Coordinates in Helioviewer.org
+            
+        <h3>Overview</h3>
+
+        <p>Several of the API methods supported by Helioviewer.org require you 
+           to specify a rectangular region of interest or "ROI", which is simply
+           the portion of the image or movie you are interested in.</p>
+           
+           There are two different methods for specifying region of interest 
+           (ROI) in Helioivewer.org API requests. The first method is to
+           specify the coordinates for the top-left and bottom-right corners of 
+           the ROI in <a href="http://en.wikipedia.org/wiki/Minute_of_arc#Symbols.2C_abbreviations_and_subdivisions">arcseconds</a>. 
+           The other option is to specify the position of the center of your 
+           ROI in arcseconds and the dimensions for the ROI in pixels. In 
+           either case you will also need to specify an image scale in 
+           arcseconds per pixel.
+           
+           This appendix provides a description of how each of these methods
+           can be used in API requests, and how to determine the appropriate
+           arcsecond values to use to reach a desired effect.
+           
+        <h3 id="#ArcsecondCoordinates">Arcseconds</h3>
+           
+       <p>The first method for specifying an ROI in a Helioviewer.org API
+          request is to specify the coordinates for the top-left (x1, y1) and
+          bottom-right (x2, y2) corners of the ROI in arcseconds, with the 
+          origin at the center of the Sun. The below image depicts the location 
+          of the origin, and the direction of the axes, for this style 
+          request.</p>
+        
+        <div style='width: 100%; text-align: center;'>
+            <img src='resources/images/Helioviewer_ROI_Arcseconds_Overview.png' src='Helioviewer.org Coordinates Example Diagram (Arcseconds)' style='margin-left: auto; margin-right: auto;'/>
+        </div>
+        
+        <p>To makes things more clear, below are some example requests, and the 
+           <a href="#ImageScale">imageScale</a> and ROI corresponding with that 
+           request.</p>
+        
         <div class="summary-box" style="background-color: #E3EFFF;">
         <br />
-        <table class="param-list" cellspacing="10">
-            <tbody valign="top">
-                <tr>
-                    <td width="40%"><strong>Layer Type:</strong></td>
-                    <td width="35%"><strong>Scale (arcsec/pixel)</strong></td>
-                    <td><strong>Width (arcsec)</strong></td>
-                </tr>
-                <tr>
-                    <td>EIT (all measurements)</td>
-                    <td>2.63</td>
-                    <td>2693.12</td>
-                </tr>
-                <tr>
-                    <td>LASCO C2</td>
-                    <td>11.9</td>
-                    <td>12185.6</td>
-                </tr>
-                <tr>
-                    <td>LASCO C3</td>
-                    <td>56</td>
-                    <td>57344</td>
-                </tr>
-                <tr>
-                    <td>MDI (all measurements)</td>
-                    <td>1.985707</td>
-                    <td>2033.364</td>
-                </tr>
-            </tbody>
-        </table>
-        <br />
-        To convert between arseconds and pixels, you must know something about the dimensions of the original JPEG2000 image and
-        the coordinates of the center of the sun. <br /><br />
-        Center coordinates can be found in the FITS header of an image under CRPIX1 (x-offset) and 
-        CRPIX2 (y-offset from the <i>bottom</i> of the image). Therefore the y-offset must be adjusted to reflect that the origin is in the top left
-        corner instead of the bottom left corner (simply take newYOffset = ySize - yOffset).<br /><br />
-        Most SOHO images are 1024x1024 pixels.<br /><br />
+        <span style='text-decoration: underline'>Examples:</span><br /><br />
         
-        Let's say we want to find out the offset in arcseconds of the top left corner of an EIT image (Coordinates 0,0). We'll use some example numbers: <br /><br />
-        width = height = 1024 px<br />
-        xOffset = 514.660 px<br />
-        yOffset = 1024 - 505.19 = 518.81 px<br /><br />
+        <b>1) A complete AIA image at 1/16 its natural resolution (zoomed out four times)</b>
         
-        First convert the top-left coordinates (0,0) into their offsets from the center of the sun (514.660,518.81) by subtracting the center coordinates
-        from the top-left coordinates.<br />
-        Top-left coordinates are now (-514.660, -518.81)<br /><br />
+        <p>In this case the desired image scale is 2^4 x (natural scale) = 16 x 0.6 = 9.6. Now to determine the ROI coordinates,
+           we must first determine how large the image will be at the specified scale. AIA is normally 4096x4096, so at 1/16 its
+           natural resolution it will be 256x256 pixels. Since the origin is in the middle of the Sun (which here is in the middle
+           of the Sun), there top-left corner is 128 pixels up and to the left (-128, -128), and the bottom-right corner is 128 pixels down and
+           to the right (128, 128). Since the ROI must be specified in arcseconds, and not in pixels, we multiply by the desired imageScale:
+           128 x 9.6 = 1228.8.
+           <br /><br />
+           <i>URL:</i><a href="http://helioviewer.org/api/?action=takeScreenshot&date=2011-06-21T00:00:00.000Z&layers=[SDO,AIA,AIA,304,1,100]&imageScale=9.6&x1=-1228.8&y1=-1228.8&x2=1228.8&y2=1228.8&display=true">
+               http://helioviewer.org/api/?action=takeScreenshot&date=2011-06-21T00:00:00.000Z&layers=[SDO,AIA,AIA,304,1,100]&imageScale=9.6&x1=-1228.8&y1=-1228.8&x2=1228.8&y2=1228.8&display=true
+           </a>
+           
+        <br /><br />
+        <b>2) The top-right quadrant of an EIT image at 200% magnification</b>
         
-        Next use the scale listed above to convert these offsets to arcseconds: <br />
-        -514.660 px * 2.63 arcsec/px <br />
-        = -1353.5558 arcseconds from center on x-axis<br /><br />
-        -518.81 px * 2.63 arcsec/px <br />
-        = -1364.4703 arcseconds from center on y-axis<br /><br />
-        
-        Putting those together, the formula to find an offset for each coordinate is:<br />
-        x = (xCoord - xOffset) * scale or<br />
-        y = (yCoord - (imageHeight - yOffset)) * scale<br /><br />
-        
-        Therefore your x1 value is -1353.5558 and your y1 value is -1364.4703. This same formula can be used to find x2 and y2.
+        <p>First, determine the desired image scale = 1 / 2^1 x (EIT native image scale) = 1/2 x 2.63 = 1.315. At this scale, the image which
+           would normally be 1024x1024 pixels is now 2048x2048 pixels, and the coordinates for the ROI in pixels would is (0,-1024), (1024,0). To convert
+           to arcseconds we multiple the pixel values by the arcsecond/pixel ratio (the imageScale) to get (0, -1346.56), (1346.56, 0).
 
-        <br />
-        <br />
+           <br /><br />
+           <i>URL:</i><a href="http://helioviewer.org/api/?action=takeScreenshot&date=2011-06-21T00:00:00.000Z&layers=[SOHO,EIT,EIT,171,1,100]&imageScale=1.315&x1=0&y1=-1346.56&x2=1346.56&y2=0&display=true">
+               http://helioviewer.org/api/?action=takeScreenshot&date=2011-06-21T00:00:00.000Z&layers=[SOHO,EIT,EIT,171,1,100]&imageScale=1.315&x1=0&y1=-1346.56&x2=1346.56&y2=0&display=true
+           </a>
+        </p>
         </div>
+        
+        <p>Finally, don't forget that you can use Helioviewer.org to check the 
+           coordinates and see if they are as you expect. Pressing the "m" key 
+           will return the position of the mouse pointer in Helioviewer.org 
+           viewport. Initially, the coordinates will be displayed in 
+           arcseconds. Note, however, that the y-axis value displayed for 
+           mouse-coordinates has the opposite sign to that passed in API 
+           requests. This is because the mouse position is returned in a 
+           coordinate system which is commonly used in solar physics. To get 
+           around this you can simply flip the sign for the y-coordinate you 
+           see on Helioviewer.org when mouse-coordinates are being displayed.
+        </p>
+        
+        <h3 id="#PixelCoordinates">Pixels</h3>
+        
+        <p>
+        Alternatively, if you prefer to explicityly specify the pixel dimensions for the image or movie,
+        you can specify the center of your ROI in arc-seconds (x0, y0), relative to the center of the sun,
+        and the width and height of the ROI in pixels. Although you are still required to work with Arcseconds
+        for this method for some of the parameters, this provides a simple way to ensure that the resulting
+        image or movie is a specific size in pixels.
+        </p>
+        
+        <div style='width: 100%; text-align: center;'>
+            <img src='resources/images/Helioviewer_ROI_Pixels_Overview.png' src='Helioviewer.org Coordinates Example Diagram (Pixels)' style='margin-left: auto; margin-right: auto;'/>
+        </div>
+        
+        <p>
+        Similar to the first method, you will also need to specify the <a href="#ImageScale">image scale</a> 
+        to use, in arcseconds/pixel.
+        </p>
+        
+        <div class="summary-box" style="background-color: #E3EFFF;">
+        <br />
+        <span style='text-decoration: underline'>Examples:</span><br /><br />
+        
+        <b>1) A complete EIT image at it's natural resolution</b>
+        
+        <p>According to the <a href="#ImageScaleTable">table of image scales</a> shown below, the native image scale for EIT is 2.63 arcseconds/pixel,
+           and the image dimensions are 1024 x 1024 pixels.</p>
+           <br /><br />
+           <i>URL:</i><a href="http://helioviewer.org/api/?action=takeScreenshot&date=2011-07-07T00:00:00.000Z&layers=[SOHO,EIT,EIT,171,1,100]&imageScale=2.63&x0=0&y0=0&width=1024&height=1024&display=true">
+               http://helioviewer.org/api/?action=takeScreenshot&date=2011-07-07T00:00:00.000Z&layers=[SOHO,EIT,EIT,171,1,100]&imageScale=2.63&x0=0&y0=0&width=1024&height=1024&display=true
+           </a>
+           
+        <br /><br />
+        <b>2) A 1024 x 768 sub-region centered at the top-right corner of an AIA 131 image, centered at the top-right quadrant, and
+            the natural scale of AIA.</b>
+        
+        <p>Since we want to center the image in the top-right corner, we need to figure out what arcsecond coordinates correspond to the pixel
+            coordinates (1024, -1024). At its native resolution, AIA images have an image scale of 0.6 arcseconds/pixel, so we multiple the pixel
+            coordinates by this ratio to get the corresponding arcsecond values.</p>
+
+           <br /><br />
+           <i>URL:</i><a href="http://helioviewer.org/api/?action=takeScreenshot&date=2011-07-07T00:00:00.000Z&layers=[SDO,AIA,AIA,131,1,100]&imageScale=0.6&x0=614.4&y0=-614.4&width=1024&height=768&display=true">
+               http://helioviewer.org/api/?action=takeScreenshot&date=2011-07-07T00:00:00.000Z&layers=[SDO,AIA,AIA,131,1,100]&imageScale=0.6&x0=614.4&y0=-614.4&width=1024&height=768&display=true
+           </a>
+        </div>
+        
+        <h3 id="#ImageScale">Image Scale</h3>
+            <p>When working with coordinates in Helioviewer.org, it is also important to understand the spatial scale
+               of the images you are viewing and requesting. Each type of image (AIA, LASCO, etc) shows the Sun at
+               some spatial scale or resolution. That is, each image pixel represents a certain number of arcseconds, 
+               and that ratio of arcseconds to pixels is refered to as the "image scale" for that image. Each of the
+               different image types have their own native image scale, which is the number of arcseconds a pixel of
+               the image represents when viewed at its native resolution.
+               
+               Below is a table listing the average native image scales and dimensions (in pixels) for images found on Helioviewer:
+            </p>
+               
+            <div id="ImageScaleTable" class="summary-box" style="background-color: #E3EFFF;">
+            <br />
+            <table class="param-list" cellspacing="10">
+                <tbody valign="top">
+                    <tr>
+                        <td width="40%"><strong>Image Type:</strong></td>
+                        <td width="35%"><strong>Dimensions (pixels)</strong></td>
+                        <td width="35%"><strong>Image Scale (arcseconds/pixel)</strong></td>
+                    </tr>
+                    <tr>
+                        <td>AIA</td>
+                        <td>4096 x 4096</td>
+                        <td>0.6</td>
+                    </tr>
+                    <tr>
+                        <td>COR-1</td>
+                        <td>512 x 512</td>
+                        <td>15.0</td>
+                    </tr>
+                    <tr>
+                        <td>COR-2</td>
+                        <td>2048 x 2048</td>
+                        <td>14.7</td>
+                    </tr>
+                    <tr>
+                        <td>EIT</td>
+                        <td>1024 x 1024</td>
+                        <td>2.63</td>
+                    </tr>
+                    <tr>
+                        <td>HMI</td>
+                        <td>4096 x 4096</td>
+                        <td>0.6</td>
+                    </tr>
+                    <tr>
+                        <td>LASCO C2</td>
+                        <td>1024 x 1024</td>
+                        <td>11.9</td>
+                    </tr>
+                    <tr>
+                        <td>LASCO C3</td>
+                        <td>1024 x 1024</td>
+                        <td>56</td>
+                    </tr>
+                    <tr>
+                        <td>MDI</td>
+                        <td>1024 x 1024</td>
+                        <td>1.985707</td>
+                    </tr>
+                </tbody>
+            </table>
+    
+            <br />
+            <strong>Note:</strong> The values listed above are average values. Often, the image scale and dimensions for a given
+            type of image tends to stay the same over time, and as such you can often use the above values as-is. Occasionally, however,
+            the scale or dimensions will vary. If you find that you are getting unexpected results, or would like a higher level of
+            precision, you should first use the getClosestImage method to determine the exact dimensions and scale for the image you are
+            requesting.
+            </div>
+    
+            <p>The smaller the (native) image scale is, the more detail you can see. 
+               For example, AIA has a much smaller native image scale (0.6"/px) than
+               EIT does (2.63"/px) which is why you can see a lot more detail in AIA
+               images.
+            </p>
+               
+            <p>You are not limited to creating screenshots and movies at an image's native
+               resolution, however, and so in an API request the imageScale specified
+               need not (and in the case of composite images, often cannot) be the same
+               as an images native resolution.
+            </p>
+               
+            <p>For example, suppose you wanted to request an AIA image that is "zoomed out"
+               by a factor of two. In this case, you would double the imageScale, so instead
+               of 0.6, you would request an image scale of 1.2. Simiarly, when making a request
+               which includes multiple layers, each of the layers will be scaled to match the
+               imageScale you requested.
+            </p>
         </div>
         </li>
 
@@ -611,7 +859,7 @@ function printHTMLErrorMsg($msg)
 <body>
     <div style='width: 50%; margin-left: auto; margin-right: auto; margin-top: 250px;
                 text-align: center; font-size: 14px;'>
-    <img src='resources/images/about.png' alt='Helioviewer logo'></img><br>
+    <img src='<?php echo HV_API_LOGO; ?>' alt='Helioviewer logo'></img><br>
     <b>Error:</b> <?php echo $msg;?><br>
     </div>
 </body>
@@ -687,6 +935,4 @@ function shutDownFunction() {
         handleError(sprintf("%s:%d - %s", $error['file'], $error['line'], $error['message']));
     } 
 }
-
-
 ?>

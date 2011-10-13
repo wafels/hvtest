@@ -10,7 +10,7 @@
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
 bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
-/*global LayerManager, TileLayer, Layer, $ */
+/*global Helioviewer, LayerManager, TileLayer, Layer, $ */
 "use strict";
 var TileLayerManager = LayerManager.extend(
 /** @lends TileLayerManager.prototype */
@@ -47,7 +47,7 @@ var TileLayerManager = LayerManager.extend(
      */
     save: function () {
         var layers = this.toJSON();
-        $(document).trigger("save-setting", [ "tileLayers", layers ]);
+        Helioviewer.userSettings.set("state.tileLayers", layers);
     },
     
     /**
@@ -102,11 +102,22 @@ var TileLayerManager = LayerManager.extend(
      * layers are currently loaded
      */
     /**
-     * @description Sets the opacity for the layer, taking into account
-     *              layers which overlap one another.
+     * Sets the opacity for the layer, taking into account layers which overlap 
+     * one another.
+     * 
+     * @param layeringOrder int  The layer's stacking order
+     * @param layerExists   bool Whether or not the layer already exists
      */
-    _computeLayerStartingOpacity: function (layeringOrder) {
-        var counter = 1;
+    _computeLayerStartingOpacity: function (layeringOrder, layerExists) {
+        var counter;
+
+        // If the layer has not been added yet, start counter at 1 instead of 0
+        if (layerExists) {
+            counter = 0;    
+        } else {
+            counter = 1;
+        }
+        
 
         $.each(this._layers, function () {
             if (this.layeringOrder === layeringOrder) {

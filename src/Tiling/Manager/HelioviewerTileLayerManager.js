@@ -10,7 +10,7 @@
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
 bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
-/*global HelioviewerTileLayer, TileLayerManager, parseLayerString, $ */
+/*global Helioviewer, HelioviewerTileLayer, TileLayerManager, parseLayerString, $ */
 "use strict";
 var HelioviewerTileLayerManager = TileLayerManager.extend(
 /** @lends HelioviewerTileLayerManager.prototype */
@@ -24,11 +24,31 @@ var HelioviewerTileLayerManager = TileLayerManager.extend(
         this._super(api, observationDate, dataSources, tileSize, viewportScale, maxTileLayers,
 		            servers, startingLayers, urlLayers);
 
-        this._queue = [ "SDO,AIA,AIA,304", "SOHO,LASCO,C2,white-light", "SOHO,LASCO,C3,white-light", 
-                        "SOHO,MDI,MDI,magnetogram", "SOHO,MDI,MDI,continuum", "SDO,AIA,AIA,171",
-                        "SOHO,EIT,EIT,171", "SOHO,EIT,EIT,284", "SOHO,EIT,EIT,195" ];
+        // The order in which new layers are added
+        this._queue = [ "SDO,AIA,AIA,304", "SOHO,LASCO,C2,white-light", 
+                        "SOHO,LASCO,C3,white-light", "SOHO,MDI,MDI,magnetogram",
+                        "SOHO,MDI,MDI,continuum" ];
+                        
+        // Handle STEREO separately
+        this._stereoAQueue = [ "STEREO_A,SECCHI,EUVI,304", 
+                              "STEREO_A,SECCHI,COR1,white-light", 
+                              "STEREO_A,SECCHI,COR2,white-light", 
+                              "STEREO_A,SECCHI,EUVI,171",
+                              "STEREO_A,SECCHI,EUVI,195" ];
+                              
+        this._stereoBQueue = [ "STEREO_B,SECCHI,EUVI,304", 
+                              "STEREO_B,SECCHI,COR1,white-light", 
+                              "STEREO_B,SECCHI,COR2,white-light", 
+                              "STEREO_B,SECCHI,EUVI,171",
+                              "STEREO_B,SECCHI,EUVI,195" ];
 
         this._loadStartingLayers(startingLayers);
+        
+        this._layersLoaded = 0;
+        this._finishedLoading = false;
+        
+        $(document).bind("viewport-max-dimensions-updated", $.proxy(this._onViewportUpdated, this))
+                   .bind('tile-layer-data-source-changed', $.proxy(this._updateDataSource, this));
     },
 
     /**
@@ -53,12 +73,30 @@ var HelioviewerTileLayerManager = TileLayerManager.extend(
         $.each(this._layers, function () {
             currentLayers.push(this.image.getLayerName());
         });
-
-        // remove existing layers from queue
-        queue = $.grep(this._queue, function (item, i) {
-            return ($.inArray(item, currentLayers) === -1);
-        });
         
+        // Remove existing layers from queue
+        if (!!currentLayers.length) {
+            // STEREO A
+            if (currentLayers[0].substr(0, 8) === "STEREO_A") {
+                queue = $.grep(this._stereoAQueue, function (item, i) {
+                    return ($.inArray(item, currentLayers) === -1);
+                });                
+            } else if (currentLayers[0].substr(0, 8) === "STEREO_B") {
+                // STEREO B
+                queue = $.grep(this._stereoBQueue, function (item, i) {
+                    return ($.inArray(item, currentLayers) === -1);
+                });    
+            } else {
+                // SOHO, SDO, etc
+                queue = $.grep(this._queue, function (item, i) {
+                    return ($.inArray(item, currentLayers) === -1);
+                });
+            }
+        } else {
+            queue = this._queue.slice(); // make a copy
+        }
+        
+        // Select tiling server
         server = this._selectTilingServer();
 
         // Pull off the next layer on the queue
@@ -77,7 +115,7 @@ var HelioviewerTileLayerManager = TileLayerManager.extend(
         ds = this.dataSources[params.observatory][params.instrument][params.detector][params.measurement];
         $.extend(params, ds);
 
-        opacity = this._computeLayerStartingOpacity(params.layeringOrder);
+        opacity = this._computeLayerStartingOpacity(params.layeringOrder, false);
 
         // Add the layer
         this.addLayer(
@@ -112,10 +150,57 @@ var HelioviewerTileLayerManager = TileLayerManager.extend(
     },
     
     /**
+     * Checks to see if all of the layers have finished loading for the first time,
+     * and if so, loads centering information from previous session
+     */
+    _onViewportUpdated: function () {
+        var numLayers = Helioviewer.userSettings.get("state.tileLayers").length;
+        this._layersLoaded += 1;
+        
+        if (!this._finishedLoading && this._layersLoaded === numLayers) {
+            $(document).trigger("load-saved-roi-position");
+        }
+    },
+    
+    /**
      * Selects a server to handle all tiling and image requests for a given layer
      */
     _selectTilingServer: function () {
         return Math.floor(Math.random() * (this.servers.length));
+    },
+    
+    /**
+     * Updates the data source for a tile layer after the user changes one
+     * of its properties (e.g. observatory or instrument)
+     */
+    /**
+     * Changes data source and fetches image for new source
+     */
+    _updateDataSource: function (
+        event, id, observatory, instrument, detector, measurement, sourceId, name, layeringOrder
+    ) {
+        var opacity, layer;
+        
+        // Find layer that is being acted on
+        $.each(this._layers, function () {
+            if (this.id === id) {
+                layer = this; 
+            }
+        });
+
+        // Update name
+        layer.name = name;
+        
+        // Update layering order and z-index
+        layer.layeringOrder = layeringOrder;
+        layer.domNode.css("z-index", parseInt(layeringOrder, 10) - 10);
+        
+        // Update associated JPEG 2000 image
+        layer.image.updateDataSource(observatory, instrument, detector, measurement, sourceId);
+        
+        // Update opacity (also triggers save-tile-layers event)
+        opacity = this._computeLayerStartingOpacity(layeringOrder, true);
+        $("#opacity-slider-track-" + id).slider("value", opacity);
     },
 
     /**

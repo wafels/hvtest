@@ -53,23 +53,6 @@ var HelioviewerTileLayer = TileLayer.extend(
     },
     
     /**
-     * Changes data source and fetches image for new source
-     */
-    updateDataSource: function (
-        event, id, observatory, instrument, detector, measurement, sourceId, name, layeringOrder
-    ) {
-        if (this.id === id) {
-            this.name = name;
-        
-            this.layeringOrder = layeringOrder;
-            this.domNode.css("z-index", parseInt(this.layeringOrder, 10) - 10);
-        
-            this.image.updateDataSource(observatory, instrument, detector, measurement, sourceId);
-            $(document).trigger("save-tile-layers");
-        }
-    },
-    
-    /**
      * onLoadImage
      */
     onLoadImage: function () {
@@ -81,50 +64,23 @@ var HelioviewerTileLayer = TileLayer.extend(
             this.tileLoader.reloadTiles(false);
 
             // Update viewport sandbox if necessary
-
             $(document).trigger("tile-layer-finished-loading", [this.getDimensions()]);
         }
         $(document).trigger("update-tile-layer-accordion-entry", 
                             [this.id, this.name, this.opacity, new Date(getUTCTimestamp(this.image.date)), 
-                                this.image.filepath, this.image.filename, this.image.server]);
+                                this.image.id, this.image.server]);
     },
     
     /**
-     * @description Returns a formatted string representing a query for a single tile
-     * 
-     * TODO 02/25/2010: What would be performance loss from re-fetching meta information on server-side?
+     * Returns a formatted string representing a query for a single tile
      */
     getTileURL: function (x, y) {
-        var file, format, coordinates, params;
-
-        file   = this.image.filepath + "/" + this.image.filename;
-        format = (this.layeringOrder === 1 ? "jpg" : "png");
-
-        coordinates = tileCoordinatesToArcseconds(
-            x, y, this.viewportScale, this.image.scale, this.tileSize, this.image.offsetX, 
-            this.image.offsetY
-        );
-        
-        params = {
+        var params = {
             "action"      : "getTile",
-            "uri"         : file,
-            "x1"          : coordinates.x1,
-            "x2"          : coordinates.x2,
-            "y1"          : coordinates.y1,
-            "y2"          : coordinates.y2,
-            "format"      : format,
-            "date"        : this.image.date,
+            "id"          : this.image.id,
             "imageScale"  : this.viewportScale,
-            "size"        : this.tileSize,
-            "jp2Width"    : this.image.width,
-            "jp2Height"   : this.image.height,
-            "jp2Scale"    : this.image.scale,
-            "observatory" : this.image.observatory,
-            "instrument"  : this.image.instrument,
-            "detector"    : this.image.detector,
-            "measurement" : this.image.measurement,
-            "offsetX"     : this.image.offsetX,
-            "offsetY"     : this.image.offsetY                        
+            "x"           : x,
+            "y"           : y
         };
 
         return this.baseURL + "?" + $.param(params);
@@ -188,7 +144,6 @@ var HelioviewerTileLayer = TileLayer.extend(
      */
     _setupEventHandlers: function () {
         $(this.domNode).bind('get-tile', $.proxy(this.getTile, this));
-        $(document).bind('toggle-layer-visibility',        $.proxy(this.toggleVisibility, this))
-                   .bind('tile-layer-data-source-changed', $.proxy(this.updateDataSource, this));
+        $(document).bind('toggle-layer-visibility',        $.proxy(this.toggleVisibility, this));
     }
 });

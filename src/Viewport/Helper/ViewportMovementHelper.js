@@ -20,16 +20,30 @@ var ViewportMovementHelper = Class.extend(
     
     /**
      * @constructs
-     * @description Creates a new ViewportMovementHelper
+     * Creates a new ViewportMovementHelper
+     * 
+     * @param centerX Horizontal offset from center in pixels
+     * @param centerY Vertical offset from center in pixels
      */
-    init: function (domNode, mouseCoords) {
+    init: function (domNode, mouseCoords, offsetX, offsetY) {
         this.domNode         = $(domNode);
         this.sandbox         = $("#sandbox");
         this.movingContainer = $("#moving-container");
         this.mouseCoords     = mouseCoords;
 
+        // Initialize sandbox
         var center = this._getCenter();
         this.sandboxHelper = new SandboxHelper(center.x, center.y);
+        
+        // Load previous offset
+        //this.movingContainer.css({"left": offsetX, "top": offsetY});
+        
+        // Determine URL to grabbing cursor
+        if ($.browser.msie) {
+            this._cursorCSS = "url('resources/cursors/grabbing.cur'), move";
+        } else {
+            this._cursorCSS = 'move';
+        }
     },
     
     /**
@@ -44,7 +58,7 @@ var ViewportMovementHelper = Class.extend(
      * @param {Event} event an Event object
      */
     mouseDown: function (event) {
-        this.domNode.css("cursor", "all-scroll");
+        this.domNode.css("cursor", this._cursorCSS);
     
         // Don't do anything if entire image is already visible
         if ((this.sandbox.width() === 0) && (this.sandbox.height() === 0)) {
@@ -64,7 +78,7 @@ var ViewportMovementHelper = Class.extend(
      * @param {Event} event Event object
      */    
     mouseUp: function (event) {
-        this.domNode.css("cursor", "pointer");
+        this.domNode.css("cursor", "");
         if (this.isMoving) {
             this._endMoving();
         }
@@ -155,16 +169,30 @@ var ViewportMovementHelper = Class.extend(
      * @returns {Object} The coordinates for the top-left and bottom-right corners of the viewport
      */
     getViewportCoords: function () {
-        var sb, mc;
+        var sb, mc, left, top, vpWidth, vpHeight;
         
         sb = this.sandbox.position();
         mc = this.movingContainer.position();
+        
+        left = -(sb.left + mc.left);
+        top  = -(sb.top + mc.top);
+        
+        // If dimension is an odd value, add one to ensure that (0, 0) is in center
+        vpWidth  = this.domNode.width();
+        vpHeight = this.domNode.height();
+        
+        if (vpWidth % 2 === 1) {
+            vpWidth += 1;
+        }
+        if (vpHeight % 2 === 1) {
+            vpHeight += 1;
+        }
 
         return {
-            left:  -(sb.left + mc.left),
-            top :  -(sb.top + mc.top),
-            right:  this.domNode.width()  - (sb.left + mc.left),
-            bottom: this.domNode.height() - (sb.top + mc.top)
+            left:  left,
+            top :  top,
+            right:  vpWidth  + left,
+            bottom: vpHeight + top
         };
     },
     
@@ -278,7 +306,7 @@ var ViewportMovementHelper = Class.extend(
 
         // Check throttle
         if (this.moveCounter === 0) {
-            $(document).trigger("update-viewport");
+            $(document).trigger("update-viewport", [true]);
         }
     },
     
@@ -297,7 +325,7 @@ var ViewportMovementHelper = Class.extend(
     _endMoving: function () {
         this.isMoving = false;
         this.mouseCoords.enable();
-        $(document).trigger("update-viewport");
+        $(document).trigger("update-viewport", [true]);
     },
     
     /**
@@ -309,8 +337,8 @@ var ViewportMovementHelper = Class.extend(
      */
     _getCenter: function () {
         return {
-            x: Math.round(this.domNode.width()  / 2),
-            y: Math.round(this.domNode.height() / 2)
+            x: this.domNode.width()  / 2,
+            y: this.domNode.height() / 2
         };
     },
     

@@ -8,25 +8,27 @@
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
 bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
-/*global $, window, Class */
+/*global $, Helioviewer, window, Class */
 "use strict";
 var TimeControls = Class.extend(
     /** @lends TimeControls.prototype */
     {
     /**
+     * Creates a new TimeControl component
+     * 
      * @constructs
-     * @description Creates a new TimeControl component
-     * @param {Int} initialDate        Timestamp of the initial date to use
-     * @param {Int}    increment       The initial amount of time to move forward or backwards, in seconds.
      * @param {String} dateId          The id of the date form field associated with the Time.
      * @param {String} timeId          The id of the time form field associated with the Time.
      * @param {String} incrementSelect The id of the HTML element for selecting the time increment
      * @param {String} backBtn         The id of the time "Back" button
      * @param {String} forwardBtn      The id of the time "Forward" button
      */
-    init : function (timestamp, increment, dateInput, timeInput, incrementSelect, backBtn, forwardBtn) {
-        this._date          = new Date(timestamp);
-        this._timeIncrement = increment;
+    init : function (dateInput, timeInput, incrementSelect, backBtn, forwardBtn, urlDate) {
+        if (typeof urlDate === "undefined") {
+            urlDate = false;
+        }
+        this._setInitialDate(urlDate);
+        this._timeIncrement = Helioviewer.userSettings.get("state.timeStep");
 
         this._dateInput       = $(dateInput);
         this._timeInput       = $(timeInput);
@@ -41,7 +43,9 @@ var TimeControls = Class.extend(
     },
 
     /**
-     * @description Returns the current observation date as a JavaScript Date object
+     * Returns the current observation date as a JavaScript Date object
+     * 
+     * @returns int Unix timestamp representing the current observation date in UTC
      */    
     getDate: function () {
         return new Date(this._date.getTime()); // return by value
@@ -62,42 +66,94 @@ var TimeControls = Class.extend(
     },
     
     /**
-     * @description returns the contents of the time input field
+     * Returns the contents of the time input field
      */
     getTimeField: function () {
         return this._timeInput.val();  
     },
     
     /**
-     * @description Returns the time increment currently displayed in Helioviewer.
+     * Returns the time increment currently displayed in Helioviewer.
      * @return {int} this._timeIncrement -- time increment in secons
      */
     getTimeIncrement: function () {
         return this._timeIncrement;
     },
     
+    /**
+     * Sets the observation date to that of the most recent available image for
+     * the currently loaded layers
+     * 
+     * @return void
+     */
     goToPresent: function () {
-        this.setDate(new Date());
+        var callback, layers, date, mostRecent = new Date(0, 0, 0), self = this;
+        
+        callback = function (dataSources) {
+            
+            // Let's cheat a bit
+            layers = [];
+            $(".tile-accordion-header-left").each(function () {
+                layers.push($(this).html());
+            });
+            
+            // Check each datasource
+            $.each(dataSources, function (observatory, instruments) {
+                $.each(instruments, function (inst, detectors) {
+                    $.each(detectors, function (det, measurements) {
+                        $.each(measurements, function (meas, properties) {
+                            // Ignore datasources that are not being used
+                            if ($.inArray(this.nickname, layers) === -1) {
+                                return true; //continue
+                            }
+                            // Find the date of the most recently available
+                            // image from the layers that are loaded
+                            date = Date.parseUTCDate(this.end);
+                            if (date > mostRecent) {
+                                mostRecent = date;
+                            }
+                        });
+                    });
+                });
+            });
+            self.setDate(mostRecent);
+        };
+        
+        $.get("api/index.php", {action: "getDataSources"}, callback, "json");
     },
     
     /**
-     * @description Sets the desired viewing date and time.
+     * Sets the desired viewing date and time.
+     * 
      * @param {Date} date A JavaScript Date object with the new time to use
      */
     setDate: function (date) {
         this._date = date;
         this._onDateChange();
     },
+    
+    /**
+     * Chooses the date to use when Helioviewer.org is first loaded
+     */
+    _setInitialDate: function (urlDate) {
+        if (urlDate) {
+            this._date = urlDate;
+        } else if (Helioviewer.userSettings.get("defaults.date") === "latest") {
+            this._date = new Date(+new Date());
+        } else {
+            this._date = Helioviewer.userSettings.get("state.date");
+        }
+    },
       
    /**
-    * @description Move back one time incremement
+    * Moves back one time incremement
     */
     timePrevious: function () {
         this._addSeconds(-this._timeIncrement);
     },
     
     /**
-     * @function Move forward one time increment
+     * Moves forward one time increment
      */
     timeNext: function () {
         this._addSeconds(this._timeIncrement);
@@ -178,7 +234,7 @@ var TimeControls = Class.extend(
             dateFormat     : 'yy/mm/dd',
             mandatory      : true,
             showOn         : 'button',
-            yearRange      : '1993:2010',
+            yearRange      : '1993:2013',
             onSelect       : function (dateStr) {
                 window.setTimeout(function () {
                     self._onTextFieldChange();
@@ -203,7 +259,7 @@ var TimeControls = Class.extend(
             });
         
         // Tooltips
-        $(document).trigger('create-tooltip', [btnId]);
+        btn.qtip();
     },
     
     /**
@@ -211,8 +267,8 @@ var TimeControls = Class.extend(
      */
     _onDateChange: function () {
         this._updateInputFields();
-        $(document).trigger("save-setting", ["date", this._date.getTime()])
-                   .trigger("observation-time-changed", [this._date]);
+        Helioviewer.userSettings.set("state.date", this._date.getTime());
+        $(document).trigger("observation-time-changed", [this._date]);
     },
     
     /**
@@ -232,13 +288,14 @@ var TimeControls = Class.extend(
     */
     _onTimeIncrementChange: function (e) {
         this._timeIncrement = parseInt(e.target.value, 10);
+        Helioviewer.userSettings.set("state.timeStep", this._timeIncrement);
     },
     
     /**
      * Returns a JavaScript Date object with the user's local timezone offset factored out
      */
     _timeFieldsToDateObj: function () {
-        return Date.parse(this.getDateField() + " " + this.getTimeField()).toUTCDate();
+        return Date.parseUTCDate(this.getDateField() + " " + this.getTimeField());
     },
     
     /**

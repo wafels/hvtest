@@ -48,6 +48,7 @@ class Image_JPEG2000_JP2ImageXMLBox
     public function getXMLBox ($root)
     {
         if (!file_exists($this->_file)) {
+        	// NOTE 02/02/2011: This error may also be thrown if web server cannot write to cache dir
             $msg = "Unable to access file. Do you have the proper permissions?";
             throw new Exception($msg);
         }
@@ -82,6 +83,49 @@ class Image_JPEG2000_JP2ImageXMLBox
     {
         header('Content-type: text/xml');
         echo $this->_xmlString;
+    }
+    
+    /**
+     * Returns the distance to the sun in meters
+     * 
+     * For images where dsun is not specified it can be determined using:
+     * 
+     *    dsun = (rsun_1au / rsun_image) * dsun_1au
+     */
+    public function getDSun()
+    {
+        try {
+            // AIA, EUVI, COR 
+            $dsun = $this->_getElementValue("DSUN_OBS");
+        } catch (Exception $e) {
+            try {
+                // EIT
+                $rsun = $this->_getElementValue("SOLAR_R");
+            } catch (Exception $e) {
+                try {
+                    // MDI
+                    $rsun = $this->_getElementValue("RADIUS");
+                } catch (Exception $e) {
+                }
+            }
+            if (isset($rsun)) {
+                $scale = $this->_getElementValue("CDELT1");
+                $dsun = (HV_CONSTANT_RSUN / ($rsun * $scale)) * HV_CONSTANT_AU;
+            }
+        }
+        
+        // HMI continuum images may have DSUN = 0.00
+        // LASCO/MDI may have rsun=0.00
+        if (!isset($dsun) || $dsun <= 0) {
+            $dsun = HV_CONSTANT_AU;
+        }
+        
+        // Check to make sure header information is valid
+        if ((filter_var($dsun, FILTER_VALIDATE_FLOAT) === false) || ($dsun <= 0)) {
+            throw new Exception("Invalid value for DSUN: $dsun");
+        }
+        
+        return $dsun;
     }
 
     /**

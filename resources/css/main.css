@@ -3,36 +3,77 @@
 */
 
 /* HTML ELEMENTS */
-html, body    {background: url(../../resources/images/backgrounds/gradient_v5-optimized.png); font-family: arial,helvetica,liberation sans,bitstream vera sans,freesans,clean,sans-serif;}
-button        {cursor:pointer}
-strong    	  {font-weight:bold;}
-input, select {background-color:#F4F4F4;}
+html, body {
+    background-image: url('../../resources/images/backgrounds/gradient_v5-optimized.png');
+    background-color: #20242F;
+    background-repeat: repeat-x;
+    /*background-size: 40px 100%;
+    -webkit-background-size: 40px 100%;*/
+    font-family: arial,helvetica,liberation sans,bitstream vera sans,freesans,clean,sans-serif;
+}
+button {
+    cursor:pointer
+}
+strong {
+    font-weight:bold;
+}
+#col2 input, #col2 select {background-color:#F4F4F4;}
+#left-col-header, #right-col-header {height: 50px; margin-top: -24px;}
 
-#left-col-header {height: 50px; margin-top: -24px;}
+/* Google Chrome Frame Installer */
+.chromeFrameOverlayContent  {border:1px solid #303030;}
+.chromeFrameOverlayUnderlay {background: #000; opacity: 0.5;}
 
-/** 03/14/2010: Temporary fix for datepicker. TODO: upgrade jQuery UI */
-#ui-datepicker-div {display:none;}
-
-/* Loading Indicator */
-#loading {position: absolute; right: 3px; padding: 3px; font-size: 12px; background-color:#858585; color: #F0F0F0;}
-
-/* Observation controls */
-#observation-controls {
-    padding: 2px 2px 8px 2px;
-    margin: 0px 5px 0px 5px;
-    border: 1px solid black;
-    color: white;
-    font-size: 0.95em;
+/* Text styles */
+a.dark {
+    text-decoration: none;
+    font-weight: bold;
+    color: #262424;
+    }
+a.dark:hover {
+    color: #d18f61;
+    }
+a.light {
+    cursor: pointer;
+    text-decoration: none;
+    font-weight: bold;
+    color: #E8E8E8;
+}
+a.light:hover {
+    color: #d18f61;
 }
 
-#observation-controls > div > input, #observation-controls > div > select {
-    border: 1px solid #5c5c5c;
+/** CSS effects */
+.shadow {
+box-shadow: 0 0 5px rgba(0, 0, 0, 1);
+    -webkit-box-shadow: 0 0 5px rgba(0, 0, 0, 1); 
+    -moz-box-shadow: 0 0 5px rgba(0, 0, 0, 1);
+}
+.glow {
+    box-shadow: 0 0 5px rgba(255, 255, 255, 1);
+    -webkit-box-shadow: 0 0 5px rgba(255, 255, 255, 1); 
+    -moz-box-shadow: 0 0 5px rgba(255, 255, 255, 1);
+}
+
+/* Logo */
+#helioviewer-logo-main {
+    margin-top:24px;
+    margin-left: 9px;
+}
+
+/* Loading Indicator */
+#loading {
+    position: absolute;
+    right: 7px;
+    padding: 7px;
+    font-size: 13px;
+    color: #606364;
 }
 
 /* Center button */
 #center-button {
     background: transparent url(../../resources/images/blackGlass/transparentBGWhite.png);
-    font-size: 0.8em;
+    font-size: 13.5px;
 	width:54px;
 	height:16px;
 	position: absolute;
@@ -51,7 +92,7 @@ input, select {background-color:#F4F4F4;}
     line-height: 1.0;
 }
 
-/* Coordinates */
+/* Mouse Coordinates */
 #mouse-coords {
 	background: transparent;
 	color: white;
@@ -69,14 +110,6 @@ input, select {background-color:#F4F4F4;}
     float: left;
 }
 
-/* Zoom controls */
-#zoomControls {
-    position: absolute;
-    left: 16px;
-    top:39px;
-    z-index:20;
-}
-
 /* Message Console */
 #message-console .message-console-link {
 	text-decoration: none;
@@ -89,45 +122,10 @@ input, select {background-color:#F4F4F4;}
 	color: #e03d76;
 }
 
-/* Calendar */
-#date {
-	width:80px;
-    vertical-align: top;
-	margin-right: 2px;
-    margin-top: 1px;
-}
-
-/* Movie Builder */
-img#movieBuilder {
-	position: relative;
-	cursor: pointer;
-	margin: 2px;
-	vertical-align: middle;
-	top: -4px;
-}
-
-a.dark {
-	text-decoration: none;
-	font-weight: bold;
-	color: #262424;
-	}
-a.dark:hover {
-    color: #d18f61;
-	}
-a.light {
+/* Text-icon buttons */
+div.text-btn, a.text-btn {
     cursor: pointer;
     text-decoration: none;
-    font-weight: bold;
-    color: #E8E8E8;
-}
-a.light:hover {
-    color: #d18f61;
-}
-
-/* Text+icon buttons */
-
-div.text-btn {
-    cursor: pointer;
     display: inline-block;
     float: left;
     color: white;
@@ -138,49 +136,12 @@ div.text-btn:hover {
     color: #d18f61;
 }
 
-span.ui-icon-hover {
+span.ui-icon-hover, div.ui-icon-hover {
     background-image: url(../../lib/jquery.ui-1.8/css/dot-luv-modified/images/ui-icons_d18f61_256x240.png) !important;
-}
-
-.italic {
-    font-style: italic;
 }
 
 .section-header {
 	font-weight: bold;
-}
-
-/* Shadowbox modifications */
-#sb-body, #sb-loading {
-	background: transparent url(../../resources/images/blackGlass/transparentBG50.png);
-    border-color: #262424;
-	border-radius: 10px;
-    -moz-border-radius: 10px;
-    -webkit-border-radius: 10px;
-}
-
-#sb-wrapper-inner {
-	 border-radius: 10px;
-    -moz-border-radius: 10px;
-    -webkit-border-radius: 10px;
-}
-
-/* Social & Movie buttons */
-#social-buttons {
-    background-color: #2A2A2A;
-    position: absolute;
-    right: 17px;
-    top:0px;
-    padding: 1px 0px 1px 8px;
-    border-top: 0px;
-    border-bottom: 1px solid #262424;
-    border-left: 1px solid #262424;
-    border-right: 0px;
-    font-size: 11px;
-    height: 15px;
-	border-bottom-left-radius: 20px;
-    -moz-border-radius-bottomleft: 20px;
-    -webkit-border-bottom-left-radius: 20px;
 }
 
 /** Meta links **/
@@ -201,7 +162,7 @@ span.ui-icon-hover {
 #footer-links {
     text-align: center;
     width: 25%;
-    min-width: 450px;
+    min-width: 585px;
     margin-left: auto;
     margin-right: auto;        
 }
@@ -217,27 +178,6 @@ span.ui-icon-hover {
     color: #d18f61;
 }
 
-/* URL dialog */
-#helioviewer-url-box {
-    padding: 10px;
-    color: white;
-}
-
-/* Email dialog */
-#helioviewer-url-box > form > label {
-    float:left;
-    display:block;
-}
-#helioviewer-url-box > form > input[type="text"] {
-    display:block;
-}
-
-#helioviewer-url-box > form > label
-{
-    margin-right: 5px;
-    width: 50px;
-}
-
 /* jGrowl */
 #message-console {
     position: absolute;
@@ -246,10 +186,104 @@ span.ui-icon-hover {
 }
 
 #message-console .jGrowl-notification, #message-console .jGrowl-closer {
-   background: Azure;
+   background: #CCD9D9;
    color: #262424;
 }
 
-/* Google Chrome Frame Installer */
-.chromeFrameOverlayContent  {border:1px solid #303030;}
-.chromeFrameOverlayUnderlay {background: #000; opacity: 0.5;}
+#message-console .jGrowl-message a {
+    text-decoration: none;
+    color: #262424;
+}
+
+/* Social & Movie buttons */
+#social-buttons {
+    background-color: #2A2A2A;
+    position: absolute;
+    right: 17px;
+    top:0px;
+    padding: 1px 0px 1px 8px;
+    border-top: 0px;
+    border-bottom: 1px solid #262424;
+    border-left: 1px solid #262424;
+    border-right: 0px;
+    font-size: 11px;
+    height: 15px;
+    border-bottom-left-radius: 20px;
+    -moz-border-radius-bottomleft: 20px;
+    -webkit-border-bottom-left-radius: 20px;
+}
+
+/* Blog entries */
+#social-panel {
+    height: 100%;
+    min-height: 150px;
+    font-size: 11px;
+    padding: 4px 2px 6px;
+    margin: 0 5px;
+}
+
+#social-panel .blog-entry {
+    margin: 4px 4px 14px 4px;
+}
+
+#social-panel .blog-entry a {
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+}
+#social-panel .blog-entry a:hover {
+    color: #D18F16;
+}
+
+#social-panel .article-date {
+    font-style: italic;
+}
+
+#more-articles {
+    text-align: right;
+}
+
+#more-articles a {
+   text-decoration: none;
+}
+
+#more-articles a:hover {
+    color: #D18F16;
+}
+
+/* Image Area Select */
+#image-area-select-buttons {
+    position: absolute;
+    top:0px;
+    right:0px;
+    width: 150px;
+    background: #2A2A2A;
+    font-size: 13px;
+    padding: 8px;
+    -moz-border-radius: 0 0 0px 5px;
+    -webkit-border-radius: 0 0 0px 5px;
+    color: white;
+    z-index: 10;
+    display: none;
+}
+
+#image-area-select-container {
+    position: relative;
+    cursor: crosshair;
+    z-index: 5;
+    width:100%;
+    height:100%;
+    display: none;
+}
+
+#image-area-select-buttons .ui-icon {
+    float: left;
+}
+
+/** Debugging */
+#debug-dimensions {
+    position: absolute;
+    bottom: 2px;
+    right: 5px;
+    color: white;
+}

@@ -12,7 +12,7 @@
  * @license  http://www.mozilla.org/MPL/MPL-1.1.html Mozilla Public License 1.1
  * @link     http://launchpad.net/helioviewer.org
  */
-require_once HV_ROOT_DIR . '/api/src/Image/SubFieldImage.php';
+require_once 'src/Image/HelioviewerImage.php';
 /**
  * Image_ImageType_BlankImage class definition
  * There is one xxxImage for each type of detector Helioviewer supports.
@@ -29,43 +29,22 @@ require_once HV_ROOT_DIR . '/api/src/Image/SubFieldImage.php';
  */
 class Image_ImageType_BlankImage extends Image_SubFieldImage
 {
-    private   $_measurement;
-    protected $tileSize;
-    protected $width;
-    protected $height;
-    
     /**
-     * Constructor
+     * Creates a new blank image
      * 
-     * @param int    $width        Desired width of the image
-     * @param int    $height       Desired height of the image
-     * @param string $jp2          Source JP2 image
-     * @param array  $roi          Top-left and bottom-right pixel coordinates on the image
-     * @param float  $desiredScale Desired scale of the output image
-     * @param string $detector     Detector
-     * @param string $measurement  Measurement
-     * @param int    $offsetX      Offset of the sun center from the image center
-     * @param int    $offsetY      Offset of the sun center from the image center
-     * @param string $outputFile   Filepath to where the final image will be stored
-     * @param int    $opacity      The opacity of the image from 0 to 100
-     * @param bool   $compress     Whether to compress the image after extracting or not (true for tiles)
+     * @param string $jp2      Source JP2 image
+     * @param string $filepath Location to output the file to
+     * @param array  $roi      Top-left and bottom-right pixel coordinates on the image
+     * @param string $inst     Instrument
+     * @param string $det      Detector
+     * @param string $meas     Measurement
+     * @param int    $offsetX  Offset of the sun center from the image center
+     * @param int    $offsetY  Offset of the sun center from the iamge center
+     * @param array  $options  Optional parameters
      */     
-    public function __construct(
-        $width, $height, $jp2, $roi, $desiredScale, $detector, $measurement, $offsetX, $offsetY, $outputFile, 
-        $opacity, $compress
-    ) {
-        $this->_measurement = $measurement;
-
-        $defaultRoi = array(
-            'left'   => 0,
-            'right'  => 512,
-            'top'    => 0,
-            'bottom' => 512
-        );
-        parent::__construct($jp2, $roi, $desiredScale, $outputFile, $offsetX, $offsetY, $opacity, $compress);
-
-        $this->width 	= $width;
-        $this->height 	= $height;
+    public function __construct($jp2, $filepath, $roi, $obs, $inst, $det, $meas, $offsetX, $offsetY, $options)
+    {
+        parent::__construct($jp2, $filepath, $roi, $obs, $inst, $det, $meas, $offsetX, $offsetY, $options);
     }
     
     /**
@@ -81,15 +60,14 @@ class Image_ImageType_BlankImage extends Image_SubFieldImage
     /**
      * Overrides SubFieldImage's computePadding() method to avoid unnecessary computation.
      * 
-     * @param Array $roi   -- Region of interest
-     * @param Float $scale -- Image Scale
-     * 
+     * @param Array $roi Region of interest
+     *
      * @return Array
      */
-    public function computePadding($roi, $scale) 
+    public function computePadding($roi) 
     {
-        $width  = ($roi['right']  - $roi['left']) / $scale;
-        $height = ($roi['bottom'] - $roi['top'])  / $scale;
+        $width  = $roi->getWidth()  / $roi->imageScale();
+        $height = $roi->getHeight() / $roi->imageScale();
         
         return array(
            "gravity" => "northwest",

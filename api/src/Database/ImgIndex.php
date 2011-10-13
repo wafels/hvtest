@@ -36,6 +36,147 @@ class Database_ImgIndex
         include_once 'DbConnection.php';
         $this->_dbConnection = new Database_DbConnection();
     }
+    
+    /**
+     * Adds a new screenshot entry to the database and returns its identifier
+     * 
+     * @return int identifier for the screenshot
+     */
+    public function insertScreenshot($date, $scale, $roi, $watermark, $layers, $bitmask)
+    {
+    	include_once 'src/Helper/DateTimeConversions.php';
+    	
+        // Add to screenshots table and get an id
+        $sql = sprintf("INSERT INTO screenshots VALUES(NULL, NULL, '%s', %f, PolygonFromText('%s'), %b, '%s', %d);", 
+            isoDateToMySQL($date),
+            $scale,
+            $roi,
+            $watermark,
+            $layers,
+            bindec($bitmask)
+        );
+        
+        $this->_dbConnection->query($sql);
+        
+        return $this->_dbConnection->getInsertId();
+    }
+    
+    /**
+     * Returns a single movie entry
+     * 
+     * @return string The movie information
+     */
+    public function getMovieInformation($id, $format)
+    {
+        // FLV status is same as MP4
+        if ($format == "flv") {
+            $format = "mp4";
+        }
+
+        $sql = "SELECT *, AsText(regionOfInterest) as roi FROM movies " .
+               "LEFT JOIN movieFormats ON movies.id = movieFormats.movieId " . 
+               "WHERE movies.id=$id AND movieFormats.format='$format'";
+        return mysqli_fetch_array($this->_dbConnection->query($sql), MYSQL_ASSOC);
+    }
+    
+    public function getNumUnfinishedMovies($id)
+    {
+        $sql = "SELECT COUNT(*) FROM movieFormats WHERE movieId=$id AND status!='FINISHED'";
+        $row = mysqli_fetch_array($this->_dbConnection->query($sql));
+        return (int) array_pop($row);
+    }
+    
+    /**
+     * Updates movie entry with new information
+     * 
+     * @return void
+     */
+    public function storeMovieProperties($id, $startDate, $endDate, $numFrames, $frameRate, $width, $height)
+    {
+        // Update movies table
+    	$sql = sprintf(
+    	   "UPDATE movies 
+    	     SET startDate='%s', endDate='%s', numFrames=%f, frameRate=%f, width=%d, height=%d
+    	     WHERE id=%d",
+    	   $startDate, $endDate, $numFrames, $frameRate, $width, $height, $id
+    	);
+    	$this->_dbConnection->query($sql);
+    }
+    
+    /**
+     * 
+     */
+    public function finishedBuildingMovieFrames($id, $procTime)
+    {
+        $this->_dbConnection->query("UPDATE movies SET procTime=$procTime WHERE id=$id");
+    }
+    
+    /**
+     * Updates movie entry and marks it as "processing"
+     * 
+     * @param $id       int     Movie identifier
+     * @param $format   string  Format being processed
+     * 
+     * @return void
+     */
+    public function markMovieAsProcessing($id, $format)
+    {
+        $sql = "UPDATE movieFormats SET status='PROCESSING' WHERE movieId=$id AND format='$format'";
+        $this->_dbConnection->query($sql);
+    }
+    
+    /**
+     * Updates movie entry and marks it as being "finished"
+     * 
+     * @param $id       int     Movie identifier
+     * @param $format   string  Format being processed
+     * @param $procTime int     Number of seconds it took to encode the movie
+     */
+    public function markMovieAsFinished($id, $format, $procTime)
+    {
+        $sql = "UPDATE movieFormats SET status='FINISHED', procTime=$procTime " . 
+               "WHERE movieId=$id AND format='$format'";
+    	$this->_dbConnection->query($sql);
+    }
+    
+    /**
+     * Updates movie entry and marks it as being "finished"
+     */
+    public function markMovieAsInvalid($id)
+    {
+        $this->_dbConnection->query("UPDATE movieFormats SET status='ERROR', procTime=NULL WHERE movieId=$id");
+    }
+    
+    /**
+     * Returns the information associated with the screenshot with the specified id
+     * 
+     * @param $id
+     */
+    public function getScreenshot($id)
+    {
+    	$sql = "SELECT * FROM screenshots WHERE id=$id";
+    	return mysqli_fetch_array($this->_dbConnection->query($sql), MYSQL_ASSOC);
+    }
+
+    /**
+     * Takes an image filepath and returns some useful image information
+     */
+    public function getImageInformation($id) {
+        $sql = "SELECT * FROM images WHERE id=$id;";
+        
+        // Basic image info
+        $image = mysqli_fetch_array($this->_dbConnection->query($sql), MYSQL_ASSOC);
+        $image['sourceId'] = (int) $image['sourceId'];
+        
+        // Image header
+        $file = HV_JP2_DIR . $image["filepath"] . "/" .$image["filename"];
+        $xmlBox = $this->extractJP2MetaInfo($file);
+        
+        // Datasource info
+        $datasource = $this->getDatasourceInformationFromSourceId($image['sourceId']);
+        
+        return array_merge($image, $xmlBox, $datasource);
+    }
 
     /**
      * Finds the closest available image to the requested one, and returns information from
@@ -69,26 +210,30 @@ class Database_ImgIndex
 
         $datestr = isoDateToMySQL($date);
 
-        $sql = sprintf("
-            ( SELECT filepath, filename, date 
+        $sql = sprintf(
+            "( SELECT id, filepath, filename, date 
               FROM images 
               WHERE
                 sourceId = %d AND 
                 date < '%s'
               ORDER BY date DESC LIMIT 1 )
             UNION ALL
-            ( SELECT filepath, filename, date
+            ( SELECT id, filepath, filename, date
               FROM images
               WHERE
                 sourceId = %d AND
                 date >= '%s'
               ORDER BY date ASC LIMIT 1 )
-            ORDER BY ABS(DATEDIFF(date, '%s')
-            ) LIMIT 1;
-        ", $sourceId, $datestr, $sourceId, $datestr, $datestr);
+            ORDER BY ABS(TIMESTAMPDIFF(MICROSECOND, date, '%s')
+            ) LIMIT 1;",
+            $sourceId, $datestr, $sourceId, $datestr, $datestr
+        );
         
         // Query database
         $result = mysqli_fetch_array($this->_dbConnection->query($sql), MYSQL_ASSOC);
+        
+        // Cast id to integer
+        $result['id'] = (int) $result['id'];
 
         // Make sure match was found
         if (is_null($result)) {
@@ -181,8 +326,9 @@ class Database_ImgIndex
         include_once HV_ROOT_DIR . '/api/src/Helper/DateTimeConversions.php';
         $startDate = isoDateToMySQL($start);
         $endDate   = isoDateToMySQL($end);
-
+        
         $sql = "SELECT COUNT(*) FROM images WHERE sourceId=$sourceId AND date BETWEEN '$startDate' AND '$endDate'";
+        
         $result = mysqli_fetch_array($this->_dbConnection->query($sql));
         return (int) $result[0];
     }
@@ -230,13 +376,18 @@ class Database_ImgIndex
 
             $dimensions = $xmlBox->getImageDimensions();
             $center     = $xmlBox->getSunCenter();
+            $imageScale = (float) $xmlBox->getImagePlateScale();
+            $dsun       = (float) $xmlBox->getDSun();
+            
+            // Normalize image scale
+            $imageScale = $imageScale * ($dsun / HV_CONSTANT_AU);
 
             $meta = array(
-                "scale"      => (float) $xmlBox->getImagePlateScale(),
+                "scale"      => $imageScale,
                 "width"      => (int) $dimensions[0],
                 "height"     => (int) $dimensions[1],
                 "sunCenterX" => (float) $center[0],
-                "sunCenterY" => (float) $center[1],
+                "sunCenterY" => (float) $center[1]
             );
         } catch (Exception $e) {
             throw new Exception(sprintf("Unable to process XML Header for %s: %s", $img, $e->getMessage()));
@@ -264,6 +415,7 @@ class Database_ImgIndex
                 instruments.name AS instrument,
                 detectors.name AS detector,
                 measurements.name AS measurement,
+                datasources.name AS name,
                 datasources.layeringOrder AS layeringOrder
             FROM datasources
                 LEFT JOIN observatories ON datasources.observatoryId = observatories.id
@@ -274,10 +426,50 @@ class Database_ImgIndex
                 datasources.id='%s'",
             mysqli_real_escape_string($this->_dbConnection->link, $id)
         );
+
         $result = $this->_dbConnection->query($sql);
         $result_array = mysqli_fetch_array($result, MYSQL_ASSOC);
 
         return $result_array;		
+    }
+
+    /**
+     * Returns the source Id, name, and layering order associated with a data source specified by 
+     * it's observatory, instrument, detector and measurement.
+     * 
+     * @param string $obs  Observatory
+     * @param string $inst Instrument
+     * @param string $det  Detector
+     * @param string $meas Measurement
+     * 
+     * @return array Datasource id and layering order
+     */
+    public function getDatasourceInformationFromNames($obs, $inst, $det, $meas)
+    {
+        $sql = sprintf(
+            "SELECT
+                datasources.id AS id,
+                datasources.name AS name,
+                datasources.layeringOrder AS layeringOrder
+            FROM datasources
+                LEFT JOIN observatories ON datasources.observatoryId = observatories.id
+                LEFT JOIN instruments ON datasources.instrumentId = instruments.id
+                LEFT JOIN detectors ON datasources.detectorId = detectors.id
+                LEFT JOIN measurements ON datasources.measurementId = measurements.id
+            WHERE
+                observatories.name='%s' AND
+                instruments.name='%s' AND
+                detectors.name='%s' AND
+                measurements.name='%s';",
+            mysqli_real_escape_string($this->_dbConnection->link, $obs),
+            mysqli_real_escape_string($this->_dbConnection->link, $inst),
+            mysqli_real_escape_string($this->_dbConnection->link, $det),
+            mysqli_real_escape_string($this->_dbConnection->link, $meas)
+        );
+        $result = $this->_dbConnection->query($sql);
+        $result_array = mysqli_fetch_array($result, MYSQL_ASSOC);
+
+        return $result_array;
     }
     
     /**
@@ -315,6 +507,50 @@ class Database_ImgIndex
 
         return (int) ($result_array["id"]);
     }
+    
+    /**
+     * Returns the oldest image for a given datasource
+     */
+    public function getOldestImage($sourceId)
+    {
+    	$sql = "SELECT date FROM images WHERE sourceId=$sourceId ORDER BY date ASC LIMIT 1";
+    	$result = mysqli_fetch_array($this->_dbConnection->query($sql), MYSQL_ASSOC);    	
+    	return $result['date'];
+    }
+    
+    /**
+     * Returns the newest image for a given datasource
+     */
+    public function getNewestImage($sourceId)
+    {
+        $sql = "SELECT date FROM images WHERE sourceId=$sourceId ORDER BY date DESC LIMIT 1";
+        $result = mysqli_fetch_array($this->_dbConnection->query($sql), MYSQL_ASSOC);        
+        return $result['date'];
+    }
+    
+    /**
+     * Returns a list of datasources sorted by instrument
+     * 
+     * @return array A list of datasources sorted by instrument
+     */
+    public function getDataSourcesByInstrument ()
+    {
+        // 2011/05/24: Hiding TRACE for now
+        $result = $this->_dbConnection->query("SELECT * FROM instruments WHERE name != 'TRACE' ORDER BY name");
+        
+        $instruments = array();
+
+        while($instrument = mysqli_fetch_assoc($result)) {
+            $instruments[$instrument['name']] = array();
+            $sql = sprintf("SELECT * FROM datasources WHERE instrumentId=%d ORDER BY name", $instrument['id']);
+            $datasources = $this->_dbConnection->query($sql);
+            while($ds = mysqli_fetch_assoc($datasources)) {
+                array_push($instruments[$instrument['name']], $ds);
+            }
+        }
+        
+        return $instruments;
+    }
 
     /**
      * Returns a list of the known data sources
@@ -324,7 +560,7 @@ class Database_ImgIndex
      *
      * @return array A tree representation of the known data sources
      */
-    public function getDataSources ($verbose=false)
+    public function getDataSources ($verbose)
     {
         $fields = array("instrument", "detector", "measurement");
         
@@ -347,6 +583,12 @@ class Database_ImgIndex
                 LEFT JOIN instruments ON datasources.instrumentId = instruments.id
                 LEFT JOIN detectors ON datasources.detectorId = detectors.id
                 LEFT JOIN measurements ON datasources.measurementId = measurements.id;";
+                
+        // 2011/06/10 Temporarily hiding STEREO from verbose output (used by
+        // JHelioviewer.) Will remove when JHelioviewer adds support.
+        if ($verbose) {
+            $sql = substr($sql, 0, -1) . " " . 'WHERE observatories.name NOT IN ("STEREO_A", "STEREO_B");';
+        }
         
         // Use UTF-8 for responses
         $this->_dbConnection->setEncoding('utf8');
@@ -368,74 +610,83 @@ class Database_ImgIndex
             $enabled = (bool) $source["enabled"];
 
             // Only include if data is available for the specified source
-            if ($enabled) {
+            if (!$enabled) {
+            	continue;
+            }
              
-                // Image parameters
-                $id       = (int) ($source["id"]);
-                $obs      = $source["observatory_name"];
-                $inst     = $source["instrument_name"];
-                $det      = $source["detector_name"];
-                $meas     = $source["measurement_name"];
-                $nickname = $source["nickname"];
-                $order    = (int) ($source["layeringOrder"]);
-    
-                // Build tree
-                if (!$verbose) {
-                    // Normal
-                    if (!isset($tree[$obs])) {
-                        $tree[$obs] = array();
-                    }
-                    if (!isset($tree[$obs][$inst])) {
-                        $tree[$obs][$inst] = array();
-                    }
-                    if (!isset($tree[$obs][$inst][$det])) {
-                        $tree[$obs][$inst][$det] = array();
-                    }
-                    $tree[$obs][$inst][$det][$meas] = array(
-                        "sourceId"      => $id,
-                        "nickname"      => $nickname,
-                        "layeringOrder" => $order
-                    );
+            // Image parameters
+            $id       = (int) ($source["id"]);
+            $obs      = $source["observatory_name"];
+            $inst     = $source["instrument_name"];
+            $det      = $source["detector_name"];
+            $meas     = $source["measurement_name"];
+            $nickname = $source["nickname"];
+            $order    = (int) ($source["layeringOrder"]);
+            
+            // Availability
+            $oldest = $this->getOldestImage($id);
+            $newest = $this->getNewestImage($id);
+
+            // Build tree
+            if (!$verbose) {
+                // Normal
+                if (!isset($tree[$obs])) {
+                    $tree[$obs] = array();
+                }
+                if (!isset($tree[$obs][$inst])) {
+                    $tree[$obs][$inst] = array();
+                }
+                if (!isset($tree[$obs][$inst][$det])) {
+                    $tree[$obs][$inst][$det] = array();
+                }
+                $tree[$obs][$inst][$det][$meas] = array(
+                    "sourceId"      => $id,
+                    "nickname"      => $nickname,
+                    "layeringOrder" => $order,
+                    "start"         => $oldest,
+                    "end"           => $newest
+                );
+            } else {
+                // Alternative measurement descriptors
+                if (preg_match("/^\d*$/", $meas)) {
+                    // \u205f = \xE2\x81\x9F = MEDIUM MATHEMATICAL SPACE
+                    $measurementName = $meas . "\xE2\x81\x9F" . $source["measurement_units"];
                 } else {
-                    // Alternative measurement descriptors
-                    if (preg_match("/^\d*$/", $meas)) {
-                        // \u205f = \xE2\x81\x9F = MEDIUM MATHEMATICAL SPACE
-                        $measurementName = $meas . "\xE2\x81\x9F" . $source["measurement_units"];
-                    } else {
-                        $measurementName = ucwords(str_replace("-", " ", $meas));
-                    }
-                   
-                 
-                    // Verbose
-                    if (!isset($tree[$obs])) {
-                        $tree[$obs] = array(
-                            "name"        => $obs,
-                            "description" => $source["observatory_description"],
-                            "children" => array()
-                        );
-                    }
-                    if (!isset($tree[$obs]["children"][$inst])) {
-                        $tree[$obs]["children"][$inst] = array(
-                            "name"        => $inst,
-                            "description" => $source["instrument_description"],
-                            "children"   => array()
-                        );
-                    }
-                    if (!isset($tree[$obs]["children"][$inst]["children"][$det])) {
-                        $tree[$obs]["children"][$inst]["children"][$det] = array(
-                            "name"        => $det,
-                            "description" => $source["detector_description"],
-                            "children" => array()
-                        );
-                    }
-                    $tree[$obs]["children"][$inst]["children"][$det]["children"][$meas] = array(
-                        "name"          => $measurementName,
-                        "description"   => $source["measurement_description"],
-                        "nickname"      => $nickname,
-                        "sourceId"      => $id,
-                        "layeringOrder" => $order
+                    $measurementName = ucwords(str_replace("-", " ", $meas));
+                }
+               
+             
+                // Verbose
+                if (!isset($tree[$obs])) {
+                    $tree[$obs] = array(
+                        "name"        => $obs,
+                        "description" => $source["observatory_description"],
+                        "children" => array()
                     );
-                }                
+                }
+                if (!isset($tree[$obs]["children"][$inst])) {
+                    $tree[$obs]["children"][$inst] = array(
+                        "name"        => $inst,
+                        "description" => $source["instrument_description"],
+                        "children"   => array()
+                    );
+                }
+                if (!isset($tree[$obs]["children"][$inst]["children"][$det])) {
+                    $tree[$obs]["children"][$inst]["children"][$det] = array(
+                        "name"        => $det,
+                        "description" => $source["detector_description"],
+                        "children" => array()
+                    );
+                }
+                $tree[$obs]["children"][$inst]["children"][$det]["children"][$meas] = array(
+                    "name"          => $measurementName,
+                    "description"   => $source["measurement_description"],
+                    "nickname"      => $nickname,
+                    "sourceId"      => $id,
+                    "layeringOrder" => $order,
+                    "start"         => $oldest,
+                    "end"           => $newest
+                );
             }
         }
         

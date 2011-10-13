@@ -32,15 +32,16 @@ class Validation_InputValidator
      *
      * @param array &$expected Types of checks required for request
      * @param array &$input    Actual request parameters
+     * @param array &$optional Array to store optional parameters in
      *
      * @return void
      */
-    public static function checkInput(&$expected, &$input)
+    public static function checkInput(&$expected, &$input, &$optional)
     {
         // Validation checks
         $checks = array(
             "required" => "checkForMissingParams",
-            "optional" => "checkOptionalParams",
+            "alphanum" => "checkAlphaNumericStrings",
             "ints"     => "checkInts",
             "floats"   => "checkFloats",
             "bools"    => "checkBools",
@@ -55,6 +56,11 @@ class Validation_InputValidator
             if (isset($expected[$name])) {
                 Validation_InputValidator::$method($expected[$name], $input);
             }
+        }
+
+        // Create array of optional parameters
+        if (isset($expected["optional"])) {
+            Validation_InputValidator::checkOptionalParams($expected["optional"], $input, $optional);
         }
     }
 
@@ -83,14 +89,36 @@ class Validation_InputValidator
      *
      * @param array $optional A list of the optional parameters for a given action
      * @param array &$params  The parameters that were passed in
+     * @param array &$options Array to store any specified optional parameters in
      *
      * @return void
      */
-    public static function checkOptionalParams($optional, &$params)
+    public static function checkOptionalParams($optional, &$params, &$options)
     {
         foreach ($optional as $opt) {
-            if (!isset($params[$opt])) {
-                $params[$opt] = null;
+            if (isset($params[$opt])) {
+                $options[$opt] = $params[$opt];
+            }
+        }
+    }
+    
+    /**
+     * Checks alphanumeric entries to make sure they do not include invalid characters
+     * 
+     * @param array $strings A list of alphanumeric parameters which are used by an action.
+     * @param array &$params The parameters that were passed in
+     * 
+     * @return void
+     */
+    public static function checkAlphaNumericStrings($strings, &$params)
+    {
+        foreach ($strings as $str) {
+            if (isset($params[$str])) {
+                if (!preg_match('/^[a-zA-Z0-9]*$/', $params[$str])) {
+                    throw new Exception(
+                        "Invalid value for $str. Valid strings must consist of only letters and numbers."
+                    );
+                }
             }
         }
     }
@@ -114,8 +142,6 @@ class Validation_InputValidator
                 } else {
                     throw new Exception("Invalid value for $bool. Please specify a boolean value.");
                 }
-            } else {
-                $params[$bool] = false;
             }
         }
     }
@@ -135,8 +161,10 @@ class Validation_InputValidator
                 if (strpos($params[$file], '..')) {
                     throw new Exception("Invalid file requested: .. not allowed in filenames.");
                 } elseif (preg_match('/[^\/.-\w]/', $params[$file])) {
-                    throw new Exception("Invalid file requested. Valid characters for filenames include letters, " .
-                    "digits, underscores, hyphens and periods.");
+                    throw new Exception(
+                        "Invalid file requested. Valid characters for filenames include letters, " .
+                        "digits, underscores, hyphens and periods."
+                    );
                 }
             }
         }
@@ -197,8 +225,10 @@ class Validation_InputValidator
         foreach ($uuids as $uuid) {
             if (isset($params[$uuid])) {
                 if (!preg_match('/^[a-z0-9]{8}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{4}-?[a-z0-9]{12}$/', $params[$uuid])) {
-                    throw new Exception("Invalid identifier. Valid characters for UUIDs include " .
-                    "lowercase letters, digits, and hyphens.");
+                    throw new Exception(
+                        "Invalid identifier. Valid characters for UUIDs include " .
+                        "lowercase letters, digits, and hyphens."
+                    );
                 }
             }
         }
@@ -250,7 +280,7 @@ class Validation_InputValidator
      */
     public static function checkUTCDate($date)
     {
-        if (!preg_match("/^\d{4}[\/-]\d{2}[\/-]\d{2}T\d{2}:\d{2}:\d{2}.\d{0,3}Z?$/i", $date)) {
+        if (!preg_match("/^\d{4}[\/-]\d{2}[\/-]\d{2}T\d{2}:\d{2}:\d{2}\.\d{0,3}Z?$/i", $date)) {
             throw new Exception("Invalid date string. Please enter a date of the form 2003-10-06T00:00:00.000Z");
         }
     }

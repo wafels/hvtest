@@ -35,8 +35,26 @@ var UserSettings = Class.extend(
         
         // Process URL parameters
         this._processURLSettings(urlSettings);
+    },
+    
+    /**
+     * Gets a specified setting
+     * 
+     * @param {String} key The setting to retrieve
+     * 
+     * @returns {Object} The value of the desired setting
+     */
+    get: function (key) {
+        var lookup = key.split(".");
         
-        this._setupEventHandlers();
+        // Nesting depth is limited to three levels
+        if (lookup.length === 1) {
+            return this.settings[key];                
+        } else if (lookup.length === 2) {
+            return this.settings[lookup[0]][lookup[1]];
+        }
+        
+        return this.settings[lookup[0]][lookup[1]][lookup[2]];
     },
 
     /**
@@ -53,7 +71,15 @@ var UserSettings = Class.extend(
         }
         
         // Update settings
-        this.settings[key] = value;
+        var lookup = key.split(".");
+        
+        if (lookup.length === 1) {
+            this.settings[key] = value;                
+        } else if (lookup.length === 2) {
+            this.settings[lookup[0]][lookup[1]] = value;
+        } else {
+            this.settings[lookup[0]][lookup[1]][lookup[2]] = value;
+        }
 
         // localStorage
         if ($.support.localStorage) {
@@ -67,14 +93,14 @@ var UserSettings = Class.extend(
     },
     
     /**
-     * Gets a specified setting
-     * 
-     * @param {String} key The setting to retrieve
-     * 
-     * @returns {Object} The value of the desired setting
+     * Removes all existing settings
      */
-    get: function (key) {
-        return this.settings[key];
+    _empty: function () {
+        if ($.support.localStorage) {
+            localStorage.removeItem("settings");
+        } else {
+            $.cookieJar("empty");
+        }
     },
     
     /**
@@ -83,8 +109,6 @@ var UserSettings = Class.extend(
      * @returns {Boolean} Returns true if stored Helioviewer.org settings are detected
      */
     _exists: function () {
-        //return ($.support.localStorage ? (localStorage.getItem("settings") !== null) 
-        // : (this.cookies.getKeys().length > 0));
         return ($.support.localStorage ? (localStorage.getItem("settings") !== null) 
                 : (this.cookies.toString().length > 2));
     },
@@ -105,91 +129,10 @@ var UserSettings = Class.extend(
         else {
             this._loadSavedSettings();
         }
-            
-        // If version is out of date, reset settings
-        // TODO 09/02/2010:
-        // Instead of reseting user settings whenever the version is different, do a check on each
-        // item to make sure its valid, reset those items which are invalid, and then update the 
-        // stored version number.
-        if (this.get('version') !== this._defaults.version) {
+
+        // If version is out of date, load defaults
+        if (this.get('version') < this._defaults.version) {
             this._loadDefaults();
-        }
-    },
-    
-    /**
-     * Processes and validates any URL parameters that have been set
-     */
-    _processURLSettings: function (urlSettings) {
-        if (urlSettings.date) {
-            this.set("date", getUTCTimestamp(urlSettings.date));
-        }
-
-        if (urlSettings.imageScale) {
-            this.set("imageScale", parseFloat(urlSettings.imageScale));
-        }
-        
-        if (urlSettings.imageLayers) {
-            this.set("tileLayers", this._parseURLStringLayers(urlSettings.imageLayers));
-        }
-    },
-    
-    /**
-     * Processes a string containing one or more layers and converts them into JavaScript objects
-     */
-    _parseURLStringLayers: function (urlLayers) {
-        var layers = [], self = this;
-        
-        $.each(urlLayers, function (i, layerString) {
-            layers.push(parseLayerString(layerString));
-        });
-
-        return layers;
-    },
-    
-    /**
-     * Sets up event-handlers
-     */
-    _setupEventHandlers: function () {
-        var self = this;
-        
-        $(document).bind("save-setting", function (event, key, value) {
-            self.set(key, value);
-        });
-    },
-    
-    /**
-     * Validates a setting (Currently checks observation date and image scale)
-     * 
-     * @param {String} setting The setting to be validated
-     * @param {String} value   The value of the setting to check
-     * 
-     * @returns {Boolean} Returns true if the setting is valid
-     */
-    _validate: function (setting, value) {
-        var self = this;
-        
-        switch (setting) {
-        case "date":
-            this._validator.checkTimestamp(value);
-            break;
-        case "imageScale":
-            this._validator.checkFloat(value, {
-                "min": this._constraints.minImageScale,
-                "max": this._constraints.maxImageScale
-            });
-            break;
-        case "movie-history":
-            $.each(value, function (i, movie) {
-                self._validator.checkTimestamp(movie["dateRequested"]);
-            });
-            break;
-        case "screenshot-history":
-            $.each(value, function (i, screenshot) {
-                self._validator.checkTimestamp(screenshot["dateRequested"]);
-            });
-            break;
-        default:
-            break;        
         }
     },
     
@@ -197,8 +140,9 @@ var UserSettings = Class.extend(
      * Loads defaults user settings
      */
     _loadDefaults: function () {
+        this._empty();
+
         if ($.support.localStorage) {
-            localStorage.clear();
             localStorage.setItem("settings", $.toJSON(this._defaults));
         }
         else {
@@ -218,6 +162,86 @@ var UserSettings = Class.extend(
         // Otherwise, check type and return
         else {
             this.settings = this.cookies.get("settings");
+        }
+    },
+    
+    /**
+     * Processes and validates any URL parameters that have been set
+     * 
+     * Note that date is handled separately in TimeControls
+     */
+    _processURLSettings: function (urlSettings) {
+        if (urlSettings.imageScale) {
+            this.set("state.imageScale", parseFloat(urlSettings.imageScale));
+        }
+        
+        if (urlSettings.centerX) {
+            this.set("state.centerX", parseFloat(urlSettings.centerX));
+        }
+        
+        if (urlSettings.centerY) {
+            this.set("state.centerY", parseFloat(urlSettings.centerY));
+        }
+        
+        if (urlSettings.imageLayers) {
+            this.set("state.tileLayers", 
+                     this._parseURLStringLayers(urlSettings.imageLayers));
+        }
+    },
+    
+    /**
+     * Processes a string containing one or more layers and converts them into 
+     * JavaScript objects
+     */
+    _parseURLStringLayers: function (urlLayers) {
+        var layers = [], self = this;
+        
+        $.each(urlLayers, function (i, layerString) {
+            layers.push(parseLayerString(layerString));
+        });
+
+        return layers;
+    },
+    
+    /**
+     * Validates a setting (Currently checks observation date and image scale)
+     * 
+     * @param {String} setting The setting to be validated
+     * @param {String} value   The value of the setting to check
+     * 
+     * @returns {Boolean} Returns true if the setting is valid
+     */
+    _validate: function (setting, value) {
+        var self = this;
+        
+        switch (setting) {
+        case "state.date":
+            this._validator.checkTimestamp(value);
+            break;
+        case "state.imageScale":
+            this._validator.checkFloat(value, {
+                "min": this._constraints.minImageScale,
+                "max": this._constraints.maxImageScale
+            });
+            break;
+        case "history.movies":
+            $.each(value, function (i, movie) {
+                self._validator.checkDateString(movie["dateRequested"]);
+            });
+            break;
+        case "history.screenshots":
+            $.each(value, function (i, screenshot) {
+                self._validator.checkDateString(screenshot["dateRequested"]);
+            });
+            break;
+        case "defaults.movies.duration":
+            this._validator.checkInt(value, {
+                "min": this._constraints.minMovieLength,
+                "max": this._constraints.maxMovieLength
+            });
+            break;
+        default:
+            break;        
         }
     }
 });

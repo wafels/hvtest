@@ -58,7 +58,10 @@ function getUTCDateString()
 function parseUnixTimestamp($timestamp)
 {
     date_default_timezone_set('UTC');
-    return new DateTime("@$timestamp");
+    $datetime = new DateTime();
+    $datetime->setTimestamp($timestamp);
+    
+    return $datetime;
 }
 
 /**
@@ -102,6 +105,8 @@ function toISOString($date)
 
 /**
  * Takes an ISO string with T's and Z's in it and removes them.
+ * 
+ * NOTE 02/01/2011: This method is nearly identical to isoDateToMySQL()
  * 
  * @param string $string The ISO String
  * 

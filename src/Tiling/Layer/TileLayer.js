@@ -5,6 +5,8 @@
  * @see TileLayerAccordion, Layer
  * @requires Layer
  * 
+ * TODO 2011/01/09: Add check for zero-dimension tile requests
+ * 
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
 bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
@@ -93,6 +95,7 @@ var TileLayer = Layer.extend(
      */
     _updateDimensions: function () {
         var scaleFactor, offsetX, offsetY;
+
         // Ratio of original JP2 image scale to the viewport/desired image scale
         scaleFactor = this.image.scale / this.viewportScale;
 

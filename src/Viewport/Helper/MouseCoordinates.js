@@ -3,7 +3,7 @@
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
 bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
-/*global $, Class */
+/*global $, Helioviewer, Class */
 "use strict";
 var MouseCoordinates = Class.extend(
     /** @lends MouseCoordinates.prototype */
@@ -110,9 +110,10 @@ var MouseCoordinates = Class.extend(
     _checkWarning: function () {
         // Warn once
         if (this.warnMouseCoords === true) {
-            var warning = "<b>Note:</b> Mouse-coordinates should not be used for science operations!";
-            $(document).trigger("message-console-log", [warning])
-                       .trigger("save-setting", ["warnMouseCoords", false]);
+            var warning = "<b>Note:</b> Mouse-coordinates should not be used " +
+                          "for science operations!";
+            $(document).trigger("message-console-log", [warning]);
+            Helioviewer.userSettings.set("notifications.coordinates", false);
             this.warnMouseCoords = false;
         }
     },
@@ -146,7 +147,7 @@ var MouseCoordinates = Class.extend(
      *  Each of the two-letter abbreviations represents the vector <x,y> going from one
      *  location to the other. See wiki documentation below for more details.
      * 
-     * @see http://helioviewer.org/wiki/index.php?title=Co-ordinate_System_I
+     * @see http://helioviewer.org/wiki/Co-ordinate_System_I
      */
     computeMouseCoords: function (screenX, screenY) {
         var VX, negSV, SV, SM, MX, scale, x, y;

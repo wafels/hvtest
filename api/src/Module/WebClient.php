@@ -26,6 +26,7 @@ require_once "interface.Module.php";
 class Module_WebClient implements Module
 {
     private $_params;
+    private $_options;
 
     /**
      * Constructor
@@ -36,7 +37,8 @@ class Module_WebClient implements Module
      */
     public function __construct(&$params)
     {
-        $this->_params = $params;
+        $this->_params  = $params;
+        $this->_options = array();
     }
 
     /**
@@ -63,13 +65,33 @@ class Module_WebClient implements Module
      *
      * @return void
      */
-    public function downloadFile()
+    public function downloadScreenshot()
     {
-        $file = HV_CACHE_DIR . "/" . $this->_params['uri'];
+        include_once 'src/Database/ImgIndex.php';
+        include_once 'src/Helper/HelioviewerLayers.php';
+        
+        $imgIndex = new Database_ImgIndex();
+        
+        $info = $imgIndex->getScreenshot($this->_params['id']);
+        
+        $layers = new Helper_HelioviewerLayers($info['dataSourceString']);
+        
+        $dir =  sprintf("%s/screenshots/%s/%s/", 
+           HV_CACHE_DIR,
+           str_replace("-", "/", substr($info['timestamp'], 0, 10)),
+           $this->_params['id']   
+        );
+        
+        $filename = sprintf("%s_%s.png",
+            str_replace(array(":", "-", " "), "_", $info['observationDate']),
+            $layers->toString()
+        );
+
+        $filepath = $dir . $filename;
 
         // Make sure file exists
-        if (!file_exists($file)) {
-            throw new Exception("Unable to locate the requested file: $file");
+        if (!file_exists($filepath)) {
+            throw new Exception("Unable to locate the requested file: $filepath");
         }
 
         // Set HTTP headers
@@ -77,38 +99,36 @@ class Module_WebClient implements Module
         header("Expires: 0");
         header("Cache-Control: must-revalidate, post-check=0, pre-check=0");
         header("Cache-Control: private", false); // required for certain browsers
-        header("Content-Disposition: attachment; filename=\"" . basename($file) . "\"");
+        header("Content-Disposition: attachment; filename=\"" . $filename . "\"");
         header("Content-Transfer-Encoding: binary");
-        header("Content-Length: " . filesize($file));
+        header("Content-Length: " . filesize($filepath));
 
         // Mime type
-        $parts = explode(".", $file);
-        $extension = end($parts);
-        
-        if (in_array($extension, array("jp2", "jpx"))) {
-            $mimetype = "image/$extension";
-        } else if (in_array($extension, array("ogg", "ogv", "webm"))) {
-            $mimetype = "video/$extension";
-        } else {        
-            $fileinfo = new finfo(FILEINFO_MIME);
-            $mimetype = $fileinfo->file($file);
-        }
-        header("Content-type: " . $mimetype);
-
-        echo file_get_contents($file);
+//        $parts = explode(".", $filename);
+//        $extension = end($parts);
+//        
+//        if (in_array($extension, array("jp2", "jpx"))) {
+//            $mimetype = "image/$extension";
+//        } else if (in_array($extension, array("ogg", "ogv", "webm"))) {
+//            $mimetype = "video/$extension";
+//        } else {        
+//            $fileinfo = new finfo(FILEINFO_MIME);
+//            $mimetype = $fileinfo->file($filepath);
+//        }
+        header("Content-type: image/png");
+        echo file_get_contents($filepath);
     }
 
     /**
-     * http://helioviewer.org/api/index.php?action=getClosestImage&date=2003-10-05T00:00:00Z&source=0&s=1
-     * 
-     * TODO 01/29/2010 Check to see if server number is within valid range of know authenticated servers.
+     * Finds the closest image available for a given time and datasource
      *
-     * @return void
+     * @return JSON meta information for matching image
+     * 
+     * TODO: Combine with getJP2Image? (e.g. "&display=true")
      */
     public function getClosestImage ()
     {
         include_once 'src/Database/ImgIndex.php';
-        
         $imgIndex = new Database_ImgIndex();
 
         // Convert human-readable params to sourceId if needed
@@ -119,15 +139,23 @@ class Module_WebClient implements Module
             );
         }
 
-        $result = $imgIndex->getClosestImage($this->_params['date'], $this->_params['sourceId']);
+        $image = $imgIndex->getImageFromDatabase($this->_params['date'], $this->_params['sourceId']);
+        
+        // Read JPEG 2000 header
+        $file = HV_JP2_DIR . $image["filepath"] . "/" .$image["filename"];
+        $xmlBox = $imgIndex->extractJP2MetaInfo($file);
 
         // Prepare cache for tiles
-        $this->_createImageCacheDir($result['filepath']);
-
-        $json = json_encode($result);
-
+        $this->_createTileCacheDir($image['filepath']);
+        
+        // Return date and id
+        $response = array_merge(array(
+            "id"   => $image['id'],
+            "date" => $image['date']
+        ), $xmlBox);
+        
         header('Content-Type: application/json');
-        echo $json;
+        echo json_encode($response);
     }
 
     /**
@@ -139,12 +167,13 @@ class Module_WebClient implements Module
     {
         include_once 'src/Database/ImgIndex.php';
 
-        $imgIndex = new Database_ImgIndex();
-        $dataSources = json_encode($imgIndex->getDataSources($this->_params['verbose']));
+        $verbose = isset($this->_options['verbose']) ? $this->_options['verbose'] : false;
+
+        $imgIndex    = new Database_ImgIndex();
+        $dataSources = $imgIndex->getDataSources($verbose);
 
         header('Content-type: application/json;charset=UTF-8');
-
-        print $dataSources;
+        print json_encode($dataSources);
     }
 
     /**
@@ -154,76 +183,160 @@ class Module_WebClient implements Module
      */
     public function getJP2Header ()
     {
+        include_once 'src/Database/ImgIndex.php';
         include_once 'src/Image/JPEG2000/JP2ImageXMLBox.php';
-        $xmlBox = new Image_JPEG2000_JP2ImageXMLBox(HV_JP2_DIR . $this->_params["file"]);
+
+        $imgIndex = new Database_ImgIndex();
+        $image = $imgIndex->getImageInformation($this->_params['id']);
+        
+        $filepath = HV_JP2_DIR . $image['filepath'] . "/" . $image['filename'];
+
+        $xmlBox = new Image_JPEG2000_JP2ImageXMLBox($filepath, "meta");
         $xmlBox->printXMLBox();
     }
 
     /**
-     * getTile
-     *
-     * @return void
+     * Requests a single tile to be used in Helioviewer.org.
+     * 
+     * TODO 2011/04/19: How much longer would it take to request tiles if meta data was refetched
+     * from database instead of being passed in?
+     * 
+     * @return object The image tile
      */
     public function getTile ()
     {
-        require_once 'src/Image/JPEG2000/JP2Image.php';
-        require_once 'src/Image/HelioviewerImageLayer.php';
+        include_once 'src/Database/ImgIndex.php';
+        include_once 'src/Image/JPEG2000/JP2Image.php';
+        include_once 'src/Helper/RegionOfInterest.php';
         
+        // Tilesize
+        $tileSize = 512;
+
         $params = $this->_params;
         
-        // Create directories in cache
-        $this->_createImageCacheDir(dirname($this->_params['uri']));
-        
+        // Look up image properties
+        $imgIndex = new Database_ImgIndex();
+        $image = $imgIndex->getImageInformation($this->_params['id']);
+
         // Tile filepath
-        $filepath = HV_CACHE_DIR . $this->getCacheFilename(
-            $params['uri'], $params['imageScale'], $params['x1'], 
-            $params['x2'], $params['y1'], $params['y2'], $params['format']
-        );
-        
-        // JP2 filepath
-        $jp2Filepath = HV_JP2_DIR . $params['uri'];
-        
-        // Instantiate a JP2Image
-        $jp2 = new Image_JPEG2000_JP2Image(
-            $jp2Filepath, $this->_params['jp2Width'], $this->_params['jp2Height'], $this->_params['jp2Scale']
-        );
-        
-        $roi = array(
-           "top"    => $params['y1'],
-           "left"   => $params['x1'],
-           "bottom" => $params['y2'],
-           "right"  => $params['x2']
+        $filepath =  $this->_getTileCacheFilename(
+            $image['filepath'], $image['filename'], $params['imageScale'], $params['x'], $params['y']
         );
 
-        $tile = new Image_HelioviewerImageLayer(
-            $jp2, $filepath, $params['size'],
-            $params['size'], $params['imageScale'], $roi, 
-            $params['instrument'], $params['detector'], $params['measurement'], 1, 
-            $params['offsetX'], $params['offsetY'], 100, 
-            $params['date'], true
+        // Create directories in cache
+        $this->_createTileCacheDir($image['filepath']);
+        
+        // JP2 filepath
+        $jp2Filepath = HV_JP2_DIR . $image['filepath'] . "/" . $image['filename'];
+        
+        // Sun center offset at the original image scale
+        $offsetX =   $image['sunCenterX'] - ($image['width'] / 2);
+        $offsetY = -($image['sunCenterY'] - ($image['height'] / 2));
+
+        // Instantiate a JP2Image
+        $jp2 = new Image_JPEG2000_JP2Image(
+            $jp2Filepath, $image['width'], $image['height'], $image['scale']
+        );
+
+        // Region of interest
+        $roi = $this->_tileCoordinatesToROI($params['x'], $params['y'], $params['imageScale'], $image['scale'], $tileSize, $offsetX, $offsetY);
+
+        // Choose type of tile to create
+        // TODO 2011/04/18: Generalize process of choosing class to use
+        if ($image['instrument'] == "SECCHI") {
+            if (substr($image['detector'], 0, 3) == "COR") {
+                $type = "CORImage";
+                } else {
+                $type = strtoupper($image['detector']) . "Image";
+            }
+        } else {
+            $type = strtoupper($image['instrument']) . "Image";
+        }
+        
+        include_once "src/Image/ImageType/$type.php";
+        $classname = "Image_ImageType_" . $type;
+
+        // Create the tile
+        $tile = new $classname(
+            $jp2, $filepath, $roi, $image['observatory'], 
+            $image['instrument'], $image['detector'], $image['measurement'],  
+            $offsetX, $offsetY, $this->_options
         );
         
-        return $tile->display();  
+        $tile->display();
+        
+        // Log cached tile request now and exit to avoid double-counting
+        if (HV_ENABLE_STATISTICS_COLLECTION && file_exists($filepath)) {
+            include_once 'src/Database/Statistics.php';
+            $statistics = new Database_Statistics();
+            $statistics->log("getCachedTile");
+            exit(0);
+        }
     }
+
+    /**
+     * Converts from tile coordinates to physical coordinates in arcseconds
+     * and uses those coordinates to return an ROI object
+     * 
+     * @return Helper_RegionOfInterest Tile ROI
+     */
+    private function _tileCoordinatesToROI (
+        $x, $y, $scale, $jp2Scale, $tileSize, $offsetX, $offsetY
+    ) {
+        $relativeTileSize = $tileSize * ($scale / $jp2Scale);
+        
+        // Convert tile coordinates to arcseconds
+        $top  = $y * $relativeTileSize - $offsetY;
+        $left = $x * $relativeTileSize - $offsetX;
+        $bottom = $top  + $relativeTileSize;
+        $right  = $left + $relativeTileSize;
+        
+        // Scale coordinates
+        $top  = $top * $jp2Scale;
+        $left = $left * $jp2Scale;
+        $bottom = $bottom * $jp2Scale;
+        $right  = $right  * $jp2Scale;        
+        
+        // Regon of interest
+        return new Helper_RegionOfInterest($left, $top, $right, $bottom, $scale);
+    }
+
+// var tileCoordinatesToArcseconds = function (x, y, scale, jp2Scale, tileSize, offsetX, offsetY) {
+    // var relativeTileSize, top, left, bottom, right;
+    // relativeTileSize = tileSize * scale / jp2Scale;
+// 
+    // top  = y * relativeTileSize - offsetY;
+    // left = x * relativeTileSize - offsetX;
+    // bottom = top  + relativeTileSize;
+    // right  = left + relativeTileSize;
+// 
+    // return {
+        // y1 : top  * jp2Scale,
+        // x1 : left * jp2Scale,
+        // y2 : bottom * jp2Scale,
+        // x2 : right  * jp2Scale
+    // };
+// };
     
     /**
      * Builds a filename for a cached tile or image based on boundaries and scale
      * 
-     * @param string $uri    The uri of the original jp2 image
-     * @param float  $scale  The scale of the extracted image
-     * @param float  $x1     The left boundary in arcseconds
-     * @param float  $x2     The right boundary in arcseconds
-     * @param float  $y1     The top boundary in arcseconds
-     * @param float  $y2     The bottom boundary in arcseconds
-     * @param string $format jpg or png
+     * @param string $directory The directory containing the image
+     * @param float  $filename  The filename of the image
+     * @param float  $x         Tile X-coordinate
+     * @param float  $y         Tile Y-coordinate
      * 
-     * @return string
+     * @return string Filepath to use when locating or creating the tile
      */
-    private function getCacheFilename($uri, $scale, $x1, $x2, $y1, $y2, $format)
+    private function _getTileCacheFilename($directory, $filename, $scale, $x, $y)
     {
-        return dirname($uri) . "/" . substr(basename($uri), 0, -4) . "_" . $scale 
-                . "_" . round($x1) . "_" . round($x2) . "x_" . round($y1) . "_"
-                . round($y2) . "y." . $format;
+        $baseDirectory = HV_CACHE_DIR . "/tiles";
+        $baseFilename  = substr($filename, 0, -4);
+        
+        return sprintf(
+            "%s%s/%s_%s_x%d_y%d.jpg",
+            $baseDirectory, $directory, $baseFilename, $scale, $x, $y
+        );
     }
 
     /**
@@ -252,55 +365,135 @@ class Module_WebClient implements Module
      * See the API webpage for example usage.
      * 
      * Parameters quality, filename, and display are optional parameters and can be left out completely.
-     * 
-     * Note that filename does NOT have the . extension on it. The reason for
-     * this is that in the media settings pop-up dialog, there is no way of
-     * knowing ahead of time whether the image is a .png, .tif, .flv, etc, and
-     * in the case of movies, the file is both a .flv and .mov/.asf/.mp4
      *
      * @return image/jpeg or JSON
      */
     public function takeScreenshot()
     {
-        include_once 'src/Image/Screenshot/HelioviewerScreenshotBuilder.php';
+        include_once 'src/Image/Composite/HelioviewerScreenshot.php';
+        include_once 'src/Helper/HelioviewerLayers.php';
+        include_once 'src/Helper/RegionOfInterest.php';
         
-        $builder = new Image_Screenshot_HelioviewerScreenshotBuilder();
-        $tmpDir  = HV_CACHE_DIR . "/screenshots";
+        // Data Layers
+        $layers = new Helper_HelioviewerLayers($this->_params['layers']);
+        
+        // Region of interest: x1, x2, y1, y2
+        if (isset($this->_options['x1']) && isset($this->_options['y1']) && 
+            isset($this->_options['x2']) && isset($this->_options['y2'])) {
 
-        $response = $builder->takeScreenshot($this->_params, $tmpDir, array());
-        
-        // Display screenshot
-        if ($this->_params['display']) {
-            $fileinfo = new finfo(FILEINFO_MIME);
-            $mimetype = $fileinfo->file($response);
-            header("Content-Disposition: inline; filename=\"" . basename($response) . "\"");
-            header("Content-type: " . $mimetype);
-            die(file_get_contents($response));
+            $x1 = $this->_options['x1'];
+            $y1 = $this->_options['y1'];
+            $x2 = $this->_options['x2'];
+            $y2 = $this->_options['y2'];
+        } else if (isset($this->_options['x0']) && isset($this->_options['y0']) && 
+                   isset($this->_options['width']) && isset($this->_options['height'])) {
+
+            // Region of interest: x0, y0, width, height
+            $x1 = $this->_options['x0'] - 0.5 * $this->_options['width']  * $this->_params['imageScale'];
+            $y1 = $this->_options['y0'] - 0.5 * $this->_options['height'] * $this->_params['imageScale'];
+            $x2 = $this->_options['x0'] + 0.5 * $this->_options['width']  * $this->_params['imageScale'];
+            $y2 = $this->_options['y0'] + 0.5 * $this->_options['height'] * $this->_params['imageScale'];
+        } else {
+            throw new Exception("Region of interest not specified: you must specify values for " . 
+                                "imageScale and either x1, x2, y1, and y2 or x0, y0, width and height.");
         }
         
-        // Print JSON
+        // Create RegionOfInterest helper object
+        $roi = new Helper_RegionOfInterest($x1, $y1, $x2, $y2, $this->_params['imageScale']);
+        
+        // Create the screenshot
+        $screenshot = new Image_Composite_HelioviewerScreenshot(
+            $layers, $this->_params['date'], $roi, $this->_options
+        );
+        
+        // Display screenshot
+        if (isset($this->_options['display']) && $this->_options['display']) {
+            $screenshot->display();
+        } else {
+            // Print JSON
+            header('Content-Type: application/json');
+            echo json_encode(array("id" => $screenshot->id));            
+        }
+    }
+    
+    /**
+     * Retrieves a local or remote RSS/Atom news feed
+     */
+    public function getNewsFeed()
+    {
+        include_once 'lib/JG_Cache/JG_Cache.php';
+
+        // Create cache dir if it doesn't already exist
+        $cacheDir = HV_CACHE_DIR . "/remote";
+        if (!file_exists($cacheDir)) {
+            mkdir($cacheDir, 0777, true);
+        }
+        
+        // Check for feed in cache
+        $cache = new JG_Cache($cacheDir);
+
+        if(!($feed = $cache->get('news.xml', 1800))) {
+            
+            // Re-fetch if it is old than 30 mins
+            include_once 'src/Net/Proxy.php';
+            $proxy = new Net_Proxy(HV_NEWS_FEED_URL);
+            $feed = $proxy->query();
+            $cache->set('news.xml', $feed);
+        }
+
+        // Print XML
+        header("Content-Type: text/xml;charset=UTF-8");
+        echo $feed;
+    }
+    
+    /**
+     * Retrieves the latest usage statistics from the database
+     */
+    public function getUsageStatistics()
+    {
+        // Are usage stats enabled?
+        if (!HV_ENABLE_STATISTICS_COLLECTION) {
+            throw new Exception("Sorry, usage statistics are not collected for this site.");
+        }
+        
+        // Determine resolution to use
+        $validResolutions = array("hourly", "daily", "weekly", "monthly", "yearly");
+        if (isset($this->_options['resolution'])) {
+            // Make sure a valid resolution was specified
+            if (!in_array($this->_options['resolution'], $validResolutions)) {
+                $msg = "Invalid resolution specified. Valid options include hourly, daily, weekly, monthly, and yearly";
+                throw new Exception($msg);                
+            }
+        } else {
+            // Default to daily
+            $this->_options['resolution'] = "daily";
+        }
+        
+        include_once 'src/Database/Statistics.php';
+        $statistics = new Database_Statistics();
+
         header('Content-Type: application/json');
-        echo json_encode(array("url" => str_replace(HV_ROOT_DIR, HV_WEB_ROOT_URL, $response)));
+        print $statistics->getUsageStatistics($this->_options['resolution']);
     }
     
     /**
      * Creates the directory structure which will be used to cache
      * generated tiles.
+     * 
+     * Note: mkdir may not set permissions properly due to an issue with umask.
+     *       (See http://www.webmasterworld.com/forum88/13215.htm)
+
      *
      * @param string $filepath The filepath where the image is stored
      *
      * @return void
-     *
-     * Note: mkdir may not set permissions properly due to an issue with umask.
-     *       (See http://www.webmasterworld.com/forum88/13215.htm)
      */
-    private function _createImageCacheDir($filepath)
+    private function _createTileCacheDir($directory)
     {
-        $cacheDir = HV_CACHE_DIR . $filepath;
-
+        $cacheDir = HV_CACHE_DIR . "/tiles" . $directory;
+ 
         if (!file_exists($cacheDir)) {
             mkdir($cacheDir, 0777, true);
-            chmod($cacheDir, 0777);
         }
     }
 
@@ -314,10 +507,10 @@ class Module_WebClient implements Module
     {
         switch($this->_params['action']) {
 
-        case "downloadFile":
+        case "downloadScreenshot":
             $expected = array(
-               "required" => array('uri'),
-               "files"    => array('uri')
+               "required" => array('id'),
+               "ints"     => array('id')
             );
             break;
 
@@ -327,44 +520,57 @@ class Module_WebClient implements Module
             );
 
             if (isset($this->_params["sourceId"])) {
-                $expected["required"] = array('date', 'sourceId');
-                $expected["ints"]     = array('sourceId');
+                $expected = array_merge(
+                    $expected, array(
+                    "required" => array('date', 'sourceId'),
+                    "ints"     => array('sourceId'))
+                );
             } else {
-                $expected["required"] = array('date', 'observatory', 'instrument', 'detector', 'measurement');
+                $expected = array_merge(
+                    $expected, array(
+                    "required" => array('date', 'observatory', 'instrument', 'detector', 'measurement')
+                    )
+                );
             }
             break;
 
         case "getDataSources":
             $expected = array(
-               "bools" => array('verbose')
+               "optional" => array('verbose'),
+               "bools"    => array('verbose')
             );
             break;
 
         case "getTile":
-            $required = array('uri', 'x1', 'x2', 'y1', 'y2', 'date', 'imageScale', 'size', 'jp2Width','jp2Height', 'jp2Scale',
-                              'offsetX', 'offsetY', 'format', 'observatory', 'instrument', 'detector', 'measurement');
             $expected = array(
-                "required" => $required,
-                "files"    => array('uri')
+                "required" => array('id', 'x', 'y', 'imageScale'),
+                "floats"   => array('imageScale'),
+                "ints"     => array('id', 'x', 'y')
             );
             break;
 
         case "getJP2Header":
             $expected = array(
-                "required" => array('file'),
-                "files" => array('file')
+                "required" => array('id'),
+                "ints"     => array('id')
             );
             break;
-
-        // Any booleans that default to true cannot be listed here because the
-        // validation process sets them to false if they are not given.
+        case "getNewsFeed":
+            break;
+        case "getUsageStatistics":
+            $expected = array(
+                "optional" => array("resolution"),
+                "alphanum" => array("resolution")
+            );
+            break;
         case "takeScreenshot":
             $expected = array(
-                "required" => array('obsDate', 'imageScale', 'layers', 'x1', 'x2', 'y1', 'y2'),
-                "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2'),
-                "dates"	   => array('obsDate'),
-                "ints"     => array('quality'),
-                "bools"    => array('display')
+                "required" => array('date', 'imageScale', 'layers'),
+                "optional" => array('display', 'watermark', 'x1', 'x2', 'y1', 'y2', 'x0', 'y0', 'width', 'height'),
+                "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2', 'x0', 'y0'),
+                "ints"     => array('width', 'height'),
+                "dates"	   => array('date'),
+                "bools"    => array('display', 'watermark')
             );
             break;
         default:
@@ -372,7 +578,7 @@ class Module_WebClient implements Module
         }
 
         if (isset($expected)) {
-            Validation_InputValidator::checkInput($expected, $this->_params);
+            Validation_InputValidator::checkInput($expected, $this->_params, $this->_options);
         }
 
         return true;
@@ -388,12 +594,13 @@ class Module_WebClient implements Module
         ?>
             <li><a href="index.php#CustomView">Loading Custom Settings</a></li>
             <li>
-                <a href="index.php#TilingAPI">Tiling</a>
+                <a href="index.php#ScreenshotAPI">Screenshots</a>
                 <ul>
-                    <li><a href="index.php#getClosestImage">Finding an Image</a></li>
-                    <li><a href="index.php#getTile">Creating a Tile</a></li>
+                    <li><a href="index.php#takeScreenshot">Creating a Screenshot</a></li>
+                    <li><a href="index.php#downloadScreenshot">Retrieving a Screenshot</a></li>
                 </ul>
             </li>
+            <!--<li><a href="index.php#takeScreenshot">Creating a Screenshot</a></li>-->
         <?php
     }
     
@@ -409,7 +616,7 @@ class Module_WebClient implements Module
         <!-- Custom View API-->
         <div id="CustomView">
             <h1>Custom View API:</h1>
-            <p>The custom view API enables the user to load a specific set of parameters into Helioviewer: "view," here, simply
+            <p>The custom view API enables the user to load a specific set of parameters into Helioviewer.org: "view," here, simply
             means a given set of observation parameters. This is useful for dynamically loading a specific view or observation
             into Helioviewer using a URL.</p>
         
@@ -441,7 +648,7 @@ class Module_WebClient implements Module
                             <td><i>2d List</i></td>
                             <td>A comma-separated list of the image layers to be
                             displayed. Each image layer should be of the form:
-                            [OBSERVATORY,INSTRUMENT,DETECTOR, MEASUREMENT,VISIBLE,OPACITY].</td>
+                            [OBSERVATORY, INSTRUMENT, DETECTOR, MEASUREMENT, VISIBLE, OPACITY].</td>
                         </tr>
                     </tbody>
                 </table>
@@ -449,8 +656,8 @@ class Module_WebClient implements Module
                 <br />
         
                 <span class="example-header">Example:</span> <span class="example-url">
-                <a href="<?php echo $rootURL;?>date=2003-10-05T00:00:00Z&amp;imageScale=2.63&amp;imageLayers=[SOHO,EIT,EIT,171,1,100],[SOHO,LASCO,C2,white-light,1,100]">
-                   <?php echo $rootURL;?>date=2003-10-05T00:00:00Z&imageScale=2.63&imageLayers=[SOHO,EIT,EIT,171,1,100],[SOHO,LASCO,C2,white-light,1,100]
+                <a href="<?php echo $rootURL;?>date=2011-06-01T00:00:00Z&amp;imageScale=2.4204409&amp;imageLayers=[SDO,AIA,AIA,171,1,100],[SOHO,LASCO,C2,white-light,1,100]">
+                   <?php echo $rootURL;?>date=2011-06-01T00:00:00Z&imageScale=2.4204409&imageLayers=[SDO,AIA,AIA,171,1,100],[SOHO,LASCO,C2,white-light,1,100]
                 </a>
                 </span>
             </div>
@@ -458,184 +665,58 @@ class Module_WebClient implements Module
 
         <br />
         
-        <!-- Tiling API -->
-        <div id="TilingAPI">
-            <h1>Tiling API:</h1>
-            <p>Requesting a image tile in Helioviewer.org occurs in two steps. During the first step a request is made
-               in order to find the nearest image to the specified time. Once an image has been found, the URI associated
-               with the image can then be used in subsequent tile requests.</p>
-        
+        <!-- Screenshot API -->
+        <div id="ScreenshotAPI">
+            
+            <h1>Screenshots</h1>
+            <p></p>
+                The Screenshot API provides a way for users to create custom single-layer and composite images using Helioviewer.org. Depending on how you plan to use the screenshot, the process
+                can be handled in either one or two steps. In the simplest case, <a href='#takeScreenshot'>takeScreenshot</a> is called with "display=true" and an image is returned directly. Alternatively,
+                when the display parameter is not set to true in the request an identifier is returned which can then be used by the <a href='#downloadScreenshot'>downloadScreenshot</a> method to display the image.
+                This is useful when you want to provide a reusable link to the image you create.
             <br />
         
             <ol style="list-style-type: upper-latin;">
-     
-            <!-- Closest Image API -->
-            <li>
-            <div id="getClosestImage">Finding the Closest Image:
-            <p>The result of this first request will include some basic information about the 
-               nearest image match available. This information can then be used to make tile requests.</p>
-    
-            <br />
-    
-    
-            <div class="summary-box">
-                <span style="text-decoration: underline;">Usage:</span>
-                <br />
-                <br />
-                <a href="<?php echo HV_API_ROOT_URL;?>?action=getClosestImage">
-                    <?php echo HV_API_ROOT_URL;?>?action=getClosestImage
-                </a>
                 
-                <br /><br />
-                Supported Parameters:
-                <br /><br />
+            <li>
+            <div id="takeScreenshot">
+                <h1>Creating a Screenshot</h1>
+                <p>Returns a single image containing all layers/image types requested. If an image is not available for the date requested the closest
+                available image is returned.</p>
+        
+                <br />
+        
+                <div class="summary-box"><span
+                    style="text-decoration: underline;">Usage:</span><br />
+                <br />
+        
+                <?php echo HV_API_ROOT_URL;?>?action=takeScreenshot<br />
+                <br />
+        
+                Supported Parameters:<br />
+                <br />
         
                 <table class="param-list" cellspacing="10">
                     <tbody valign="top">
                         <tr>
                             <td width="20%"><b>date</b></td>
-                            <td width="25%"><i>ISO 8601 UTC Date</i></td>
-                            <td width="55%">The desired image date</td>
+                            <td><i>ISO 8601 UTC Date</i></td>
+                            <td>Timestamp of the output image. The closest timestamp for each layer will be found if an exact match is not found.</td>
                         </tr>
                         <tr>
-                            <td><b>observatory</b></td>
-                            <td><i>String</i></td>
-                            <td><i>[Optional]</i> Observatory</td>
-                        </tr>
-                        <tr>
-                            <td><b>instrument</b></td>
-                            <td><i>String</i></td>
-                            <td><i>[Optional]</i> Instrument</td>
-                        </tr>
-                        <tr>
-                            <td><b>detector</b></td>
-                            <td><i>String</i></td>
-                            <td><i>[Optional]</i> Detector</td>
-                        </tr>
-                        <tr>
-                            <td><b>measurement</b></td>
-                            <td><i>String</i></td>
-                            <td><i>[Optional]</i> Measurement</td>
-                        </tr>
-                        <tr>
-                            <td><b>sourceId</b></td>
-                            <td><i>Integer</i></td>
-                            <td><i>[Optional]</i> The image data source identifier.</td>
-                        </tr>
-                    </tbody>
-                </table>
-                
-                <br /><br />
-                Result:
-                <br /><br />
-        
-                <table class="param-list" cellspacing="10">
-                    <tbody valign="top">
-                        <tr>
-                            <td width="20%"><b>filename</b></td>
-                            <td width="25%"><i>String</i></td>
-                            <td width="55%">The filename of the matched image</td>
-                        </tr>
-                        <tr>
-                            <td><b>filepath</b></td>
-                            <td><i>String</i></td>
-                            <td>The location of the matched image</td>
-                        </tr>
-                        <tr>
-                            <td><b>date</b></td>
-                            <td><i>Date String</i></td>
-                            <td>The date of of the matched image</td>
-                        </tr>
-                        <tr>
-                            <td><b>scale</b></td>
+                            <td><b>imageScale</b></td>
                             <td><i>Float</i></td>
-                            <td>The image's native spatial scale, in arc-seconds/pixel</td>
+                            <td>The zoom scale of the image. Default scales that can be used are 0.6, 1.2, 2.4, and so on, increasing or decreasing by 
+                                a factor of 2. The full-res scale of an AIA image is 0.6.</td>
                         </tr>
                         <tr>
-                            <td><b>width</b></td>
-                            <td><i>Integer</i></td>
-                            <td>Image width</td>
-                        </tr>
-                        <tr>
-                            <td><b>height</b></td>
-                            <td><i>Integer</i></td>
-                            <td>Image width</td>
-                        </tr>
-                        <tr>
-                            <td><b>sunCenterX</b></td>
-                            <td><i>Float</i></td>
-                            <td>Distance from image left to the solar center, in pixels</td>
-                        </tr>
-                        <tr>
-                            <td><b>sunCenterY</b></td>
-                            <td><i>Float</i></td>
-                            <td>Distance from image bottom to the solar center, in pixels</td>
-                        </tr>
-                    </tbody>
-                </table>
-                
-                <br />
-        
-                <span class="example-header">Examples:</span> <span class="example-url">
-                    <a href="<?php echo HV_API_ROOT_URL;?>?action=getClosestImage&date=2010-06-24T00:00:00.000Z&sourceId=3">
-                       <?php echo HV_API_ROOT_URL;?>?action=getClosestImage&date=2010-06-24T00:00:00.000Z&sourceId=3
-                    </a>
-                    <br /><br />
-                    <a href="<?php echo HV_API_ROOT_URL;?>?action=getClosestImage&date=2010-06-24T00:00:00.000Z&s=1&sourceId=3">
-                       <?php echo HV_API_ROOT_URL;?>?action=getClosestImage&date=2010-06-24T00:00:00.000Z&s=1&sourceId=3
-                    </a>
-                </span>
-                
-            </div>
-    
-            <br />
-            
-            <!-- Closest Image API Notes -->
-            <div class="summary-box" style="background-color: #E3EFFF;">
-            <span style="text-decoration: underline;">Notes:</span>
-            <br />
-            <ul>
-                <li>
-                <p>At least one of the methods for specifying the image source, either a sourceId or the image 
-                observatory, instrument, detector and measurement must be included in the request. </p>
-                </li>
-            </ul>
-            </div>
-            
-            </li>
-            
-            <br />
-            
-            <!-- getTile API -->
-            <li>
-            <div id="getTile">Creating a Tile:
-            <p>Once you have determined the image for which you wish to retrieve a tile from using the above
-               <a href="#getClosestImage" />getClosestImage</a> request, you are ready to begin requesting tiles
-               for that image. Tiles are requesting by specifying the identifier for the image you wish to tile, in
-               this case simply the filename of the image, the spatial scale that the tile should be generated at,..</p>
-    
-            <br />
-    
-    
-            <div class="summary-box">
-                <span style="text-decoration: underline;">Usage:</span>
-                <br />
-                <br />
-                <a href="<?php echo HV_API_ROOT_URL;?>?action=getTile">
-                    <?php echo HV_API_ROOT_URL;?>?action=getTile
-                </a>
-                            
-                <br /><br />
-                Supported Parameters:
-                <br /><br />
-        
-                <table class="param-list" cellspacing="10">
-                    <tbody valign="top">
-                        <tr>
-                            <td width="20%"><b>uri</b></td>
-                            <td width="25%"><i>String</i></td>
-                            <td width="55%">The filepath to the JP2 image that will be tiled. The filepath is relative to the main JP2
-                                directory, parts like /var/www/jp2 can be left out.</td>
+                            <td><b>layers</b></td>
+                            <td><i>String</i></td>
+                            <td>A string of layer information in the following format:<br />
+                                Each layer is comma-separated with these values: [<i>sourceId,visible,opacity</i>]. <br />
+                                If you do not know the sourceId, you can 
+                                alternately send this layer string: [<i>obs,inst,det,meas,opacity]</i>.
+                                Layer strings are separated by commas: [layer1],[layer2],[layer3].</td>
                         </tr>
                         <tr>
                             <td><b>y1</b></td>
@@ -662,86 +743,77 @@ class Module_WebClient implements Module
                                 if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversions</a>.</td>
                         </tr>
                         <tr>
-                            <td><b>format</b></td>
-                            <td><i>String</i></td>
-                            <td>The format of the tile. Should be png if the tile has transparency, as with LASCO images, and jpg if it does not.</td>
+                            <td><b>display</b></td>
+                            <td><i>Boolean</i></td>
+                            <td><i>[Optional]</i> If display is true, the screenshot will display on the page when it is ready. If display is false, the
+                                filepath to the screenshot will be returned. If display is not specified, it will default to true (Default=false).</td>
                         </tr>
                         <tr>
-                            <td><b>date</b></td>
-                            <td><i>ISO 8601 UTC Date</i></td>
-                            <td>The date of the image</td>
-                        </tr>
-                        <tr>
-                            <td><b>imageScale</b></td>
-                            <td><i>Float</i></td>
-                            <td>The scale of the image in the viewport, in arcseconds per pixel.</td>
-                        </tr>
-                        <tr>
-                            <td><b>size</b></td>
-                            <td><i>Integer</i></td>
-                            <td>The desired tile size in pixels.</td>
-                        </tr>
-                        <tr>
-                            <td><b>jp2Scale</b></td>
-                            <td><i>Float</i></td>
-                            <td>The native scale of the JP2 image in arcseconds per pixel.</td>
-                        </tr>
-                        <tr>
-                            <td><b>jp2Height</b></td>
-                            <td><i>Integer</i></td>
-                            <td>The height of the JP2 image in pixels.</td>
-                        </tr>
-                        <tr>
-                            <td><b>jp2Width</b></td>
-                            <td><i>Integer</i></td>
-                            <td>The width of the JP2 image in pixels.</td>
-                        </tr>
-                        <tr>
-                            <td><b>observatory</b></td>
-                            <td><i>String</i></td>
-                            <td>Observatory</td>
-                        </tr>
-                        <tr>
-                            <td><b>instrument</b></td>
-                            <td><i>String</i></td>
-                            <td>Instrument</td>
-                        </tr>
-                        <tr>
-                            <td><b>detector</b></td>
-                            <td><i>String</i></td>
-                            <td>Detector</td>
-                        </tr>
-                        <tr>
-                            <td><b>measurement</b></td>
-                            <td><i>String</i></td>
-                            <td>Measurement</td>
-                        </tr>
-                        <tr>
-                            <td><b>offsetX</b></td>
-                            <td><i>Float</i></td>
-                            <td>The offset of the center of the sun from the center of the JP2 image in pixels
-                                at the image's native resolution.</td>
-                        </tr>
-                        <tr>
-                            <td><b>offsetY</b></td>
-                            <td><i>Float</i></td>
-                            <td>The offset of the center of the sun from the center of the JP2 image in pixels
-                                at the image's native resolution.</td>
+                            <td><b>watermark</b></td>
+                            <td><i>Boolean</i></td>
+                            <td><i>[Optional]</i> Whether or not the include the timestamps and the Helioviewer.org logo in the screenshot (Default=true).</td>
                         </tr>
                     </tbody>
-                </table>   
+                </table>
+        
                 <br />
-                <span class="example-header">Examples:</span> <span class="example-url">
-                    <a href="<?php echo HV_API_ROOT_URL;?>?action=getTile&uri=/EIT/171/2010/06/02/2010_06_02__01_00_16_255__SOHO_EIT_EIT_171.jp2&x1=-2700.1158&x2=-6.995800000000215&y1=-19.2516&y2=2673.8684&format=jpg&date=2010-06-02+01:00:16&imageScale=5.26&size=512&jp2Width=1024&jp2Height=1024&jp2Scale=2.63&observatory=SOHO&instrument=EIT&detector=EIT&measurement=171&offsetX=2.66&offsetY=7.32">
-                       <?php echo HV_API_ROOT_URL;?>?action=getTile&uri=/EIT/171/2010/06/02/2010_06_02__01_00_16_255__SOHO_EIT_EIT_171.jp2
-                        &x1=-2700.1158&x2=-6.995800000000215&y1=-19.2516&y2=2673.8684&format=jpg&date=2010-06-02+01:00:16&imageScale=5.26
-                        &size=512&jp2Width=1024&jp2Height=1024&jp2Scale=2.63&observatory=SOHO&instrument=EIT&detector=EIT&measurement=171
-                        &offsetX=2.66&offsetY=7.32
-                    </a>
-                    <br /><br />
+        
+                <span class="example-header">Examples:</span>
+                <span class="example-url">
+                <a href="<?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&date=2011-03-01T12:12:12Z&imageScale=10.52&layers=[3,1,100],[4,1,100]&x1=-5000&y1=-5000&x2=5000&y2=5000&display=true">
+                <?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&date=2011-03-01T12:12:12Z&imageScale=10.52&layers=[3,1,100],[4,1,100]&x1=-5000&y1=-5000&x2=5000&y2=5000&display=true
+                </a>
+                </span><br />
+                <span class="example-url">
+                <a href="<?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&date=2011-03-01T12:12:12Z&imageScale=10.52&layers=[SOHO,EIT,EIT,171,1,100],[SOHO,LASCO,C2,white-light,1,100]&x1=-5000&y1=-5000&x2=5000&y2=5000">
+                <?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&date=2011-03-01T12:12:12Z&imageScale=10.52&layers=[SOHO,EIT,EIT,171,1,100],[SOHO,LASCO,C2,white-light,1,100]&x1=-5000&y1=-5000&x2=5000&y2=5000
+                </a>
                 </span>
+                </div>
+                <br />
+            </div>
             </li>
-            </ol>
+            
+            <li>
+            <div id="downloadScreenshot">
+                <h1>Retrieving an Existing Screenshot</h1>
+                <p>Displays the screenshot associated with the specified id.</p>
+        
+                <br />
+        
+                <div class="summary-box"><span
+                    style="text-decoration: underline;">Usage:</span><br />
+                <br />
+        
+                <?php echo HV_API_ROOT_URL;?>?action=downloadScreenshot<br />
+                <br />
+        
+                Supported Parameters:<br />
+                <br />
+        
+                <table class="param-list" cellspacing="10">
+                    <tbody valign="top">
+                        <tr>
+                            <td width="20%"><b>id</b></td>
+                            <td><i>int</i></td>
+                            <td>The screenshot id as returned from <a href='#takeScreenshot'>takeScreenshot</a>.</td>
+                        </tr>
+                    </tbody>
+                </table>
+        
+                <br />
+        
+                <span class="example-header">Example:</span>
+                <span class="example-url">
+                <a href="<?php echo HV_API_ROOT_URL;?>?action=downloadScreenshot&id=181">
+                <?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&id=181
+                </a>
+                </span><br />
+
+                </div>
+                <br />
+            </div>
+            </li>
         </div>
         <?php
     }
