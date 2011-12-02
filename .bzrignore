@@ -15,9 +15,16 @@ log/*
 install/tools/icons
 settings/Config.ini
 settings/Database.php
+settings/Private.php
 tags
 docs/files.html
 docs/index.html
 docs/symbols
 error.log
 jp2
+build/css
+*.log
+php_errors.log
+.htaccess
+.gnupg
+cache

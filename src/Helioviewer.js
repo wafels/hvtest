@@ -7,8 +7,8 @@
 /*global document, window, $, Class, ImageSelectTool, MovieBuilder, 
   TooltipHelper, ViewportController, ScreenshotBuilder, ScreenshotHistory,
   MovieHistory, addIconHoverEventListener, UserVideoGallery, MessageConsole,
-  KeyboardManager, SettingsLoader, TimeControls, FullscreenControl,
-  ZoomControls, ScreenshotManagerUI, MovieManagerUI, assignTouchHandlers */
+  KeyboardManager, SettingsLoader, TimeControls, FullscreenControl, addthis,
+  ZoomControls, ScreenshotManagerUI, MovieManagerUI, assignTouchHandlers, VisualGlossary */
 "use strict";
 var Helioviewer = Class.extend(
     /** @lends Helioviewer.prototype */
@@ -21,15 +21,15 @@ var Helioviewer = Class.extend(
      *  Includes imageLayers, date, and imageScale. May be empty.
      * @param {Object} serverSettings Server settings loaded from Config.ini
      */
-    init: function (urlSettings, serverSettings, debug) {
+    init: function (urlSettings, serverSettings, zoomLevels, debug) {
+        var urlDate, imageScale;
+        
         this._checkBrowser(); // Determines browser support
         
         this.serverSettings = serverSettings;
         this.api            = "api/index.php";
 
-        // User settings are globally accessible
-        Helioviewer.userSettings = SettingsLoader.loadSettings(urlSettings, 
-            serverSettings);
+        Helioviewer.userSettings = SettingsLoader.loadSettings(urlSettings, serverSettings);
             
         // Debugging helpers
         if (debug) {
@@ -39,8 +39,11 @@ var Helioviewer = Class.extend(
         this._initLoadingIndicator();
         this._initTooltips();
         
+        // Determine image scale to use
+        imageScale = this._chooseInitialImageScale(Helioviewer.userSettings.get('state.imageScale'), zoomLevels);
+        
         // Use URL date if specified
-        var urlDate = urlSettings.date ? Date.parseUTCDate(urlSettings.date) : false;
+        urlDate = urlSettings.date ? Date.parseUTCDate(urlSettings.date) : false;
 
         this.timeControls = new TimeControls('#date', '#time', 
             '#timestep-select', '#timeBackBtn', '#timeForwardBtn', urlDate);
@@ -52,7 +55,7 @@ var Helioviewer = Class.extend(
         this.keyboard       = new KeyboardManager();
         
         // User Interface components
-        this.zoomControls   = new ZoomControls('#zoomControls', Helioviewer.userSettings.get('state.imageScale'),
+        this.zoomControls   = new ZoomControls('#zoomControls', imageScale, zoomLevels,
                                                this.serverSettings.minImageScale, this.serverSettings.maxImageScale); 
 
         this.fullScreenMode = new FullscreenControl("#fullscreen-btn", 500);
@@ -66,14 +69,14 @@ var Helioviewer = Class.extend(
         this._screenshotManagerUI = new ScreenshotManagerUI();
         this._movieManagerUI      = new MovieManagerUI();
 
+        this._glossary = new VisualGlossary(this._setupDialog);
+
         this._setupDialogs();
         this._initEventHandlers();
         this._displayGreeting();
-        
-        // Play movie if id is specified
-        if (urlSettings.movieId) {
-            this._loadMovie(urlSettings.movieId);
-        }
+
+        // Initialize AddThis
+        addthis.init();
     },
     
     
@@ -97,7 +100,14 @@ var Helioviewer = Class.extend(
             
             // VP8/WebM
             if (v.canPlayType('video/webm; codecs="vp8"')) {
-                $.support.vp8 = true;
+                // 2011/11/07: Disabling vp8 support until encoding time
+                // can be greatly reduced. WebM/VP8 movies will still be
+                // generated on the back-end when resources are available,
+                // but Flash/H.264 will be used in the mean-time to decrease
+                // response time and queue waits.
+                
+                //$.support.vp8 = true;
+                $.support.vp8 = false;
             }
             
             // Ogg Theora
@@ -107,7 +117,12 @@ var Helioviewer = Class.extend(
             
             // H.264
             if (v.canPlayType('video/mp4; codecs="avc1.42E01E, mp4a.40.2"')) {
-                $.support.h264 = true;
+                // 2011/11/07: Also disabling H.264 in-browser video for now:
+                // some versions of Chrome report support when it does not
+                // actually work. 
+                
+                //$.support.h264 = true;
+                $.support.h264 = false;
             }
             
         }
@@ -139,10 +154,11 @@ var Helioviewer = Class.extend(
             }
         });
         
-        $("*[title]:not(#fullscreen-btn,.text-btn)").qtip();
+        // Bottom-right tooltips
+        $("*[title]:not(.qtip-left)").qtip();
         
-        // Fullscreen
-        $("#fullscreen-btn, .text-btn").qtip({
+        // Bottom-left tooltips
+        $(".qtip-left").qtip({
             position: {
                 my: "top right",
                 at: "bottom middle"
@@ -173,11 +189,38 @@ var Helioviewer = Class.extend(
     },
     
     /**
+     * Chooses an acceptible image scale to use based on the default or
+     * requested imageScale the list of allowed increments 
+     */
+    _chooseInitialImageScale: function (imageScale, increments) {
+        // For exact match, use image scale as-is
+        if ($.inArray(imageScale, increments) !== -1) {
+            return imageScale;
+        }
+        // Otherwise choose closest acceptible image scale
+        var diff, closestScale, bestMatch = Infinity;
+        
+        $.each(increments, function (i, scale) {
+            diff = Math.abs(scale - imageScale);
+
+            if (diff < bestMatch) {
+                bestMatch = diff;
+                closestScale = scale;
+            }
+        });
+        
+        // Store closest matched image scale
+        Helioviewer.userSettings.set('state.imageScale', closestScale);
+
+        return closestScale;
+    },
+    
+    /**
      * Adds a movie to the user's history and displays the movie
      * 
      * @param string movieId Identifier of the movie to be shown
      */
-    _loadMovie: function (movieId) {
+    loadMovie: function (movieId) {
         if (!this._movieManagerUI.has(movieId)) {
             this._movieManagerUI.addMovieUsingId(movieId);
         } else {
@@ -231,15 +274,15 @@ var Helioviewer = Class.extend(
     /**
      * Sets up event handlers for a single dialog
      */
-    _setupDialog: function (btn, dialog, options) {
+    _setupDialog: function (btn, dialog, options, onLoad) {
         // Default options
         var defaults = {
             title     : "Helioviewer.org",
             autoOpen  : true,
             draggable : true,
             width     : 480,
-            height    : 480            
-        };        
+            height    : 480
+        };
         
         // Button click handler
         $(btn).click(function () {
@@ -254,7 +297,7 @@ var Helioviewer = Class.extend(
                     d.dialog('open');
                 }
             } else {
-                d.load(this.href).dialog($.extend(defaults, options));
+                d.load(this.href, onLoad).dialog($.extend(defaults, options));
                 btn.addClass("dialog-loaded");
             }
             return false; 
@@ -298,6 +341,18 @@ var Helioviewer = Class.extend(
         $("#helioviewer-viewport, .ui-slider-handle").each(function () {
             assignTouchHandlers(this);
         });
+        
+        $("#helioviewer-url-shorten").click(function(e) {
+            var url;
+
+            if (e.target.checked) {
+                url = $("#helioviewer-short-url").attr("value");   
+            } else {
+                url = $("#helioviewer-long-url").attr("value");
+            }
+            
+            $("#helioviewer-url-input-box").attr('value', url).select();
+        });
     },
     
     /**
@@ -305,20 +360,33 @@ var Helioviewer = Class.extend(
      * @param {Object} url
      */
     displayURL: function (url, msg) {
+        // Store short and long versions of URL
+        var queryString, shortURL;
+        
+        queryString = url.substr(this.serverSettings.rootURL.length + 2); 
+        
+        shortURL = this.shortenURL(queryString);
+        
+        $("#helioviewer-long-url").attr("value", url);
+        $("#helioviewer-short-url").attr("value", shortURL);
+        
+        // Display URL
         $("#helioviewer-url-box-msg").text(msg);
         $("#url-dialog").dialog({
             dialogClass: 'helioviewer-modal-dialog',
-            height    : 100,
+            height    : 110,
             width     : $('html').width() * 0.7,
             modal     : true,
             resizable : false,
             title     : "URL",
             open      : function (e) {
+                $("#helioviewer-url-shorten").removeAttr("checked");
                 $('.ui-widget-overlay').hide().fadeIn();
                 $("#helioviewer-url-input-box").attr('value', url).select();
             }
         });
     },
+    
     
     /**
      * Displays a URL to a Helioviewer.org movie
@@ -326,8 +394,8 @@ var Helioviewer = Class.extend(
      * @param string Id of the movie to be linked to
      */
     displayMovieURL: function (movieId) {
-        var url = this.serverSettings.rootURL + "/?movieId=" + movieId,
-            msg = "Use the following link to refer to this movie:";
+        var msg = "Use the following link to refer to this movie:",
+            url = this.serverSettings.rootURL + "/?movieId=" + movieId;
 
         this.displayURL(url, msg);           
     },
@@ -439,7 +507,7 @@ var Helioviewer = Class.extend(
 
         $(document).trigger("message-console-info", 
             ["<b>Welcome to Helioviewer.org</b>, a solar data browser. First time here? Be sure to check out our " +
-             "<a href=\"http://wiki.helioviewer.org/wiki/index.php?title=Helioviewer.org_User_Guide\" " +
+             "<a href=\"http://wiki.helioviewer.org/wiki/Helioviewer.org_User_Guide\" " +
              "class=\"message-console-link\" target=\"_blank\"> User Guide</a>.", {life: 20000}]
         );
         
@@ -498,17 +566,38 @@ var Helioviewer = Class.extend(
      * 
      * @returns {String} A URL representing the current state of Helioviewer.org.
      */
-    toURL: function () {
-
+    toURL: function (shorten) {
+        // URL parameters
         var params = {
             "date"        : this.viewport.getMiddleObservationTime().toISOString(),
             "imageScale"  : this.viewport.getImageScale(),
             "centerX"     : Helioviewer.userSettings.get("state.centerX"),
             "centerY"     : Helioviewer.userSettings.get("state.centerY"), 
-            "imageLayers" : this.viewport.serialize()
+            "imageLayers" : encodeURI(this.viewport.serialize())
         };
-        return this.serverSettings.rootURL + "/?" + 
-               decodeURIComponent($.param(params));
+        
+        return this.serverSettings.rootURL + "/?" + decodeURIComponent($.param(params));
+    },
+    
+    /**
+     * Returns a shortened version of a Helioviewer.org URL
+     */
+    shortenURL: function (queryString) {
+        var shortURL = "http://www.helioviewer.org";
+        
+        $.ajax({
+            async: false,
+            url: this.api,
+            dataType: 'json',
+            data: {
+                "action": "shortenURL",
+                "queryString": queryString 
+            },
+            success: function (response) {
+                shortURL = response.data.url;
+            }
+        });
+        return shortURL;
     },
     
     /**

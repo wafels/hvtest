@@ -29,6 +29,9 @@ var UserSettings = Class.extend(
         
         // Input validator
         this._validator = new InputValidator();
+        
+        // Revision when config format last changed
+        this._lastChanged = 567;
                 
         // Initialize storage
         this._initStorage();
@@ -131,7 +134,7 @@ var UserSettings = Class.extend(
         }
 
         // If version is out of date, load defaults
-        if (this.get('version') < this._defaults.version) {
+        if (this.get('version') < this._lastChanged) {
             this._loadDefaults();
         }
     },
