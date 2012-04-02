@@ -45,7 +45,7 @@ class Movie_YouTube
         Zend_Loader::loadClass('Zend_Gdata_AuthSub');
         
         $this->_appId     = "Helioviewer.org User Video Uploader";
-        $this->_clientId  = "Helioviewer.org (2.2.2)";
+        $this->_clientId  = "Helioviewer.org (2.3.0)";
 
         $this->_testURL   = "http://gdata.youtube.com/feeds/api/users/default/uploads?max-results=1";
         $this->_uploadURL = "http://uploads.gdata.youtube.com/feeds/api/users/default/uploads";
@@ -119,7 +119,7 @@ class Movie_YouTube
     {
         // Post-auth upload URL
         $uploadURL = HV_API_ROOT_URL . "?action=uploadMovieToYouTube&id=$id&html=true";
-
+        
         // Get URL for authorization
         $authURL = Zend_Gdata_AuthSub::getAuthSubTokenUri(
             $uploadURL, "http://gdata.youtube.com", false, true
@@ -164,7 +164,11 @@ class Movie_YouTube
         // Attempt a simple query to make sure session token has not expired
         try {
             $this->_youTube->getVideoFeed($this->_testURL);
-        } catch (Exception $e) { //Zend_Gdata_App_HttpException
+        } catch (Exception $e) {
+            //Zend_Gdata_App_HttpException
+            include_once "src/Helper/ErrorHandler.php";
+            logErrorMsg($msg, "Youtube_");
+                        
             unset($_SESSION['sessionToken']); // Discard expired authorization
             return false;
         }
@@ -269,8 +273,17 @@ class Movie_YouTube
         
         // Add movie entry to YouTube table if entry does not already exist
         $movieId = alphaID($id, true, 5, HV_MOVIE_ID_PASS);
+     
         if (!$movies->insertYouTubeMovie($movieId, $title, $description, $tags, $share)) {
             throw new Exception("Movie has already been uploaded. Please allow several minutes for your video to appear on YouTube.", 1);
+            // 12/14/2011: Tracking down upload error
+            // $log = HV_LOG_DIR . "/upload-" . date("Ymd_His") . ".log";
+            // $msg = "id: $movieId\n" . "title: $title\n". "desc: $description\n" . 
+                   // "tags: $tags\n" .  "share: $share\n\n" .
+                   // "REQUEST: " . print_r($_REQUEST, true) . "\n\n" . 
+                   // "SESSION: " . print_r($_SESSION, true);
+            // file_put_contents($log, $msg);
+
         }
         
         // buffer all upcoming output

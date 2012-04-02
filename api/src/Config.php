@@ -30,14 +30,11 @@
  */
 class Config
 {
-    private $_bools  = array("distributed_mode_enabled", "disable_cache", "helioqueuer_enabled",
-                             "enable_statistics_collection");
+    private $_bools  = array("disable_cache", "enable_statistics_collection");
                              
-    private $_ints   = array("build_num", "bit_depth", "default_timestep", "prefetch_size", "num_colors",
+    private $_ints   = array("build_num", "default_timestep", "prefetch_size",
                              "ffmpeg_max_threads", "max_jpx_frames", "max_movie_frames");
     private $_floats = array("default_image_scale", "min_image_scale", "max_image_scale");
-
-    public  $servers;
 
     /**
      * Creates an instance of the Config helper class
@@ -53,19 +50,7 @@ class Config
         $this->_fixTypes();
 
         foreach ($this->config as $key => $value) {
-            if ($key !== "server") {
-                define("HV_" . strtoupper($key), $value);
-            }
-        }
-        
-        if ($this->config['distributed_mode_enabled']) {
-            array_unshift($this->config["server"], "api/index.php");
-        } else {
-            $this->config["server"] = array("api/index.php");
-        }
-
-        foreach ($this->config["server"] as $id => $url) {
-            define("HV_SERVER_" . ($id), $url);
+            define("HV_" . strtoupper($key), $value);
         }
 
         $this->_setAdditionalParams();
@@ -83,7 +68,7 @@ class Config
     {
         // booleans
         foreach ($this->_bools as $boolean) {
-            $this->config[$boolean] = (bool) $this->config[$boolean];
+            $this->config[$boolean] = ($this->config[$boolean] == "true" || $this->config[$boolean] == "1");
         }
 
         // integers
@@ -118,5 +103,11 @@ class Config
         define("PNG_HIGH_COMPRESSION", 50);  // Slower, smalle files
         define("JPG_HIGH_COMPRESSION", 80);  // Good quality, small files, faster
         define("JPG_LOW_COMPRESSION",  100); // Best quality, large files, slower
+        
+        // Movie queue throttles for speeding up processing during high-demand
+        define("MOVIE_QUEUE_THROTTLE_ONE", 20);
+        define("MOVIE_QUEUE_THROTTLE_TWO", 50);
+        define("MOVIE_QUEUE_MAX_SIZE", 100);
+        define("MOVIE_EST_TIME_PER_FRAME", 0.5);
     }
 }

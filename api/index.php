@@ -23,6 +23,8 @@
  *  = Add getPlugins method to JHelioviewer module (empty function for now)
  */
 require_once "src/Config.php";
+require_once "src/Helper/ErrorHandler.php";
+
 $config = new Config("../settings/Config.ini");
 date_default_timezone_set('UTC');
 register_shutdown_function('shutdownFunction');
@@ -71,14 +73,10 @@ function loadModule($params)
         "uploadMovieToYouTube" => "Movies",
         "checkYouTubeAuth"     => "Movies",
         "getYouTubeAuth"       => "Movies",
-        "getUserVideos"        => "Movies",
-        "getEventFRMs"           => "SolarEvents",
-        "getEvents"              => "SolarEvents",
-        "getScreenshotsForEvent" => "SolarEvents",
-        "getMoviesForEvent"      => "SolarEvents"
+        "getUserVideos"        => "Movies"
+        //"getEventFRMs"           => "SolarEvents",
+        //"getEvents"              => "SolarEvents"
     );
-    
-    $helioqueuer_tasks = array ("queueMovie");
     
     include_once "src/Validation/InputValidator.php";
 
@@ -90,85 +88,26 @@ function loadModule($params)
                 "API Documentation</a> for a list of valid actions."
             );
         } else {
-            // Remote requests
-            if (isset($params['s'])) {
-                // Forward request if neccessary
-                // TODO 08/11/2010: Create separate method or extend Net_Proxy
-                if (HV_DISTRIBUTED_MODE_ENABLED) {
-                    $url = constant("HV_SERVER_" . $params['s']) . "?";
-                    
-                    unset ($params['s']);
-                    foreach ($params as $key=>$value) {
-                        $url .= "$key=$value&";
-                    }
-                    $url = trim($url, "&");
-                    
-                    // TODO 08/11/2010: Use Net_Proxy instead
-                    echo file_get_contents($url);
-                } else {
-                    $err = "Distributed mode is disabled for this server.";
-                    throw new Exception($err);
-                }
-                
-            // Forward Helioqueuer tasks 
-            } else if (HV_HELIOQUEUER_ENABLED && in_array($params["action"], $helioqueuer_tasks)) {
-                $url = HV_HELIOQUEUER_API_URL . "/" . strtolower(preg_replace('/([A-Z])/', '/\1', $params['action']));
-                unset ($params['action']);
-                                
-                // Set up handler to respond to warnings emitted by file_get_contents
-                function catchWarning($errno, $errstr, $errfile, $errline, array $errcontext) {
-                    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
-                }
-                set_error_handler('catchWarning');
-                
-                include_once 'src/Net/Proxy.php';
-                $proxy = new Net_Proxy($url . "?");
-                
-                if ($_SERVER['REQUEST_METHOD'] == "POST") {
-                    $response = $proxy->post($params, true);    
-                } else {
-                    $response = $proxy->query($params, true);
-                }
-                
-                header('Content-type: application/json;charset=UTF-8');
-                
-                // Make sure a response was recieved
-                if ($response) {
-                    echo $response;
-                } else {
-                    handleError("Helioqueuer is currently unresponsive");
-                }
-                
-                // Restore normal behavior for dealing with warnings
-                restore_error_handler();
+        	// Execute action
+            $moduleName = $valid_actions[$params["action"]];
+            $className  = "Module_" . $moduleName;
 
-            // Local requests
-            } else {
-            	// Execute action
-                $moduleName = $valid_actions[$params["action"]];
-                $className  = "Module_" . $moduleName;
-    
-                include_once "src/Module/$moduleName.php";
-    
-                $module = new $className($params);
-                $module->execute();
-                
-                // Update usage stats
-                $actions_to_keep_stats_for = array("getClosestImage", 
-                    "getTile", "takeScreenshot", "getJPX",
-                    "uploadMovieToYouTube");
-                
-				// Note that in addition to the above, buildMovie requests and 
-				// getCachedTile requests are also tracked.
-				// getCachedTile is a pseudo-action which is logged in 
-				// addition to getTile when the tile was already in the cache.
-                if (HV_ENABLE_STATISTICS_COLLECTION && in_array($params["action"], $actions_to_keep_stats_for)) {
-                    include_once 'src/Database/Statistics.php';
-                    $statistics = new Database_Statistics();
-                    $statistics->log($params["action"]);
-                }
+            include_once "src/Module/$moduleName.php";
+
+            $module = new $className($params);
+            $module->execute();
+            
+            // Update usage stats
+            $actions_to_keep_stats_for = array("getClosestImage", 
+                "takeScreenshot", "getJPX", "uploadMovieToYouTube");
+            
+			// Note that in addition to the above, buildMovie requests and 
+			// addition to getTile when the tile was already in the cache.
+            if (HV_ENABLE_STATISTICS_COLLECTION && in_array($params["action"], $actions_to_keep_stats_for)) {
+                include_once 'src/Database/Statistics.php';
+                $statistics = new Database_Statistics();
+                $statistics->log($params["action"]);
             }
-
         }
     } catch (Exception $e) {
         printHTMLErrorMsg($e->getMessage());
@@ -184,7 +123,7 @@ function loadModule($params)
  */
 function printAPIDocumentation()
 {
-    $modules = array("WebClient", "SolarEvents", "JHelioviewer", "Movies");
+    $modules = array("WebClient", "JHelioviewer", "Movies");
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -248,14 +187,12 @@ function printAPIDocumentation()
         <h1>Overview</h1>
         <p>In order to facilitate third-party application developers who wish to use content from and interact with
         Helioviewer.org, a number of <abbr title="Application Programming Interface">APIs</abbr> have been developed,
-        offering  access to a variety of components used by Helioviewer. All of the interfaces are accessed using HTML query
-        strings. The simplest APIs require only a single URI, and result in some resource being returned, e.g. a movie or
-        <abbr title="JPEG 2000">JP2</abbr> image series, or some action being performed, e.g. loading a particular "view"
-        into Helioviewer. Some API methods are more complex and involve two steps. For example, in order to get a
-        list of solar events for a certain period of time, first a query is usually made to see which Feature Recognition
-        Methods (or FRMs) include events for that time period. A second query then returns a list of features/events are 
-        fetched using a second query.
-        
+        offering  access to a variety of components used by Helioviewer. The simplest API actions require only a 
+        single request and result in some resource being returned, e.g. a movie or <abbr title="JPEG 2000">JP2</abbr> 
+        image series, or some action being performed, e.g. loading a particular image into Helioviewer.org. Some 
+        API methods are more complex and involve multiple steps. For example, when creating a movie, the request is 
+        first queued using one request. Subsequent requests are then used to determine when the movie has been built, 
+        and then finally to download or play the movie.
         <br />
         <br />
     
@@ -267,8 +204,8 @@ function printAPIDocumentation()
     
         <p>The base URL is the same for each of the API methods (<a href="<?php echo HV_API_ROOT_URL;?>;"><?php echo HV_API_ROOT_URL;?></a>).
         The "action" parameter is required for all requests and specifies the specific functionality to access. In addition, other parameters
-        may also be required depending on the specific API being accessed. The one exception to this rule is the
-        <a href="index.php#CustomView">Custom View API</a> which is accessed from
+        may also be required depending on the specific API being accessed. The one exception to this rule is for
+        <a href="index.php#CustomURLs">launching Helioviewer.org</a> with custom settings which is accessed from
         <a href="http://www.helioviewer.org/index.php"> http://www.helioviewer.org/index.php</a> and does not require an
         "action" to be specified. Finally, the queries may be sent using either a GET or POST request. In both cases the
         result is a <abbr name="JSON" title="JavaScript Object Notation">JSON</abbr> object
@@ -283,7 +220,7 @@ function printAPIDocumentation()
 </div>
 
 <div style="font-size: 0.85em; text-align: center; margin-top: 20px;">
-    Last Updated: 2011-07-06 | <a href="mailto:<?php echo HV_CONTACT_EMAIL; ?>">Questions?</a>
+    Last Updated: 2012-02-22 | <a href="mailto:<?php echo HV_CONTACT_EMAIL; ?>">Questions?</a>
 </div>
 
 </body>
@@ -334,16 +271,12 @@ function printDocumentationAppendices()
                 <td>STEREO_B</td>
                 <td>STEREO_B (Solar Terrestrial Relations Observatory Behind)</td>
             </tr>
-            <!--
-            <tr>
-                <td>TRACE</td>
-                <td>TRACE (Transition Region and Coronal Explorer)</td>
-            </tr>-->
         </table>
 
         <br />
 
-        <!-- Instruments --> <i>Instruments:</i><br />
+        <!-- Instruments -->
+        <i>Instruments:</i><br />
         <br />
         <table class="param-list" cellspacing="10">
             <tr>
@@ -374,17 +307,12 @@ function printDocumentationAppendices()
                 <td>SECCHI</td>
                 <td>SECCHI (Sun Earth Connection Coronal and Heliospheric Investigation)</td>
             </tr>
-            <!--
-            <tr>
-                <td>TRACE</td>
-                <td>TRACE (Transition Region and Coronal Explorer)</td>
-            </tr>
-             -->
         </table>
 
         <br />
 
-        <!-- Detectors --> <i>Detectors:</i><br />
+        <!-- Detectors -->
+        <i>Detectors:</i><br />
         <br />
         <table class="param-list" cellspacing="10">
             <tr>
@@ -503,33 +431,6 @@ function printDocumentationAppendices()
 
         <br />
 
-        <!-- Event Types --> <i>Event Types:</i><br />
-        <br />
-        <table class="param-list cellspacing="10"">
-            <tr>
-                <td width="160px"><strong>Identifier:</strong></td>
-                <td><strong>Description:</strong></td>
-            </tr>
-            <td>CME</td>
-            <td>Coronal Mass Ejection</td>
-            <tr></tr>
-            <tr>
-                <td>Solar Flare</td>
-                <td>Solar Flare</td>
-            </tr>
-            <tr>
-                <td>Type II Radio Burst</td>
-                <td>Type II Radio Burst</td>
-            </tr>
-            <tr>
-                <td>Active Region</td>
-                <td>Active Region</td>
-            </tr>
-            <tr>
-                <td>GeneralActivityReport</td>
-                <td>SOHO General Activity Report</td>
-            </tr>
-        </table>
         </div>
         </div>
         </li>
@@ -541,7 +442,7 @@ function printDocumentationAppendices()
         <div id="VariableTypes">Variable Types
         <p>This appendice contains a list of some of the variable types
         used by the Helioviewer API's.</p>
-        <div class="summary-box" style="background-color: #E3EFFF;"><!-- Observatories -->
+        <div class="summary-box" style="background-color: #E3EFFF;">
         <br />
         <table class="param-list" cellspacing="10">
             <tbody valign="top">
@@ -573,7 +474,7 @@ function printDocumentationAppendices()
                 <tr>
                     <td>List</td>
                     <td>A comma-separated list of some other type, usually strings or integers</td>
-                    <td>VSOService::noaa, GOESXRayService::GOESXRay</td>
+                    <td>item1, item2</td>
                 </tr>
                 <tr>
                     <td>2d List</td>
@@ -582,17 +483,10 @@ function printDocumentationAppendices()
                     <td>[SOHO,EIT,EIT,171,1,100],[SOHO,LASCO,C2,white-light,0,100],[SOHO,MDI,MDI,continuum,1,50]</td>
                 </tr>
                 <tr>
-                    <td>Unix Timestamp</td>
-                    <td>The number of seconds since January 1, 1970, midnight UTC.
-                    (see <a href="#variable-type-resources">[1]</a>)</td>
-                    <td>1065512000 <span style="color: grey">// October 7th 2003, 7:33:20 UTC</span></td>
-                </tr>
-                <tr>
                     <td>ISO 8601 UTC Date</td>
                     <td>ISO 8601 is a widely supported standarized date format.
-                    (See <a href="#variable-type-resources">[2]</a>, <a href="#variable-type-resources">[3]</a>)</td>
-                    <td>2003-10-05T00:00:00Z <span style="color: grey">// Note the "Z" at the end. This specifies that
-                    this is a UTC datetime</span></td>
+                    (See <a href="#variable-type-resources">[1]</a>, <a href="#variable-type-resources">[2]</a>)</td>
+                    <td>2003-10-05T00:00:00.000Z <span style="color: grey">// Milliseconds are optional but trailing "Z" should always included.</span></td>
                 </tr>
             </tbody>
         </table>
@@ -601,9 +495,8 @@ function printDocumentationAppendices()
         <br />
         <div id="variable-type-resources"><strong>References:</strong><br />
         <br />
-        [1] <a href="http://www.epochconverter.com/">Epoch Converter - Unix Timestamp Converter</a><br />
-        [2] <a href="http://en.wikipedia.org/wiki/ISO_8601">ISO 8601 - Wikipedia</a><br />
-        [3] <a href="http://www.w3.org/TR/NOTE-datetime">Date and Time Formats - W3.org</a><br />
+        [1] <a href="http://en.wikipedia.org/wiki/ISO_8601">ISO 8601 - Wikipedia</a><br />
+        [2] <a href="http://www.w3.org/TR/NOTE-datetime">Date and Time Formats - W3.org</a><br />
         <br />
         </div>
         </div>
@@ -867,64 +760,6 @@ function printHTMLErrorMsg($msg)
 </html>
     <?php
     exit();
-}
-
-/**
- * Handles errors encountered during request processing.
- * 
- * @param string $msg     The error message to display
- * @param bool   $skipLog If true no log file will be created
- * 
- * Note: If multiple levels of verbosity are needed, one option would be to split up the complete error message
- *       into it's separate parts, add a "details" field with the full message, and display only the top-level
- *       error message in "error" 
- * 
- * @see http://www.firephp.org/
- */
-function handleError($msg, $skipLog=false)
-{
-    header('Content-type: application/json;charset=UTF-8');
-    
-    // JSON
-    echo json_encode(array("error"=>$msg));
-
-    // Fire PHP
-    include_once "lib/FirePHPCore/fb.php";
-    FB::error($msg);
-    
-    // For errors which are expected (e.g. a movie request for which sufficient data is not available) a non-zero
-    // exception code can be set to a non-zero value indicating that the error is known and no log should be created.
-    if (!$skipLog) {
-        logErrorMsg($msg);
-    }
-}
-
-/**
- * Logs an error message to the log whose location is specified in Config.ini
- * 
- * @param string $error The body of the error message to be logged.
- * 
- * @return void 
- */
-function logErrorMsg($error)
-{
-    $url = $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-    $log = HV_LOG_DIR . "/" . date("Ymd_His") . ".log";
-    
-    $template = "====[DATE]====================\n\n%s\n\n====[URL]=====================\n\n%s\n\n"
-              . "====[MESSAGE]=================\n\n%s";
-    
-    $msg = sprintf($template, date("Y/m/d H:i:s"), $url, $error);
-    
-    if (!empty($_POST)) {
-        $msg .= "\n\n====[POST]=================\n\n";
-        foreach ($_POST as $key => $value) {
-           $msg .= "'$key' => $value\n";
-        }
-        $msg .= "\n$url?" . http_build_query($_POST);
-    }
-
-    file_put_contents($log, $msg);
 }
 
 /**

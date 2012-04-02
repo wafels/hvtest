@@ -57,21 +57,38 @@ class Image_JPEG2000_JP2ImageXMLBox
 
         $xml  = "";
 
+        // Read file until header has been retrieved
         while (!feof($fp)) {
             $line = fgets($fp);
             $xml .= $line;
+
             if (strpos($line, "</$root>") !== false) {
                 break;
             }
         }
-        $xml = substr($xml, strpos($xml, "<$root>"));
+        $start = strpos($xml, "<$root>");
+        $end   = strpos($xml, "</$root>") + strlen("</$root>");
+
+        $xml = substr($xml, $start, $end - $start);
 
         fclose($fp);
+        
+        // Work-around Feb 24, 2012: escape < and >
+        $xml = str_replace(" < ", " &lt; ", str_replace(" > ", " &gt; ", $xml));
         
         $this->_xmlString = '<?xml version="1.0" encoding="utf-8"?>' . "\n" . $xml;
 
         $this->_xml = new DOMDocument();
+
         $this->_xml->loadXML($this->_xmlString);
+    }
+    
+    /**
+     * Returns the XML header as a string
+     */
+    public function getXMLString()
+    {
+        return $this->_xmlString;
     }
     
     /**
@@ -94,8 +111,10 @@ class Image_JPEG2000_JP2ImageXMLBox
      */
     public function getDSun()
     {
+        $maxDSUN = 2.25e11; // A reasonable max for solar observatories, ~1.5 AU
+        
         try {
-            // AIA, EUVI, COR 
+            // AIA, EUVI, COR, SWAP
             $dsun = $this->_getElementValue("DSUN_OBS");
         } catch (Exception $e) {
             try {
@@ -121,7 +140,7 @@ class Image_JPEG2000_JP2ImageXMLBox
         }
         
         // Check to make sure header information is valid
-        if ((filter_var($dsun, FILTER_VALIDATE_FLOAT) === false) || ($dsun <= 0)) {
+        if ((filter_var($dsun, FILTER_VALIDATE_FLOAT) === false) || ($dsun <= 0) || ($dsun >= $maxDSUN)) {
             throw new Exception("Invalid value for DSUN: $dsun");
         }
         

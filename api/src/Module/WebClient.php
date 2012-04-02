@@ -76,7 +76,7 @@ class Module_WebClient implements Module
         
         $layers = new Helper_HelioviewerLayers($info['dataSourceString']);
         
-        $dir =  sprintf("%s/screenshots/%s/%s/", 
+        $dir = sprintf("%s/screenshots/%s/%s/", 
            HV_CACHE_DIR,
            str_replace("-", "/", substr($info['timestamp'], 0, 10)),
            $this->_params['id']   
@@ -102,20 +102,8 @@ class Module_WebClient implements Module
         header("Content-Disposition: attachment; filename=\"" . $filename . "\"");
         header("Content-Transfer-Encoding: binary");
         header("Content-Length: " . filesize($filepath));
-
-        // Mime type
-//        $parts = explode(".", $filename);
-//        $extension = end($parts);
-//        
-//        if (in_array($extension, array("jp2", "jpx"))) {
-//            $mimetype = "image/$extension";
-//        } else if (in_array($extension, array("ogg", "ogv", "webm"))) {
-//            $mimetype = "video/$extension";
-//        } else {        
-//            $fileinfo = new finfo(FILEINFO_MIME);
-//            $mimetype = $fileinfo->file($filepath);
-//        }
         header("Content-type: image/png");
+        
         echo file_get_contents($filepath);
     }
 
@@ -154,8 +142,8 @@ class Module_WebClient implements Module
             "date" => $image['date']
         ), $xmlBox);
         
-        header('Content-Type: application/json');
-        echo json_encode($response);
+        // Print result
+        $this->_printJSON(json_encode($response));
     }
 
     /**
@@ -171,9 +159,9 @@ class Module_WebClient implements Module
 
         $imgIndex    = new Database_ImgIndex();
         $dataSources = $imgIndex->getDataSources($verbose);
-
-        header('Content-type: application/json;charset=UTF-8');
-        print json_encode($dataSources);
+        
+        // Print result
+        $this->_printJSON(json_encode($dataSources), false, true);
     }
 
     /**
@@ -192,7 +180,12 @@ class Module_WebClient implements Module
         $filepath = HV_JP2_DIR . $image['filepath'] . "/" . $image['filename'];
 
         $xmlBox = new Image_JPEG2000_JP2ImageXMLBox($filepath, "meta");
-        $xmlBox->printXMLBox();
+        
+        if(isset($this->_params['callback'])) {
+            $this->_printJSON($xmlBox->getXMLString(), true);
+        } else {
+            $xmlBox->printXMLBox();    
+        }
     }
 
     /**
@@ -264,14 +257,6 @@ class Module_WebClient implements Module
         );
         
         $tile->display();
-        
-        // Log cached tile request now and exit to avoid double-counting
-        if (HV_ENABLE_STATISTICS_COLLECTION && file_exists($filepath)) {
-            include_once 'src/Database/Statistics.php';
-            $statistics = new Database_Statistics();
-            $statistics->log("getCachedTile");
-            exit(0);
-        }
     }
 
     /**
@@ -300,23 +285,6 @@ class Module_WebClient implements Module
         // Regon of interest
         return new Helper_RegionOfInterest($left, $top, $right, $bottom, $scale);
     }
-
-// var tileCoordinatesToArcseconds = function (x, y, scale, jp2Scale, tileSize, offsetX, offsetY) {
-    // var relativeTileSize, top, left, bottom, right;
-    // relativeTileSize = tileSize * scale / jp2Scale;
-// 
-    // top  = y * relativeTileSize - offsetY;
-    // left = x * relativeTileSize - offsetX;
-    // bottom = top  + relativeTileSize;
-    // right  = left + relativeTileSize;
-// 
-    // return {
-        // y1 : top  * jp2Scale,
-        // x1 : left * jp2Scale,
-        // y2 : bottom * jp2Scale,
-        // x2 : right  * jp2Scale
-    // };
-// };
     
     /**
      * Builds a filename for a cached tile or image based on boundaries and scale
@@ -337,25 +305,6 @@ class Module_WebClient implements Module
             "%s%s/%s_%s_x%d_y%d.jpg",
             $baseDirectory, $directory, $baseFilename, $scale, $x, $y
         );
-    }
-
-    /**
-     * sendEmail
-     * TODO: CAPTCHA, Server-side security
-     *
-     * @return void
-     */
-    public function sendEmail()
-    {
-        // The message
-        //$message = "Line 1\nLine 2\nLine 3";
-
-        // In case any of our lines are larger than 70 characters, we should
-        // use wordwrap()
-        //$message = wordwrap($message, 70);
-
-        // Send
-        //mail('test@mail.com', 'My Subject', $message);
     }
 
     /**
@@ -411,8 +360,7 @@ class Module_WebClient implements Module
             $screenshot->display();
         } else {
             // Print JSON
-            header('Content-Type: application/json');
-            echo json_encode(array("id" => $screenshot->id));            
+            $this->_printJSON(json_encode(array("id" => $screenshot->id)));
         }
     }
     
@@ -441,30 +389,35 @@ class Module_WebClient implements Module
             $cache->set('news.xml', $feed);
         }
 
-        // Print XML
-        header("Content-Type: text/xml;charset=UTF-8");
-        echo $feed;
+        // Print Response as XML or JSONP/XML
+        if(isset($this->_params['callback'])) {
+            $this->_printJSON($feed, true, true);
+        } else {
+            header("Content-Type: text/xml;charset=UTF-8");
+            echo $feed;            
+        }
     }
     
     /**
      * Uses bit.ly to generate a shortened URL
+     * 
+     * Requests are sent via back-end for security per the bit.ly docs
+     * recommendation.
      */
     public function shortenURL()
     {
         include_once 'src/Net/Proxy.php';
         $proxy = new Net_Proxy("http://api.bitly.com/v3/shorten?");
         
-        //$longURL = HV_WEB_ROOT_URL . "/?" . urldecode($this->_params['queryString']);
-        $longURL = "http://www.helioviewer.org" . "/?" . urldecode($this->_params['queryString']);
-        
+        $longURL = HV_WEB_ROOT_URL . "/?" . urldecode($this->_params['queryString']);
+
         $params = array(
             "longUrl" => $longURL,
             "login"   => HV_BITLY_USER,
             "apiKey"  => HV_BITLY_API_KEY
         );
         
-        header('Content-Type: application/json');
-        echo $proxy->query($params);
+        $this->_printJSON($proxy->query($params));
     }
     
     /**
@@ -493,8 +446,7 @@ class Module_WebClient implements Module
         include_once 'src/Database/Statistics.php';
         $statistics = new Database_Statistics();
 
-        header('Content-Type: application/json');
-        print $statistics->getUsageStatistics($this->_options['resolution']);
+        $this->_printJSON($statistics->getUsageStatistics($this->_options['resolution']));
     }
     
     /**
@@ -517,6 +469,40 @@ class Module_WebClient implements Module
             mkdir($cacheDir, 0777, true);
         }
     }
+    
+    /**
+     * Helper function to output result as either JSON or JSONP
+     * 
+     * @param string $json JSON object string
+     * @param bool   $xml  Whether to wrap an XML response as JSONP
+     * @param bool   $utf  Whether to return result as UTF-8
+     * 
+     * @return void
+     */
+    private function _printJSON($json, $xml=false, $utf=false)
+    {
+        // Wrap JSONP requests with callback
+        if(isset($this->_params['callback'])) {
+            // For XML responses, surround with quotes and remove newlines to
+            // make a valid JavaScript string
+            if ($xml) {
+                $xmlStr = str_replace("\n", "", str_replace("'", "\'", $json));
+                $json = sprintf("%s('%s')", $this->_params['callback'], $xmlStr);
+            } else {
+                $json = sprintf("%s(%s)", $this->_params['callback'], $json);    
+            }
+        }
+        
+        // Set Content-type HTTP header
+        if ($utf) {
+            header('Content-type: application/json;charset=UTF-8');
+        } else {
+            header('Content-Type: application/json');            
+        }
+        
+        // Print result
+        echo $json;
+    }
 
     /**
      * Handles input validation
@@ -537,7 +523,9 @@ class Module_WebClient implements Module
 
         case "getClosestImage":
             $expected = array(
-               "dates" => array('date')
+               "dates" => array('date'),
+               "optional" => array('callback'),
+               "alphanum" => array('callback')
             );
 
             if (isset($this->_params["sourceId"])) {
@@ -557,8 +545,9 @@ class Module_WebClient implements Module
 
         case "getDataSources":
             $expected = array(
-               "optional" => array('verbose'),
-               "bools"    => array('verbose')
+               "optional" => array('verbose', 'callback'),
+               "bools"    => array('verbose'),
+               "alphanum" => array('callback')
             );
             break;
 
@@ -573,31 +562,39 @@ class Module_WebClient implements Module
         case "getJP2Header":
             $expected = array(
                 "required" => array('id'),
-                "ints"     => array('id')
+                "ints"     => array('id'),
+                "optional" => array('callback'),
+                "alphanum" => array('callback')
             );
             break;
         case "getNewsFeed":
+            $expected = array(
+                "optional" => array('callback'),
+                "alphanum" => array('callback')
+            );
             break;
         case "getUsageStatistics":
             $expected = array(
-                "optional" => array("resolution"),
-                "alphanum" => array("resolution")
+                "optional" => array("resolution", "callback"),
+                "alphanum" => array("resolution", "callback")
             );
             break;
         case "shortenURL":
             $expected = array(
                 "required" => array("queryString"),
-                "encoded"  => array("queryString")
+                "optional" => array("callback"),
+                "encoded"  => array("queryString", "callback")
             );
             break;
         case "takeScreenshot":
             $expected = array(
                 "required" => array('date', 'imageScale', 'layers'),
-                "optional" => array('display', 'watermark', 'x1', 'x2', 'y1', 'y2', 'x0', 'y0', 'width', 'height'),
+                "optional" => array('display', 'watermark', 'x1', 'x2', 'y1', 'y2', 'x0', 'y0', 'width', 'height', 'callback'),
                 "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2', 'x0', 'y0'),
                 "ints"     => array('width', 'height'),
                 "dates"	   => array('date'),
-                "bools"    => array('display', 'watermark')
+                "bools"    => array('display', 'watermark'),
+                "alphanum" => array('callback')
             );
             break;
         default:
@@ -619,7 +616,7 @@ class Module_WebClient implements Module
     public static function printDocHeader()
     {
         ?>
-            <li><a href="index.php#CustomView">Loading Custom Settings</a></li>
+            <li><a href="index.php#CustomURLs">Helioviewer.org URLs</a></li>
             <li>
                 <a href="index.php#ScreenshotAPI">Screenshots</a>
                 <ul>
@@ -627,7 +624,6 @@ class Module_WebClient implements Module
                     <li><a href="index.php#downloadScreenshot">Retrieving a Screenshot</a></li>
                 </ul>
             </li>
-            <!--<li><a href="index.php#takeScreenshot">Creating a Screenshot</a></li>-->
         <?php
     }
     
@@ -640,12 +636,14 @@ class Module_WebClient implements Module
     {
         $rootURL = substr(HV_API_ROOT_URL, 0, -13) . "index.php?";
         ?>
-        <!-- Custom View API-->
-        <div id="CustomView">
-            <h1>Custom View API:</h1>
-            <p>The custom view API enables the user to load a specific set of parameters into Helioviewer.org: "view," here, simply
-            means a given set of observation parameters. This is useful for dynamically loading a specific view or observation
-            into Helioviewer using a URL.</p>
+        <!-- Helioviewer.org URLs-->
+        <div id="CustomURLs">
+            <h1>Helioviewer.org URLs</h1>
+            <p>By specifying URL parameters at the main Helioviewer.org page,
+               it is possible to control what data is loaded into the page when
+               the user follows a URL. This is useful for dynamically loading 
+               a specific view or observation into Helioviewer using a URL.
+               Note that all parameters for URL generation are optional.</p>
         
             <div class="summary-box">
                 <span style="text-decoration: underline;">Usage:</span>
@@ -666,6 +664,16 @@ class Module_WebClient implements Module
                             <td width="55%">Date and time to display</td>
                         </tr>
                         <tr>
+                            <td><b>centerX</b></td>
+                            <td><i>Float</i></td>
+                            <td>Horizontal offset from the center of the Sun in arc-seconds.</td>
+                        </tr>
+                        <tr>
+                            <td><b>centerY</b></td>
+                            <td><i>Float</i></td>
+                            <td>Vertical offset from the center of the Sun in arc-seconds.</td>
+                        </tr>
+                        <tr>
                             <td><b>imageScale</b></td>
                             <td><i>Float</i></td>
                             <td>Image scale in arc-seconds/pixel</td>
@@ -677,14 +685,30 @@ class Module_WebClient implements Module
                             displayed. Each image layer should be of the form:
                             [OBSERVATORY, INSTRUMENT, DETECTOR, MEASUREMENT, VISIBLE, OPACITY].</td>
                         </tr>
+                        <tr>
+                            <td><b>movieId</b></td>
+                            <td><i>String</i></td>
+                            <td>Identifier of Helioviewer.org movie to display when page is loaded.</td>
+                        </tr>
+                        <tr>
+                            <td><b>output</b></td>
+                            <td><i>String</i></td>
+                            <td>Output format to use when displaying the page. Currently there are two
+                                accepted output formats: "web" and "embed". If no output method is
+                                specified the output will default to the standard web display.</td>
+                        </tr>
                     </tbody>
                 </table>
         
                 <br />
-        
-                <span class="example-header">Example:</span> <span class="example-url">
-                <a href="<?php echo $rootURL;?>date=2011-06-01T00:00:00Z&amp;imageScale=2.4204409&amp;imageLayers=[SDO,AIA,AIA,171,1,100],[SOHO,LASCO,C2,white-light,1,100]">
-                   <?php echo $rootURL;?>date=2011-06-01T00:00:00Z&imageScale=2.4204409&imageLayers=[SDO,AIA,AIA,171,1,100],[SOHO,LASCO,C2,white-light,1,100]
+
+                <span class="example-header">Examples:</span> <span class="example-url">
+                <a href="<?php echo $rootURL;?>date=2011-06-01T00:00:00Z&amp;imageScale=4.8408818&amp;imageLayers=[SDO,AIA,AIA,171,1,100],[SOHO,LASCO,C2,white-light,1,100]">
+                   <?php echo $rootURL;?>date=2011-06-01T00:00:00Z&imageScale=4.8408818&imageLayers=[SDO,AIA,AIA,171,1,100],[SOHO,LASCO,C2,white-light,1,100]
+                </a><br /><br />
+                
+                <a href="<?php echo $rootURL;?>movieId=tk115">
+                   <?php echo $rootURL;?>movieId=tk115
                 </a>
                 </span>
             </div>
@@ -709,8 +733,9 @@ class Module_WebClient implements Module
             <div id="takeScreenshot">
                 <h1>Creating a Screenshot</h1>
                 <p>Returns a single image containing all layers/image types requested. If an image is not available for the date requested the closest
-                available image is returned.</p>
-        
+                available image is returned. The region to be included in the screenshot may be specified using either the top-left and bottom-right coordinates
+                in arc-seconds, or a center point in arc-seconds and a width and height in pixels. See the <a style="color:#3366FF" href="#Coordinates">Coordinates Appendix</a> for
+                more infomration about working with coordinates in Helioviewer.org.</p>        
                 <br />
         
                 <div class="summary-box"><span
@@ -747,27 +772,43 @@ class Module_WebClient implements Module
                         </tr>
                         <tr>
                             <td><b>y1</b></td>
-                            <td><i>Integer</i></td>
-                            <td>The offset of the image's top boundary from the center of the sun, in arcseconds. This can be calculated, 
-                                if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversion</a>.</td>
+                            <td><i>Float</i></td>
+                            <td><i>[Optional]</i> The offset of the image's top boundary from the center of the sun, in arcseconds.</td>
                         </tr>
                         <tr>
                             <td><b>x1</b></td>
-                            <td><i>Integer</i></td>
-                            <td>The offset of the image's left boundary from the center of the sun, in arcseconds. This can be calculated, 
-                                if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversions</a>.</td>
+                            <td><i>Float</i></td>
+                            <td><i>[Optional]</i> The offset of the image's left boundary from the center of the sun, in arcseconds.</td>
                         </tr>
                         <tr>
                             <td><b>y2</b></td>
-                            <td><i>Integer</i></td>
-                            <td>The offset of the image's bottom boundary from the center of the sun, in arcseconds. This can be calculated, 
-                                if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversion</a>.</td>
+                            <td><i>Float</i></td>
+                            <td><i>[Optional]</i> The offset of the image's bottom boundary from the center of the sun, in arcseconds.</td>
                         </tr>
                         <tr>
                             <td><b>x2</b></td>
+                            <td><i>Float</i></td>
+                            <td><i>[Optional]</i> The offset of the image's right boundary from the center of the sun, in arcseconds.</td>
+                        </tr>
+                        <tr>
+                            <td><b>x0</b></td>
+                            <td><i>Float</i></td>
+                            <td><i>[Optional]</i> The horizontal offset from the center of the Sun.</td>
+                        </tr>
+                        <tr>
+                            <td><b>y0</b></td>
+                            <td><i>Float</i></td>
+                            <td><i>[Optional]</i> The vertical offset from the center of the Sun.</td>
+                        </tr>
+                        <tr>
+                            <td><b>width</b></td>
                             <td><i>Integer</i></td>
-                            <td>The offset of the image's right boundary from the center of the sun, in arcseconds. This can be calculated, 
-                                if necessary, with <a href="index.php#ArcsecondConversions" style="color:#3366FF">pixel-to-arcsecond conversions</a>.</td>
+                            <td><i>[Optional]</i> Width of the screenshot in pixels (Maximum: 1920).</td>
+                        </tr>
+                        <tr>
+                            <td><b>height</b></td>
+                            <td><i>Integer</i></td>
+                            <td><i>[Optional]</i> Height of the screenshot in pixels (Maximum: 1200).</td>
                         </tr>
                         <tr>
                             <td><b>display</b></td>
@@ -796,6 +837,12 @@ class Module_WebClient implements Module
                 <?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&date=2011-03-01T12:12:12Z&imageScale=10.52&layers=[SOHO,EIT,EIT,171,1,100],[SOHO,LASCO,C2,white-light,1,100]&x1=-5000&y1=-5000&x2=5000&y2=5000
                 </a>
                 </span>
+                <br />
+                <span class="example-url">
+                <a href="<?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&date=2011-06-07T09:00:00Z&imageScale=2.4204409&layers=[SDO,AIA,AIA,304,1,100]&x0=0&y0=0&width=1024&height=1024&display=true">
+                <?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&date=2011-06-07T09:00:00Z&imageScale=2.4204409&layers=[SDO,AIA,AIA,304,1,100]&x0=0&y0=0&width=1024&height=1024&display=true
+                </a>
+                </span>
                 </div>
                 <br />
             </div>
@@ -822,7 +869,7 @@ class Module_WebClient implements Module
                     <tbody valign="top">
                         <tr>
                             <td width="20%"><b>id</b></td>
-                            <td><i>int</i></td>
+                            <td><i>Integer</i></td>
                             <td>The screenshot id as returned from <a href='#takeScreenshot'>takeScreenshot</a>.</td>
                         </tr>
                     </tbody>
@@ -833,7 +880,7 @@ class Module_WebClient implements Module
                 <span class="example-header">Example:</span>
                 <span class="example-url">
                 <a href="<?php echo HV_API_ROOT_URL;?>?action=downloadScreenshot&id=181">
-                <?php echo HV_API_ROOT_URL;?>?action=takeScreenshot&id=181
+                <?php echo HV_API_ROOT_URL;?>?action=downloadScreenshot&id=181
                 </a>
                 </span><br />
 
