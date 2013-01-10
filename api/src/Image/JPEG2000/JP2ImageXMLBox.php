@@ -114,8 +114,20 @@ class Image_JPEG2000_JP2ImageXMLBox
         $maxDSUN = 2.25e11; // A reasonable max for solar observatories, ~1.5 AU
         
         try {
-            // AIA, EUVI, COR, SWAP
-            $dsun = $this->_getElementValue("DSUN_OBS");
+            // SXT
+            // The SXT headers do not have a value of the distance from
+            // the spacecraft to the center of the Sun.  The FITS keyword 'DSUN_OBS'
+            // appears to refer to the observed diameter of the Sun.  Until such 
+            // time as that is calculated and properly included in the file, we will 
+            // use simple trigonometry to calculate the distance of the center of 
+            // the Sun from the spacecraft.  Note that the small angle approximation
+            // is used, and the solar radius stored in SXT FITS files is in arcseconds.
+            if ( $this->_getElementValue("INSTRUME") == "SXT" ) {
+                $dsun = HV_CONSTANT_RSUN_M/deg2rad($this->_getElementValue("SOLAR_R")/3600.0);
+            } else {
+                // AIA, EUVI, COR, SWAP
+                $dsun = $this->_getElementValue("DSUN_OBS");
+            }
         } catch (Exception $e) {
             try {
                 // EIT
@@ -186,22 +198,89 @@ class Image_JPEG2000_JP2ImageXMLBox
     }
 
     /**
-     * Returns the coordinates for the center of the sun in the image.
+     * Returns the coordinates for the image's reference pixel.
      * 
      * NOTE: The values for CRPIX1 and CRPIX2 reflect the x and y coordinates with the origin
      * at the bottom-left corner of the image, not the top-left corner.
      *
-     * @return array Pixel coordinates of the solar center
+     * @return array Pixel coordinates of the reference pixel
      */
-    public function getSunCenter()
+    public function getRefPixelCoords()
     {
         try {
             $x = $this->_getElementValue("CRPIX1");
             $y = $this->_getElementValue("CRPIX2");
         } catch (Exception $e) {
-            throw new Exception('Unable to locate sun center center in header tags!', 15);
+            throw new Exception('Unable to locate reference pixel coordinates in header tags!', 15);
         }
         return array($x, $y);
+    }
+
+    /**
+     * Returns the Header keywords containing any Sun-center location information
+     *
+     * @return array Header keyword/value pairs from JP2 file XML 
+     */
+    public function getSunCenterOffsetParams()
+    {
+        $sunCenterOffsetParams = array();
+        
+        try {
+            if ( $this->_getElementValue('INSTRUME') == 'XRT' ) {
+                $sunCenterOffsetParams['XCEN'] = $this->_getElementValue('XCEN');
+                $sunCenterOffsetParams['YCEN'] = $this->_getElementValue('YCEN');
+                $sunCenterOffsetParams['OSLO_XCEN_DELTA'] = $this->_getElementValue('OSLO_XCEN_DELTA');
+                $sunCenterOffsetParams['OSLO_YCEN_DELTA'] = $this->_getElementValue('OSLO_YCEN_DELTA');
+                $sunCenterOffsetParams['CDELT1'] = $this->_getElementValue('CDELT1');
+                $sunCenterOffsetParams['CDELT2'] = $this->_getElementValue('CDELT2');
+            }
+        } catch (Exception $e) {
+            throw new Exception('Unable to locate Sun center offset parameters in header tags!', 15);
+        }
+
+        return $sunCenterOffsetParams;
+    }
+
+    /**
+     * Returns layering order based on data source
+     *
+     * NOTE: In the case of Hinode XRT, layering order is decided on an image-by-image basis
+     *
+     * @return integer layering order
+     */
+    public function getLayeringOrder()
+    {
+        try {
+            switch ($this->_getElementValue('TELESCOP')) {
+                case 'SOHO':
+                    $layeringOrder = 2;     // SOHO LASCO C2
+                    if ( $this->_getElementValue('DETECTOR') == 'C3' ) {
+                        $layeringOrder = 3; // SOHO LASCO C3
+                    }
+                    break;
+                case 'STEREO':
+                    $layeringOrder = 2;     // STEREO_A/B SECCHI COR1
+                    if ( $this->_getElementValue('DETECTOR') == 'COR2' ) {
+                        $layeringOrder = 3; // STEREO_A/B SECCHI COR2
+                    }
+                    break;
+                case 'HINODE':
+                    $layeringOrder = 1;     // Hinode XRT full disk
+                    if ( $this->_getElementValue('NAXIS1') * $this->_getElementValue("CDELT1") < 2048.0 &&
+                         $this->_getElementValue('NAXIS2') * $this->_getElementValue("CDELT2") < 2048.0 ) {
+                     
+                        $layeringOrder = 2; // Hinode XRT sub-field
+                    }
+                    break;
+                default:
+                    // All other data sources
+                    $layeringOrder = 1;
+            }
+        } catch (Exception $e) {
+            throw new Exception('Unable to determine layeringOrder from header tags!', 15);
+        }
+
+        return $layeringOrder;
     }
     
     /**
