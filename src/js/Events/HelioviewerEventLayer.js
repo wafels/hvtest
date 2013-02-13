@@ -11,13 +11,13 @@ bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 12
 /*global Class, Layer, $, JP2Image, Image, console, getUTCTimestamp, TileLayer, 
     TileLoader, tileCoordinatesToArcseconds, Helioviewer */
 "use strict";
-var HelioviewerTileLayer = TileLayer.extend( 
-    /** @lends HelioviewerTileLayer.prototype */
+var HelioviewerEventLayer = Class.extend( 
+    /** @lends HelioviewerEventLayer.prototype */
     {    
     /**
      * @constructs
-     * @description Creates a new TileLayer
-     * @param {Object} viewport Viewport to place the tiles in
+     * @description 
+     * @param {Object} viewport Viewport to place the events in
      * <br>
      * <br><div style='font-size:16px'>Options:</div><br>
      * <div style='margin-left:15px'>
@@ -28,32 +28,33 @@ var HelioviewerTileLayer = TileLayer.extend(
      *      <b>opacity</b>     - Default opacity<br>
      * </div>
      */
-    init: function (index, date, tileSize, viewportScale, tileVisibilityRange, observatory, instrument, 
-                    detector, measurement, sourceId, name, visible, opacity) {
-        this._super(index, date, tileSize, viewportScale, tileVisibilityRange, name, visible, opacity);
+    init: function (index, date, viewportScale, name, visible) {
+console.warn([index, date, viewportScale, name, visible]);
+
+        ///this._super(index, date, tileSize, viewportScale, tileVisibilityRange, name, visible, opacity);
         
-        // Create a random id which can be used to link tile layer with its corresponding tile layer accordion entry
-        this.id = "tile-layer-" + new Date().getTime();
-        
+        // Create a random id which can be used to link event layer with its corresponding event layer accordion entry
+        this.id = "event-layer-" + new Date().getTime();
+
         this._setupEventHandlers();
 
-        $(document).trigger("create-tile-layer-accordion-entry", 
-            [index, this.id, name, observatory, instrument, detector, measurement, date, false, opacity, visible,
-             $.proxy(this.setOpacity, this)
-            ]
+        $(document).trigger("create-event-layer-accordion-entry", 
+            [index, this.id, name, date, false, visible]
         );
-        
+/*        
         this.tileLoader = new TileLoader(this.domNode, tileSize, tileVisibilityRange);
         this.image = new JP2Image(observatory, instrument, detector, measurement, sourceId, 
                                   date, $.proxy(this.onLoadImage, this));
+*/
     },
     
     /**
      * onLoadImage
      */
     onLoadImage: function () {
+/*
         this.loaded = true;
-		
+        
         this.layeringOrder = this.image.layeringOrder;
 
         this._loadStaticProperties();
@@ -66,15 +67,17 @@ var HelioviewerTileLayer = TileLayer.extend(
             // Update viewport sandbox if necessary
             $(document).trigger("tile-layer-finished-loading", [this.getDimensions()]);
         }
-        $(document).trigger("update-tile-layer-accordion-entry", 
+        $(document).trigger("update-event-layer-accordion-entry", 
                             [this.id, this.name, this.opacity, new Date(getUTCTimestamp(this.image.date)), 
                                 this.image.id]);
+*/
     },
     
     /**
      * Returns a formatted string representing a query for a single tile
      */
     getTileURL: function (x, y) {
+/*
         var params = {
             "action"      : "getTile",
             "id"          : this.image.id,
@@ -84,6 +87,7 @@ var HelioviewerTileLayer = TileLayer.extend(
         };
 
         return Helioviewer.api + "?" + $.param(params);
+*/
     },
 
     /**
@@ -91,6 +95,7 @@ var HelioviewerTileLayer = TileLayer.extend(
      * @return JSON A JSON representation of the tile layer     
      */
     toJSON: function () {
+/*
         return {
             "observatory": this.image.observatory,
             "instrument" : this.image.instrument,
@@ -99,13 +104,15 @@ var HelioviewerTileLayer = TileLayer.extend(
             "visible"    : this.visible,
             "opacity"    : this.opacity
         };
+*/
     },
     
     /**
      * @description Sets up event-handlers to deal with viewport motion
      */
     _setupEventHandlers: function () {
-        $(this.domNode).bind('get-tile', $.proxy(this.getTile, this));
-        $(document).bind('toggle-layer-visibility', $.proxy(this.toggleVisibility, this));
+
+///        $(this.domNode).bind('get-tile', $.proxy(this.getTile, this));
+        $(document).bind('toggle-event-visibility', $.proxy(this.toggleVisibility, this));
     }
 });

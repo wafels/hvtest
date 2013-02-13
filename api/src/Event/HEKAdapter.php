@@ -12,6 +12,8 @@
  * @link     http://launchpad.net/helioviewer.org
  */
 define("HEK_BASE_URL", "http://www.lmsal.com/hek/her");
+define("HEK_CACHE_DIR", HV_CACHE_DIR."/events");
+define("HEK_CACHE_WINDOW_HOURS", 24);  // 1,2,3,4,6,8,12,24 are valid
 
 /**
  * An Adapter to the HEK to allow AJAX requests to be made to the event service
@@ -37,6 +39,7 @@ class Event_HEKAdapter
     {
         $this->_baseURL = HEK_BASE_URL . '?cosec=2&cmd=search&type=column' 
                                        . '&event_coordsys=helioprojective&x1=-30000&x2=30000&y1=-30000&y2=30000&';
+        $this->_defaultEventTypesJSONPath = HV_API_ROOT_DIR.'/resources/JSON/defaultEventTypes.json';
 
         include_once 'src/Net/Proxy.php';
         $this->_proxy = new Net_Proxy($this->_baseURL);
@@ -57,7 +60,7 @@ class Event_HEKAdapter
             "event_endtime"   => $endTime,
             "event_type"      => "**",
             "result_limit"    => 200,
-            "return"          => "frm_name,frm_url,frm_contact,event_type"
+            "return"          => "frm_name,frm_url,frm_contact,event_type,concept"
         );
         
         $decoded = json_decode($this->_proxy->query($params, true), true);
@@ -82,7 +85,7 @@ class Event_HEKAdapter
         
         // sort by event type
         foreach ($unsorted as $frm) {
-            $eventType = $frm['event_type'];
+            $eventType = $frm['concept'].'/'.$frm['event_type'];
             $name      = $frm["frm_name"];
             
             if (!isset($sorted[$eventType]))
@@ -90,7 +93,7 @@ class Event_HEKAdapter
 
             // remove redundant event_type and frm_parameters and add count
             unset($frm["event_type"]);
-            unset($frm["frm_name"]);
+            //unset($frm["frm_name"]);
             $frm["count"] = $names[$name];
             
             $sorted[$eventType][$name] = $frm;
@@ -98,49 +101,197 @@ class Event_HEKAdapter
         
         return json_encode($sorted);
     }
+
+    /**
+     * Return a JSON string containing an object pre-populated with event types
+     * 
+     * @return JSON string 
+     */
+    public function getDefaultEventTypes()
+    {
+        $handle = @fopen($this->_defaultEventTypesJSONPath, 'r');
+        $json   = @fread($handle, @filesize($this->_defaultEventTypesJSONPath));
+        @fclose($handle);
+        
+        return $json;
+    }
+
+
+    /**
+     * Return a JSON string containing an object of event type parameters
+	 *    containing an array of FRMs
+     * 
+     * @param string $startTime Query start date
+     * 
+     * @return JSON List of event FRMs sorted by event type 
+     */
+    public function getEventFRMs($startTime)
+    {
+        $defaultEventTypes = json_decode($this->getDefaultEventTypes());
+		
+        $events = $this->getEvents($startTime, Array());
+        //return json_encode($events);
+        
+
+		foreach ($defaultEventTypes as $eventType => $eventTypeObject) {
+			foreach ($events as $eventIndex => $event) {
+				if ( $eventType == trim($event['concept']).'/'.$event['event_type'] ) {
+					if ( property_exists($eventTypeObject, $event['frm_name']) ) {
+						$eventTypeObject->{$event['frm_name']}->count++;
+					}
+					else {
+						$newFRM = new stdClass;
+						$newFRM->frm_name    = $event['frm_name'];
+						$newFRM->frm_url     = $event['frm_url'];
+						$newFRM->frm_contact = $event['frm_contact'];
+						$newFRM->concept     = $event['concept'];
+						$newFRM->count       = 1;
+						$eventTypeObject->{$event['frm_name']}= $newFRM;
+					}
+				}
+			}
+		}
+		return json_encode($defaultEventTypes);
+    }
+    
+
     
     /**
-     * Returns a list of events
+     * Returns an array of event objects as a JSON string
      * 
      * @param date   $startTime Start time for which events should be retrieved
      * @param string $options   Optional parameters
      * 
-     * @return string
+     * @return JSON string
      */
     public function getEvents($startTime, $options)
     {
         include_once "src/Helper/DateTimeConversions.php";
+		$events = Array();
          
         // Default options
         $defaults = array(
-            'endDate'   => getUTCDateString(),
             'eventType' => '**',
-            'ipod'      => false
+            'cacheOnly' => false
         );
-        
         $options = array_replace($defaults, $options);
-        
-        // HEK query parameters
-        $params = array(
-            "event_starttime" => $startTime,
-            "event_endtime"   => $options['endDate'],
-            "event_type"      => $options['eventType'],
-            "result_limit"    => 200,
-            "return"          => "kb_archivid,concept,event_starttime,event_endtime,frm_name,frm_institute," . 
-                                 "obs_observatory,obs_channelid,event_type,hpc_x,hpc_y,hpc_bbox"
-        );
+        if ( $options['eventType'] == '' ) {
+        	$options['eventType'] = '**';
+        }
+		
+		$dateArray = date_parse($startTime);
 
-        //TODO Group similar (identical) events
-        $response = JSON_decode($this->_proxy->query($params, true), true);
-        
-        $events = $response['result'];
-       
-        // Extend response to include any pregenerated screenshots and movies
-        $this->_extendHEKResponse($events, $options['ipod']);
+		
+		// Determine JSON cache filename
+		
+		$hourOffset = floor($dateArray['hour']/HEK_CACHE_WINDOW_HOURS)*HEK_CACHE_WINDOW_HOURS;
+		
+		$externalAPIStartTime = implode('-', Array($dateArray['year'],
+		                                           str_pad($dateArray['month'],2,'0',STR_PAD_LEFT),
+		                                           str_pad($dateArray['day'],  2,'0',STR_PAD_LEFT)))
+		                      . 'T' 
+		                      . implode(':', Array($hourOffset,'00:00.000Z'));
 
-        return $events;
-    }
-    
+		$externalAPIEndTime   = implode('-', Array($dateArray['year'],
+		                                           str_pad($dateArray['month'],2,'0',STR_PAD_LEFT),
+		                                           str_pad($dateArray['day'],  2,'0',STR_PAD_LEFT)))
+		                      . 'T' 
+		                      . str_pad($hourOffset+HEK_CACHE_WINDOW_HOURS-1,  2,'0',STR_PAD_LEFT)
+		                      . ':59:59.999Z';
+		
+		$cache_base_dir = HV_CACHE_DIR.'/events/'.$dateArray['year'];
+		$cache_filename = $cache_base_dir.'/'
+		                     . str_pad($dateArray['month'],2,'0',STR_PAD_LEFT).'-'
+		                     . str_pad($dateArray['day'],2,'0',STR_PAD_LEFT)  .'_'
+		                     . str_pad($hourOffset,2,'0',STR_PAD_LEFT).':00:00.000Z-'
+		                     . str_pad($hourOffset+HEK_CACHE_WINDOW_HOURS-1,2,'0',STR_PAD_LEFT)
+		                     . ':59:59.999Z.json';
+
+
+		// Fetch data from cache or live external API query
+
+		$handle = @fopen($cache_filename, 'r');
+		if ( $handle !== false ) {
+			$data = json_decode(fread($handle, @filesize($cache_filename)));
+			fclose($handle);
+		}
+		else {
+			// Fetch data from live external API and write to local JSON cache
+ 			// HEK query parameters
+			$params = array(
+				"event_starttime" => $externalAPIStartTime, 
+				"event_endtime"   => $externalAPIEndTime, 
+				"event_type"      => $options['eventType'], 
+				"result_limit"    => 1000, 
+				"return" => "kb_archivid,concept,event_starttime,event_endtime,"
+				          . "frm_name,frm_institute,frm_url,frm_contact,obs_observatory,obs_channelid,"
+						  . "event_type,hpc_x,hpc_y,hpc_bbox,event_MaskURL,event_CoordSys,"
+						  . "event_CoordUnit,event_TestFlag"
+			);
+			$response = JSON_decode($this->_proxy->query($params, true), true);
+			$data = $response['result'];
+
+			if ( $response['overmax'] === true ) {
+				// TODO handle case where there are more results to fetch
+				// ...
+				$error = new stdClass;
+				$error->overmax = $response['overmax'];
+				return($error);
+			}
+			
+			// Only cache if results exist
+			if ( count($data) > 0 ) {		
+				// Check existence of cache directory
+				if ( !file_exists($cache_base_dir) ) {
+       		     	mkdir($cache_base_dir, 0777, true);
+    	   	     	chmod($cache_base_dir, 0777);      
+				}
+				
+				// Write cache file
+				$handle = @fopen($cache_filename, 'w');
+				if ( $handle !== false ) {
+					@fwrite($handle, json_encode($data));
+				}
+			}
+			
+		}
+
+		// No output is desired for cacheOnly requests.  No need to filter either.
+		if ( $options['cacheOnly'] == true ) {
+			return;
+		}
+		
+		// Only save and output data that is relevent to this request
+		$obs_time = new DateTime($startTime);
+		foreach( (array)$data as $index => $event ) {
+			if ( gettype($event) == 'object') {
+				$event = (array) $event;
+			}
+			
+			$event_starttime = new DateTime($event['event_starttime'].'Z');
+			$event_endtime   = new DateTime($event['event_endtime']  .'Z');
+			
+			// Skip over any undesired or non-requested event types
+			$eventTypesToIgnore  = Array('OT','NR');
+			$eventTypesToAllow   = explode(',',$options['eventType']);
+			if ( ($options['eventType']!='**' && !in_array($event['event_type'],$eventTypesToAllow)) 
+			     || in_array($event['event_type'],$eventTypesToIgnore) 
+			     || $event['event_testflag']===true) {
+
+				continue;
+			}
+			
+			// Save any remaining events whose duration spans (or matches) obs_time
+			if ($event_endtime >= $obs_time && $event_starttime <= $obs_time) {
+				$events[] = $event;
+			}
+		}
+		unset($data);
+				
+		return $events;
+	}
+
+
     /**
      * Queries HEK for a single event's information
      * 
@@ -226,4 +377,5 @@ class Event_HEKAdapter
             $i++;
         }
     }
+
 }

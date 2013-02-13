@@ -235,6 +235,7 @@ var UserSettings = Class.extend(
         else {
             this.settings = this.cookies.get("settings");
         }
+console.warn(['UserSettings._loadSavedSettings()',this.settings]);
     },
     
     /**
@@ -259,6 +260,12 @@ var UserSettings = Class.extend(
             this.set("state.tileLayers", 
                      this._parseURLStringLayers(urlSettings.imageLayers));
         }
+        
+        if (urlSettings.eventLayers) {
+            this.set("state.eventLayers", 
+                     this._parseURLStringEvents(urlSettings.eventLayers));
+        }
+console.warn(['UserSettings._processURLSettings()',this]);
     },
     
     /**
@@ -273,6 +280,39 @@ var UserSettings = Class.extend(
         });
 
         return layers;
+    },
+    
+    /**
+     * Processes a string containing one or more event types and FRMs and 
+     * converts them into JavaScript objects
+     */
+    _parseURLStringEvents: function (urlEventLayers) {
+        var events = [], self = this;
+        
+        $.each(urlEventLayers, function (i, eventLayerString) {
+            events.push(parseEventString(eventLayerString));
+        });
+console.warn(["_parseURLStringEvents()",events]);
+        return events;
+    },
+    
+    /**
+     * Processes an array of objects representing selected event types and FRMs 
+     * and convert it into a string for passing through URLs
+     */
+    parseEventsURLString: function (eventLayerArray) {
+        var eventLayerString = '';
+        
+        if ( typeof eventLayerArray == "undefined" ) {
+            eventLayerArray = this.get("state.eventLayers");
+        }
+        
+        $.each(eventLayerArray, function (i, eventLayerObj) {
+            eventLayerString += "[" + eventLayerObj.event_type     + "," 
+                                    + eventLayerObj.frms.join(';') + "," 
+                                    + eventLayerObj.open           + "],";
+        });
+        return eventLayerString.slice(0, -1);
     },
     
     /**

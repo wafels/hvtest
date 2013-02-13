@@ -69,7 +69,38 @@ class Module_SolarEvents implements Module
         $hek = new Event_HEKAdapter();
         
         header("Content-type: application/json");
+        echo $hek->getEventFRMs($this->_params['startTime']);
+    }
+
+    /**
+     * Gets a JSON-formatted list of the Feature Recognition Methods which have 
+     * associated events for the requested time window, sorted by event type
+     * 
+     * @return void
+     */
+    public function  getFRMs()
+    {
+        include_once "src/Event/HEKAdapter.php";
+        $hek = new Event_HEKAdapter();
+        
+        header("Content-type: application/json");
         echo $hek->getFRMs($this->_params['startTime'], $this->_params['endTime']);
+    }
+
+    /**
+     * Gets a JSON-formatted list of the default event types 
+     * for use in pre-populating a hierarchical set of checkboxes 
+     * prior to fetching actual event FRMs for a given search window
+     * 
+     * @return void
+     */
+    public function  getDefaultEventTypes()
+    {
+        include_once "src/Event/HEKAdapter.php";
+        $hek = new Event_HEKAdapter();
+        
+        header("Content-type: application/json");
+        echo $hek->getDefaultEventTypes();
     }
     
     /**
@@ -138,13 +169,19 @@ class Module_SolarEvents implements Module
         {
         case "getEvents":
             $expected = array(
-                "required" => array('startTime', 'endTime'),
-                "optional" => array('ipod', 'eventType'),
-                "bools"    => array('ipod'),
-                "dates"    => array('startTime', 'endTime')
+                "required" => array('startTime'),
+                "optional" => array('eventType','cacheOnly'),
+                "bools"    => array('cacheOnly'),
+                "dates"    => array('startTime')
             );
             break;
         case "getEventFRMs":
+            $expected = array(
+               "required" => array('startTime'),
+               "dates"    => array('startTime')
+            );
+            break;
+        case "getFRMs":
             $expected = array(
                "required" => array('startTime', 'endTime'),
                "dates"    => array('startTime', 'endTime')

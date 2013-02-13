@@ -75,9 +75,11 @@ function loadModule($params)
         "uploadMovieToYouTube" => "Movies",
         "checkYouTubeAuth"     => "Movies",
         "getYouTubeAuth"       => "Movies",
-        "getUserVideos"        => "Movies"
-        //"getEventFRMs"           => "SolarEvents",
-        //"getEvents"              => "SolarEvents"
+        "getUserVideos"        => "Movies",
+        "getEventFRMs"         => "SolarEvents",
+        "getFRMs"         => "SolarEvents",
+        "getDefaultEventTypes" => "SolarEvents",
+        "getEvents"            => "SolarEvents"
     );
     
     include_once "src/Validation/InputValidator.php";

@@ -119,7 +119,10 @@ var HelioviewerTileLayerManager = TileLayerManager.extend(
                           params.instrument, params.detector, params.measurement, params.sourceId, params.nickname, 
                           params.visible, opacity, params.layeringOrder)
         );
-        this.save();
+
+        // Don't save the event layer here.  We're just adding the accordion stuff, 
+        // not checking checkboxes.  Differs from how tile layers are managed.
+        /// this.save();
     },
     
     /**

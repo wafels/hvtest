@@ -332,6 +332,28 @@ var parseLayerString = function (str) {
     };
 };
 
+/**
+ * Breaks up a given event layer identifier (e.g. <type>,<frm>,<open>) into its
+ * component parts and returns a JavaScript representation.
+ *
+ * @param {String} The event layer identifier as an comma-concatenated string
+ * 
+ * @returns {Object} A simple JavaScript object representing the levent ayer parameters
+ */
+var parseEventString = function (str) {
+    var frms = [], params = str.split(",");
+    
+    $.each(params[1].split(";"), function (i, frm_name) {
+        frms.push(frm_name);
+    });
+    
+    return {
+        event_type : params[0],
+        frms       : frms,
+        open       : Boolean(parseInt(params[2], 10))
+    };
+};
+
 
 /**
  * Maps iPhone/Android touch events to normal mouse events so that dragging, etc can be done.

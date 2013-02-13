@@ -124,7 +124,11 @@ var HelioviewerWebClient = HelioviewerClient.extend(
         var shadow, updateShadow, self = this;
         
         $(document).bind("datasources-initialized", function (e, dataSources) {
-            var tileLayerAccordion = new TileLayerAccordion('#tileLayerAccordion', dataSources, date); 
+            var tileLayerAccordion = new TileLayerAccordion('#tileLayerAccordion', dataSources, date);
+        });
+        
+        $(document).bind("event-types-initialized", function (e, eventTypes, date) {
+            var eventLayerAccordion = new EventLayerAccordion('#eventLayerAccordion', eventTypes, date);
         });
         
         this._super("#helioviewer-viewport-container-outer", date, marginTop, marginBottom);
@@ -539,6 +543,15 @@ var HelioviewerWebClient = HelioviewerClient.extend(
     },
     
     /**
+     * Returns the currently selected event layers
+     * 
+     * @return {String} Serialized event layer string
+     */
+    getEvents: function () {
+        return this.viewport.serializeEvents();
+    },
+    
+    /**
      * Returns a string representation of the layers which are visible and
      * overlap the specified region of interest
      */
@@ -578,7 +591,8 @@ var HelioviewerWebClient = HelioviewerClient.extend(
             "imageScale"  : this.viewport.getImageScale(),
             "centerX"     : Helioviewer.userSettings.get("state.centerX"),
             "centerY"     : Helioviewer.userSettings.get("state.centerY"), 
-            "imageLayers" : encodeURI(this.viewport.serialize())
+            "imageLayers" : encodeURI(this.viewport.serialize()), 
+            "eventLayers" : encodeURI(this.viewport.serializeEvents())
         };
         
         return this.serverSettings.rootURL + "/?" + decodeURIComponent($.param(params));

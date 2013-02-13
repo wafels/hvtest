@@ -1,4 +1,5 @@
 /**
+ * @author Jeff Stys <jeffrey.stys@nasa.gov>
  * @author Keith Hughitt <keith.hughitt@nasa.gov>
  * @author Jonathan Harper
  * @fileOverview Handles event queries, data formatting, and storage
@@ -11,7 +12,8 @@ bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 12
 
 "use strict";
 
-var EventManager = LayerManager.extend({
+//var EventManager = LayerManager.extend({
+var EventManager = Class.extend({
     /**
      * Class to manage event queries and data storage.<br><br>
      * 
@@ -23,16 +25,41 @@ var EventManager = LayerManager.extend({
      *    
      * @constructs
      */
-    init: function (date, searchWindowSizeInSecs, rsun) {
+    init: function (defaultEventTypes, date, rsun) {
+        this._eventLayers = [];
+        this._maxLayerDimensions = {width: 0, height: 0};
+        
+        this._treeContainer = $("#eventJSTree");
         this._eventTypes   = {};
-        this._timelineData = {};
+        ///this._timelineData = {};
         this._jsTreeData   = [];
         
         this._rsun       = rsun;
         this._date       = date;
-        this._windowSize = searchWindowSizeInSecs;
-        
+        this.defaultEventTypes = defaultEventTypes;
+ 
+ 
+        // Create and display initial Event Type checkbox hierarchy
+        if ( !this.defaultEventTypes ) {
+            this._queryDefaultEventTypes();
+        }
+        else {
+            this._parseEventFRMs(this.defaultEventTypes);          
+        }
+ 
         this._queryEventFRMs();
+    },
+    
+    /**
+     * Queries data to build the EventType and EventFeatureRecognitionMethod
+     * classes.
+     *
+     */
+    _queryDefaultEventTypes: function () {
+        var params = {
+            "action"     : "getDefaultEventTypes"
+        };
+        $.get("api/index.php", params, $.proxy(this._parseEventFRMs, this), "json");
     },
     
     /**
@@ -43,42 +70,40 @@ var EventManager = LayerManager.extend({
     _queryEventFRMs: function () {
         var params = {
             "action"     : "getEventFRMs",
-            "startTime"  : new Date(this._date.getTime()).addSeconds(-this._windowSize / 2).toISOString(),
-            "endTime"    : new Date(this._date.getTime()).addSeconds(this._windowSize / 2).toISOString()
+            "startTime"  : new Date(this._date.getTime()).addSeconds(-2 / 2).toISOString()
         };
-        
         $.get("api/index.php", params, $.proxy(this._parseEventFRMs, this), "json");
     },
     
     /**
-     * Handles data returned from _querySearchData, parsing the HEK search and
+     * Handles data returned from _queryEventFRMs, parsing the HEK search and
      * creating the EventTypes and EventFeatureRecognitionMethods from the JSON
      * data and then calling generateTreeData to build the jsTree.
-     *
      */
     _parseEventFRMs: function (result) {
         var self = this;
-        
+
         $.each(result, function (eventType, eventFRMs) {
             // Create new EventType if it doesn't exist
             if (!self._eventTypes[eventType]) {
-                self._eventTypes[eventType] = new EventType(eventType);
+               self._eventTypes[eventType] = new EventType(eventType);
             }
-            
+
             // Process event FRMs
             $.each(eventFRMs, function (frmName, eventFRM) {
                 // Add FRM if it does not already exist
                 if (!self._eventTypes[eventType]._eventFRMs[frmName]) {
-                    self._eventTypes[eventType]._eventFRMs[frmName] = 
-                        new EventFeatureRecognitionMethod(frmName, this._rsun);
-                    self._eventTypes[eventType]._eventFRMs[frmName].domNode = 
-                        $('<div class="event-layer"></div>').appendTo("#moving-container");                    
+                   ///self._eventTypes[eventType]._eventFRMs[frmName] = 
+                   ///     new EventFeatureRecognitionMethod(frmName, self._rsun);
+                   /// self._eventTypes[eventType]._eventFRMs[frmName].domNode = 
+                   ///     $('<div class="event-layer" style="position:absolute;top:-40px;left:90px;width:15px; height: 15px; background-image:url(\'/hek-dev/resources/images/events/activeregion.png\');" title="jeff" onClick="javascript:alert(\'hi jeff!\');">..</div>').appendTo("#moving-container");                    
                 } else {
                     // TODO: Update count information
                 }
             });
         });
-        //this._generateTreeData(data);
+
+        this._generateTreeData(result);
     },
     
     /**
@@ -88,88 +113,74 @@ var EventManager = LayerManager.extend({
      *
      */
     _generateTreeData: function (data) {
-        var jsTreeData, self = this;
-        jsTreeData = [];
         
-        $.each(data.result, function (i, event) {
-            var eventTypeExists, frmNameExists, children;
-            eventTypeExists = false;
-            frmNameExists = false;
+        var self = this, obj, index=0, event_type_arr;
+        
+        // Re-initialize _jsTreeData in case it contains old values
+        self._jsTreeData = [];
+        
+        $.each(data, function (event_type, event_type_obj) {
+
+            // Split event_type into a text label and an abbreviation
+            event_type_arr = event_type.split('/');
             
-            $.each(jsTreeData, function (j, event_type) {
-                if (event.event_type === event_type.data) {
-                    eventTypeExists = true;
-                
-                    $.each(event_type.children, function (k, child) {
-                        if (event.frm_name === child.data) {
-                            frmNameExists = true;
-                        }
-                    });
-                }
+            // Remove trailing space from "concept" property, if necessary
+            if (event_type_arr[0].charAt(event_type_arr[0].length-1) == " ") {
+                event_type_arr[0] = event_type_arr[0].slice(0,-1);
+            }
+            
+            // Pluralize event type text label
+            // TODO move this to a generic helper function
+            switch (event_type_arr[0].charAt(event_type_arr[0].length-1)) {
+                case 'x':
+                    event_type_arr[0] += 'es';
+                    break;
+                case 'y':
+                    event_type_arr[0] = event_type_arr[0].slice(0,-1) + 'ies';
+                    break;
+                default:
+                    event_type_arr[0] += 's';
+            }
+ 
+            obj = Object();
+            obj['data']     = event_type_arr[0];
+            obj['attr']     = { 'id' : event_type_arr[1] };
+            obj['state']    = 'open';
+            obj['children'] = [];
+            
+            self._jsTreeData.push(obj);
+
+            $.each(event_type_obj, function(frm_name, frm_obj) {
+                self._jsTreeData[index].children.push( { 'data' : frm_name, 
+                                                         'attr' : { 'id' : event_type_arr[1]+'--'+frm_name.replace(/ /g,"_"),
+                                                                    //'data-event-type' : event_type_arr[1] 
+                                                                  }
+                                                       } );
             });
             
-            children = [];
-            
-            if (!frmNameExists) {     
-                children.push({
-                    "data": event.frm_name,
-                    "attr": {"name": event.frm_name, "type": "frm"}
-                });        
-            }
-                    
-            if (!eventTypeExists) {
-                jsTreeData.push({
-                    "data": event.event_type,
-                    "attr": {"id": event.event_type, "name": event.event_type, "type": "type"},
-                    "children": children
-                });
-            }
-   
-            else if (children.length > 0)
-            {
-                $.each(jsTreeData, function (i, event_type) {
-                    if (event.event_type === event_type.data) {
-                        $.each(children, function (i, child) {
-                            event_type.children.push(child);
-                        });
-                    }
-                });
-            }
-            
+            index++;
         });
-        self._jsTree = jsTreeData;
-        
-        //We only want to create the new class if it hasn't already been created
+
+
+        // Create a new EventTree object only if one hasn't already been created
         if (!self._eventTree) {
-            self._eventTree = new EventTree(this._jsTree, this);
+            self._eventTree = new EventTree(this._jsTreeData, this._treeContainer);
         }
-        //Otherwise we just want to reload the tree
+        // Otherwise call it's reload method to update the existing tree with new data
         else {
-            self._eventTree.reload(this._jsTree);
-        }
-        
-//        if (!self._eventTimeline) {
-//            self._formatTimelineData();
-//            self._eventTimeline = new EventTimeline(this._timelineData, this);
-//        }
-//        else {
-//            self._formatTimelineData();
-//            self._eventTimeline.reload(this._timelineData);
-//        }
-        
-        this._eventTimeline = new EventTimeline(data);
-        
+            self._eventTree.reload(this._jsTreeData);
+        }        
     },
     
     /**
      * Reloads the windowSize, and queries new tree structure data.
      *
      */
-    updateRequestTime: function (date) {
+    updateRequestTime: function () {
         var managerStartDate, managerEndDate, eventStartDate, eventEndDate, self = this;
-        //this._windowSize = this.controller.timeControls.getTimeIncrement();
-        this._date = date;
-        
+        this._date = new Date($("#date").val().replace(/\//g,"-") +"T"+ $("#time").val()+"Z");
+ 
+/*    
         $.each(this._eventTypes, function (typeName, eventType) {
             $.each(eventType.getEventFRMs(), function (frmName, FRM) {
                 $.each(FRM._events, function (i, event) {
@@ -186,13 +197,16 @@ var EventManager = LayerManager.extend({
                 });
             });
         });
-        this._querySearchData();
+*/
+        this._queryEventFRMs();
+
     },
     
     /**
      * 
      *
      */
+/*
     _formatTimelineData: function () {
         var timelineEvents = [];
         $.each(this._eventTypes, function (typeName, eventType) {
@@ -213,11 +227,12 @@ var EventManager = LayerManager.extend({
             'events' : timelineEvents
         };
     },
+*/
     
     query: function (queryType, queryName) {
         var queryStartTime, params, queryRange, queryEndTime, largestQuery, resultFRM, first, self = this;
-        queryStartTime = new Date(this._date.getDate()).addSeconds(-this._windowSize / 2).getTime();
-        queryEndTime = new Date(this._date.getDate()).addSeconds(this._windowSize / 2).getTime();
+        queryStartTime = new Date(this._date.getDate()).addSeconds(-2 / 2).getTime();
+        queryEndTime = new Date(this._date.getDate()).addSeconds(2 / 2).getTime();
         
         if (queryType === "frm") {
             $.each(self._eventTypes, function (eventTypeName, eventType) {
@@ -344,5 +359,129 @@ $.get("http://www.lmsal.com/her/dev/search-hpkb/hek?" + $.param(params), $.proxy
                 FRM.refreshEvents();
             });
         });
+    },
+    
+    
+
+    /**
+     * @description Add a new event layer
+     */
+    addEventLayer: function (eventLayer) {
+        this._eventLayers.push(eventLayer);
+    },
+   
+    /**
+     * @description Gets the number of event layers currently loaded 
+     * @return {Integer} Number of event layers present.
+     */
+    size: function () {
+        return this._eventLayers.length;
+    },
+    
+    /**
+     * Returns the index of the given layer if it exists, and -1 otherwise
+     */
+    indexOf: function (id) {
+        var index = -1;
+        
+        $.each(this._eventLayers, function (i, item) {
+            if (item.id === id) {
+                index = i;
+            }
+        });
+        
+        return index;
+    },
+    
+    /**
+     * Updates the stored maximum dimensions. If the specified dimensions for updated are {0,0}, e.g. after
+     * a layer is removed, then all layers will be checked
+     */
+    updateMaxDimensions: function (event) {
+/*
+        var type = event.type.split("-")[0];
+        this.refreshMaxDimensions(type);
+        
+        $(document).trigger("viewport-max-dimensions-updated");
+*/
+    },
+    
+    /**
+     * Rechecks maximum dimensions after a layer is removed
+     */
+    refreshMaxDimensions: function (type) {
+/*
+        var maxLeft   = 0,
+            maxTop    = 0,
+            maxBottom = 0,
+            maxRight  = 0,
+            old       = this._maxLayerDimensions;
+
+        $.each(this._layers, function () {
+            var d = this.getDimensions();
+
+            maxLeft   = Math.max(maxLeft, d.left);
+            maxTop    = Math.max(maxTop, d.top);
+            maxBottom = Math.max(maxBottom, d.bottom);
+            maxRight  = Math.max(maxRight, d.right);
+
+        });
+        
+        this._maxLayerDimensions = {width: maxLeft + maxRight, height: maxTop + maxBottom};
+
+        if ((this._maxLayerDimensions.width !== old.width) || (this._maxLayerDimensions.height !== old.height)) {
+            $(document).trigger("layer-max-dimensions-changed", [type, this._maxLayerDimensions]);
+        }
+*/
+    },
+    
+    /**
+     * @description Returns the largest width and height of any layers (does not have to be from same layer)
+     * @return {Object} The width and height of the largest layer
+     * 
+     */
+    getMaxDimensions: function () {
+/*
+        return this._maxLayerDimensions;
+*/
+    },
+
+    /**
+     * @description Removes an event layer
+     * @param {string} The id of the event layer to remove
+     */
+    removeEventLayer: function (id) {
+        var type  = id.split("-")[0],
+            index = this.indexOf(id), 
+            eventLayer = this._eventLayers[index];
+        
+        eventLayer.domNode.remove();
+        this._eventLayers = $.grep(this._eventLayers, function (e, i) {
+            return (e.id !== eventLayer.id);
+        });
+        eventLayer = null;
+        
+        this.refreshMaxDimensions(type);
+    },
+    
+    /**
+     * @description Iterates through event layers
+     */
+    each: function (fn) {
+        $.each(this._eventLayers, fn);
+    },
+    
+    /**
+     * @description Returns a JSON representation of the event layers currently being displayed
+     */
+    toJSON: function () {
+        var eventLayers = [];
+        
+        $.each(this._eventLayers, function () {
+            eventLayers.push(this.toJSON());
+        });
+        
+        return eventLayers;       
     }
+    
 });

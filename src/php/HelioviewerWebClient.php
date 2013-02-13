@@ -78,13 +78,17 @@ class HelioviewerWebClient extends HelioviewerClient
 <script src="lib/jquery.imgareaselect-0.9.8/scripts/jquery.imgareaselect.pack.js" type="text/javascript"></script>
 <script src="lib/jquery.jfeed/build/jquery.jfeed.js" type="text/javascript"></script>
 <script src="lib/jquery.xml2json/jquery.xml2json.pack.js" type="text/javascript" language="javascript"></script>
-    <?php
+<!-- <script src="lib/jquery.jsTree/jstree.min.js"></script> -->
+<script src="lib/jquery.jsTree-1.0rc/jquery.jstree.min.js"></script>
+<?php
         } else {
     ?>
 <script src="lib/jquery.jgrowl/jquery.jgrowl.js" type="text/javascript"></script>
 <script src="lib/jquery.imgareaselect-0.9.8/scripts/jquery.imgareaselect.js" type="text/javascript"></script>
 <script src="lib/jquery.jfeed/build/jquery.jfeed.js" type="text/javascript"></script>
 <script src="lib/jquery.xml2json/jquery.xml2json.js" type="text/javascript" language="javascript"></script>
+<!-- <script src="lib/jquery.jsTree/jstree.js"></script> -->
+<script src="lib/jquery.jsTree-1.0rc/jquery.jstree.js"></script>
 <?php
         }
     }
@@ -97,9 +101,9 @@ class HelioviewerWebClient extends HelioviewerClient
         $js = array("UI/TreeSelect.js", "UI/ImageSelectTool.js",  
                     "Media/MediaManagerUI.js", "Media/MediaManager.js", "Media/MovieManager.js", 
                     "Media/MovieManagerUI.js", "Media/ScreenshotManager.js", "Media/ScreenshotManagerUI.js",  
-                    "UI/TileLayerAccordion.js", "UI/MessageConsole.js", "UI/TimeControls.js",  
-                    "Utility/FullscreenControl.js", "HelioviewerWebClient.js", "UI/UserVideoGallery.js",
-                    "UI/Glossary.js", "UI/jquery.ui.dynaccordion.js");
+                    "UI/TileLayerAccordion.js", "UI/EventLayerAccordion.js", "UI/MessageConsole.js", 
+                    "UI/TimeControls.js", "Utility/FullscreenControl.js", "HelioviewerWebClient.js", 
+                    "UI/UserVideoGallery.js", "UI/Glossary.js", "UI/jquery.ui.dynaccordion.js");
         parent::loadCustomJS($signature, $js);
         
     }
@@ -482,6 +486,8 @@ class HelioviewerWebClient extends HelioviewerClient
             <br><br>
             <div id="tileLayerAccordion"></div>
             <br><br>
+            <div id="eventLayerAccordion"></div>
+            <br><br>
 
         </div>
 
@@ -665,7 +671,7 @@ class HelioviewerWebClient extends HelioviewerClient
 ?>
     // Initialize Helioviewer.org
     helioviewer = new HelioviewerWebClient(urlSettings, serverSettings, zoomLevels);
-    
+   
     // Play movie if id is specified
     if (urlSettings.movieId) {
         helioviewer.loadMovie(urlSettings.movieId);

@@ -1,58 +1,55 @@
 /**
- * @fileOverview Contains the class definition for an TileLayerManager class.
+ * @fileOverview Contains the class definition for an EventLayerManager class.
  * @author <a href="mailto:keith.hughitt@nasa.gov">Keith Hughitt</a>
- * @see LayerManager, TileLayer
- * @requires LayerManager
- * 
- * TODO (12/3/2009): Provide support for cases where solar center isn't the best
- * sandbox-center, e.g. sub-field images.
- * 
+ * @see EventManager
+ * @requires EventManager
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
 bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
 /*global Helioviewer, LayerManager, TileLayer, Layer, $ */
 "use strict";
-var TileLayerManager = LayerManager.extend(
-/** @lends TileLayerManager.prototype */
+var EventLayerManager = EventManager.extend(
+/** @lends EventLayerManager.prototype */
 {
     /**
      * @constructs
-     * @description Creates a new TileLayerManager instance
+     * @description Creates a new EventLayerManager instance
      */
-    init: function (observationDate, dataSources, tileSize, viewportScale, maxTileLayers, 
-                    savedLayers, urlLayers) {
-        this._super();
+    init: function (requestDate, defaultEventTypes, viewportScale, rsun, 
+                    savedEventLayers, urlEventLayers) {
 
-        this.dataSources   = dataSources;
-        this.tileSize      = tileSize;
-        this.viewportScale = viewportScale;
-        this.maxTileLayers = maxTileLayers;
-     
+
+        this._super(defaultEventTypes, requestDate, rsun);
+
+        this._requestDate      = requestDate;
+        this.defaultEventTypes = defaultEventTypes;
+        this.viewportScale     = viewportScale;
+
         this.tileVisibilityRange  = {xStart: 0, xEnd: 0, yStart: 0, yEnd: 0};
       
-        this._observationDate = observationDate;
 
-        $(document).bind("tile-layer-finished-loading", $.proxy(this.updateMaxDimensions, this))
-                   .bind("save-tile-layers",            $.proxy(this.save, this))
-                   .bind("add-new-tile-layer",          $.proxy(this.addNewLayer, this))
-                   .bind("remove-tile-layer",           $.proxy(this._onLayerRemove, this))
-                   .bind("observation-time-changed",    $.proxy(this.updateRequestTime, this));
+        $(document).bind("event-layer-finished-loading", $.proxy(this.updateMaxDimensions, this))
+                   .bind("save-event-layers",            $.proxy(this.save, this))
+                   .bind("add-new-event-layer",          $.proxy(this.addNewLayer, this))
+                   .bind("remove-event-layer",           $.proxy(this._onLayerRemove, this));
     },
 
     /**
-     * @description Updates the list of loaded tile layers stored in
-     *              cookies
+     * @description Updates the list of loaded event layers stored in
+     *              localStorage and cookies
      */
     save: function () {
-        var layers = this.toJSON();
-
-        Helioviewer.userSettings.set("state.tileLayers", layers);
+        var eventLayers = this.toJSON();
+        Helioviewer.userSettings.set("state.eventLayers", eventLayers);
+console.warn(['EventLayers.save() eventLayers:',eventLayers]);
     },
     
     /**
      * 
      */
     updateTileVisibilityRange: function (vpCoords) {
+alert("Worth investigating when/why EventLayerManager.updateTileVisibilityRange() is called...");
+/*
         var old, ts, self, vp;
         old = this.tileVisibilityRange;
         // Expand to fit tile increment
@@ -78,12 +75,15 @@ var TileLayerManager = LayerManager.extend(
                 this.updateTileVisibilityRange(self.tileVisibilityRange); 
             });
         }
+*/
     },
     
     /**
      * 
      */
     adjustImageScale: function (scale) {
+alert("Worth investigating when/why EventLayerManager.adjustImageScale() is called...");
+/*
         if (this.viewportScale === scale) {
             return; 
         }
@@ -94,6 +94,7 @@ var TileLayerManager = LayerManager.extend(
         $.each(this._layers, function () {
             this.updateImageScale(scale, self.tileVisibilityRange);
         });
+*/
     },
 
     /**
@@ -108,6 +109,8 @@ var TileLayerManager = LayerManager.extend(
      * @param layerExists   bool Whether or not the layer already exists
      */
     _computeLayerStartingOpacity: function (layeringOrder, layerExists) {
+alert("EventLayerManager._computeLayerStartingOpacity() is probably not a useful method.");
+/*
         var counter;
 
         // If the layer has not been added yet, start counter at 1 instead of 0
@@ -125,28 +128,32 @@ var TileLayerManager = LayerManager.extend(
         });
 
         return 100 / counter;
+*/
     },
     
     /**
      * Returns a list of the layers which overlap the current viewport ROI
      */
     _getVisibleLayers: function () {
-        
+alert("EventLayerManager._getVisibleLayers() may be useful...");        
     },
 
     /**
      * Loads initial layers either from URL parameters, saved user settings, or the defaults.
      */
-    _loadStartingLayers: function (layers) {
-        var layer, self = this;
+    _loadStartingLayers: function (eventLayers) {
+alert("BEGIN EventLayerManager._loadStartingLayers()");
+        var eventLayer, self = this;
 
-        $.each(layers, function (index, params) {
-            layer = new TileLayer(index, self._observationDate, self.tileSize, self.viewportScale, 
+        $.each(eventLayers, function (index, params) {
+/// This interface needs updating...
+            eventLayer = new EventLayer(index, self._requestDate, self.tileSize, self.viewportScale, 
                                   self.tileVisibilityRange, params.nickname, params.visible, 
                                   params.opacity, true);
 
-            self.addLayer(layer);
+            self.addEventLayer(eventLayer);
         });
+alert("END EventLayerManager._loadStartingLayers()");
     },
     
     /**
@@ -156,40 +163,34 @@ var TileLayerManager = LayerManager.extend(
         this.removeLayer(id);
     },
     
-    /**
-     * Handles observation time changes
-     */
-    updateRequestTime: function (event, date) {
-        this._observationDate = date;
-        $.each(this._layers, function (i, layer) {
-            this.updateRequestTime(date);
-        });
-    },
-    
     getRequestDateAsISOString: function () {
-        return this._observationDate.toISOString();
+        return this._requestDate.toISOString();
     },
     
     /**
-     * Returns a string representation of the tile layers
+     * Returns a string representation of the event layers
      */
     serialize: function () {
-        return this._stringify(this._layers);
+alert("EventLayerManager.serialize() is probably not a useful method.");
+//        return this._stringify(this._eventLayers);
     },
     
     /**
      * Creates a string representation of an array of layers
      */
-    _stringify: function (layers) {
-        var layerString = "";
+    _stringify: function (eventLayers) {
+alert("EventLayerManager._stringify() is probably not a useful method.");
+/*
+        var eventLayerString = "";
         
         // Get a string representation of each layer that overlaps the ROI
-        $.each(layers, function () {
-            layerString += "[" + this.serialize() + "],";
+        $.each(eventLayers, function () {
+            eventLayerString += "[" + this.serialize() + "],";
         });
         
         // Remove trailing comma and return
-        return layerString.slice(0, -1);
+        return eventLayerString.slice(0, -1);
+*/
     },
     
     /**
@@ -213,6 +214,8 @@ var TileLayerManager = LayerManager.extend(
      * true if it doesn't.
      */
     _insideCircle: function (radius, top, left, bottom, right) {
+alert("EventLayerManager._insideCircle() is probably not a useful method.");
+/*
         var corners, corner, dx2, dy2;
         
         // Corners of region of interest
@@ -236,6 +239,7 @@ var TileLayerManager = LayerManager.extend(
         }
 
         return true;
+*/
     },
     
     /**
@@ -245,6 +249,8 @@ var TileLayerManager = LayerManager.extend(
      * @param array roi Region of interest in pixels
      */
     getVisibleLayers: function(roi) {
+alert("EventLayerManager.getVisibleLayers() may be useful...");
+/*
         var rsunAS, rsun, radii, layers = [], threshold = 10, self = this;
         
         // Coronagraph inner circle radii in arc-seconds
@@ -289,5 +295,6 @@ var TileLayerManager = LayerManager.extend(
         });
         
         return this._stringify(layers);
+*/
     }
 });

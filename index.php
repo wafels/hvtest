@@ -1,5 +1,6 @@
 <?php
     // Accepted URL parameters
+    // (except "imageLayers" and "eventLayers", handled separately)
     $params = array(
         "strings" => array("date", "movieId", "output"),
         "floats"  => array("centerX", "centerY", "imageScale"),
@@ -33,6 +34,16 @@
             $imageLayersString = $_GET['imageLayers'];
         }
         $urlSettings['imageLayers'] = preg_split("/\],\[/", $imageLayersString);
+    }
+    
+    // Process eventLayers separately if set
+    if (isset($_GET['eventLayers'])) {
+        if ($_GET['eventLayers'][0] == "[") {
+            $eventLayersString = substr($_GET['eventLayers'],1,-1);
+        } else {
+            $eventLayersString = $_GET['eventLayers'];
+        }
+        $urlSettings['eventLayers'] = preg_split("/\],\[/", $eventLayersString);
     }
         
     // Default to HTML5 client

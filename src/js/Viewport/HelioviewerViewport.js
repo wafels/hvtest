@@ -49,6 +49,7 @@ var HelioviewerViewport = Class.extend(
         this.movementHelper = new ViewportMovementHelper(this.domNode, this.mouseCoords, centerX, centerY);
         
         this.loadDataSources();
+        this.loadEventTypes();
        
         this._initEventHandlers();
     },
@@ -72,6 +73,23 @@ var HelioviewerViewport = Class.extend(
             $(document).trigger("update-viewport");
         };
         $.get(Helioviewer.api, {action: "getDataSources"}, callback, Helioviewer.dataType); 
+    },    
+    
+    /**
+     * Gets datasources and initializes the tileLayerAccordion and the tileLayerManager/eventLayerManager, 
+     * and resizes when done.
+     */
+    loadEventTypes: function () {
+        
+        $(document).trigger("event-types-initialized", [this.eventTypes, this.requestDate]);
+
+            // Initialize event layers
+
+            this._eventLayerManager = new HelioviewerEventLayerManager(this.requestDate, this.eventTypes, 
+                                      this.imageScale, this.rsun, this.savedEventLayers,
+                                      this.urlEventLayers);
+
+            //$(document).trigger("update-viewport");
     },    
     
     /**
@@ -132,6 +150,10 @@ var HelioviewerViewport = Class.extend(
     
     serialize: function () {
         return this._tileLayerManager.serialize();
+    },
+    
+    serializeEvents: function () {
+        return Helioviewer.userSettings.parseEventsURLString();
     },
     
     /**

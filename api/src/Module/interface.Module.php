@@ -12,6 +12,7 @@
  * @license  http://www.mozilla.org/MPL/MPL-1.1.html Mozilla Public License 1.1
  * @link     http://launchpad.net/helioviewer.org
  */
+include_once "/var/www/hek-dev/api/lib/FirePHPCore/fb.php";
 interface Module
 {
     /**

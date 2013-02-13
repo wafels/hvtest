@@ -51,7 +51,8 @@ class Net_Proxy
     public function query($params = array(), $curl = false)
     {
         $url = $this->_baseURL . http_build_query($params);
-        
+include_once "/var/www/hek-dev/api/lib/FirePHPCore/fb.php";
+FB::warn($url);        
         if ($curl) {
             // Fetch Results
             $curl_handle=curl_init();

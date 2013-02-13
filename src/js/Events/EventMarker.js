@@ -31,7 +31,7 @@ var EventMarker = Class.extend(
         this.setupPositionData();
         
         //Determine event type and catalog
-        //var catalogs = eventLayer.eventAccordion.eventCatalogs;
+        //var catalogs = eventLayer.eventLayerAccordion.eventCatalogs;
         //this.catalogName = catalogs[this.catalogId].name;
         //this.type = catalogs[this.catalogId].eventType;
         

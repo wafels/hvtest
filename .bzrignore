@@ -33,3 +33,4 @@ settings.cfg
 docs/profiling.tar
 .idea
 .bzrignore
+.metadata

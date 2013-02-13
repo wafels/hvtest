@@ -1,13 +1,14 @@
 /* Tile layer accordions */
-#tileLayerAccordion {
+#tileLayerAccordion, #eventLayerAccordion {
     margin:0 5px 0 5px;
 }
-#TileLayerAccordion-Container {
+#TileLayerAccordion-Container, #EventLayerAccordion-Container {
 	margin-top: 2px;
     font-size: 10.5px;
 }
 
-span.tile-accordion-header-right > span.accordion-header-divider {
+span.tile-accordion-header-right > span.accordion-header-divider, 
+span.event-accordion-header-right > span.accordion-header-divider {
     position: absolute;
     line-height: 1.5;
     left: 226px;
@@ -54,8 +55,17 @@ div.accordion-arrow {
 	border:none;
 }
 
-span.tile-accordion-header-left  {display: block; width:37%; float: left; margin-top:2px;}
-span.tile-accordion-header-right {display: block; text-align: right; height: 16px;}
+span.tile-accordion-header-left, span.event-accordion-header-left {
+    display: block; 
+    width:37%; 
+    float: left; 
+    margin-top:2px;
+}
+span.tile-accordion-header-right, span.event-accordion-header-right {
+    display: block; 
+    text-align: right; 
+    height: 16px;
+}
 
 /* TileLayerAccordion Styles */
 div.layer-select-label {
