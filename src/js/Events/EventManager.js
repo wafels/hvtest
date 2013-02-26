@@ -27,6 +27,7 @@ var EventManager = Class.extend({
      */
     init: function (defaultEventTypes, date, rsun) {
         this._eventLayers = [];
+        this._events = [];
         this._maxLayerDimensions = {width: 0, height: 0};
         
         this._treeContainer = $("#eventJSTree");
@@ -36,18 +37,18 @@ var EventManager = Class.extend({
         
         this._rsun       = rsun;
         this._date       = date;
-        this.defaultEventTypes = defaultEventTypes;
  
- 
-        // Create and display initial Event Type checkbox hierarchy
-        if ( !this.defaultEventTypes ) {
-            this._queryDefaultEventTypes();
-        }
-        else {
-            this._parseEventFRMs(this.defaultEventTypes);          
-        }
- 
+        // Populate initial Event Type checkbox hierarchy with local defaults (fast)
+        this._queryDefaultEventTypes();        
+        
+        // Update Event Type checkbox hierarchy with actual data 
         this._queryEventFRMs();
+        // Temporarily hack to work around un-clickable jsTree issue
+        // "TypeError: obj.find is not a function" needs to be investigated...
+        this._queryEventFRMs();
+        
+        // Event-handlers
+        $(document).bind("fetch-events", $.proxy(this._queryEvents, this));
     },
     
     /**
@@ -104,6 +105,36 @@ var EventManager = Class.extend({
         });
 
         this._generateTreeData(result);
+        
+        // Fetch events for any selected event_type/frm_name pairs
+        this._queryEvents();
+    },
+    
+    /**
+     * Queries event data from API
+     *
+     */
+    _queryEvents: function () {
+        var params;
+        if ( helioviewer.viewport.serializeEvents() == '' ) {
+            return;
+        }
+        params = {
+            "action"     : "getEventsByEventLayers",
+            "startTime"  : new Date(this._date.getTime()).toISOString(), 
+            "eventLayers": helioviewer.viewport.serializeEvents()
+        };
+        $.get("api/index.php", params, $.proxy(this._parseEvents, this), "json");
+    },
+    
+    /**
+     * Save data returned from _queryEvents
+     */
+    _parseEvents: function (result) {
+        this._events = result;
+        
+        // Create EventMarker objects...
+        // ...
     },
     
     /**
@@ -113,8 +144,8 @@ var EventManager = Class.extend({
      *
      */
     _generateTreeData: function (data) {
-        
-        var self = this, obj, index=0, event_type_arr;
+      
+        var self = this, obj, index=0, event_type_arr, type_count=0;
         
         // Re-initialize _jsTreeData in case it contains old values
         self._jsTreeData = [];
@@ -150,13 +181,17 @@ var EventManager = Class.extend({
             
             self._jsTreeData.push(obj);
 
+            type_count = 0;
             $.each(event_type_obj, function(frm_name, frm_obj) {
-                self._jsTreeData[index].children.push( { 'data' : frm_name, 
+                type_count += frm_obj['count'];
+                self._jsTreeData[index].children.push( { 'data' : frm_name+" ("+frm_obj['count']+")", 
                                                          'attr' : { 'id' : event_type_arr[1]+'--'+frm_name.replace(/ /g,"_"),
                                                                     //'data-event-type' : event_type_arr[1] 
                                                                   }
                                                        } );
             });
+            obj['data'] = obj['data']+' ('+type_count+')';
+            
             
             index++;
         });

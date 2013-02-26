@@ -37,9 +37,6 @@ var EventLayerAccordion = Layer.extend(
         this.domNode = $('#EventLayerAccordion-Container');
         this.domNode.dynaccordion({startClosed: true});
         
-        
-        this._createAccordionEntry();
-        
         // Event-handlers
         $(document).bind("create-event-layer-accordion-entry", $.proxy(this.addLayer, this))
                    .bind("update-event-layer-accordion-entry", $.proxy(this._updateAccordionEntry, this))
@@ -78,19 +75,21 @@ var EventLayerAccordion = Layer.extend(
      */
     _createAccordionEntry: function (index, id, name, visible, startOpened) {
 
-        var visibilityBtn, removeBtn, hidden, head, body;
+        var visibilityBtn/*, removeBtn*/, hidden, head, body;
         
         // initial visibility
         hidden = (visible ? "" : " hidden");
         
         visibilityBtn = "<span class='layerManagerBtn visible" + hidden + "' id='visibilityBtn-" + id +
                         "' title='Toggle layer visibility'></span>";
+        /*
         removeBtn = "<span class='ui-icon ui-icon-closethick removeBtn' id='removeBtn-" + id +
                     "' title='Remove layer'></span>";
+        */
         head = "<div class='layer-Head ui-accordion-header ui-helper-reset ui-state-default ui-corner-all shadow'>" + 
                "<span class=tile-accordion-header-left>" + name +
                "</span><span class=tile-accordion-header-right><span class='timestamp'></span>" + 
-               "<span class=accordion-header-divider>|</span>" + visibilityBtn + removeBtn + "</span></div>";
+               "<span class=accordion-header-divider>|</span>" + visibilityBtn /*+ removeBtn*/ + "</span></div>";
         
         // Create accordion entry body
         body ='<div id="eventJSTree"></div>';
@@ -104,7 +103,7 @@ var EventLayerAccordion = Layer.extend(
             open:   startOpened
         });  
 
-        this._eventManager = new EventManager(null, this._date, null, null);
+        this._eventManager = new EventManager(null, this._date, null);
     },
     
 
@@ -115,16 +114,17 @@ var EventLayerAccordion = Layer.extend(
         var title, addLayerBtn;
       
         // Create a top-level header and an "add layer" button
-        title = $('<span class="section-header">Events & Features</span>').css({'float': 'left'});
-        addLayerBtn = $('<a href=# class=dark>[Add]</a>').css({'margin-right': '14px'});
-        this.container.append($('<div></div>').css('text-align', 'right').append(title).append(addLayerBtn));
+        title = $('<span class="section-header">Solar Features & Events</span>')/*.css({'float': 'left'})*/;
+        //addLayerBtn = $('<a href=# class=dark>[Add]</a>').css({'margin-right': '14px'});
+        this.container.append($('<div></div>')/*.css('text-align', 'right')*/.append(title)/*.append(addLayerBtn)*/);
         this.container.append($('<div id="EventLayerAccordion-Container"></div>'));
 
+/*
         // Event-handlers
         addLayerBtn.click(function () {
             $(document).trigger("add-new-event-layer");
         });
-        
+*/        
     },
 
     /**
@@ -153,7 +153,7 @@ var EventLayerAccordion = Layer.extend(
         };
         
         visibilityBtn.bind('click', this, toggleVisibility);
-        removeBtn.bind('click', this, removeLayer);
+//        removeBtn.bind('click', this, removeLayer);
     },
     
     
@@ -188,6 +188,9 @@ var EventLayerAccordion = Layer.extend(
             domNode.html(self._date.toUTCDateString() + " " + self._date.toUTCTimeString())
                    .css("color", self._chooseTimeStampColor(weight, 0, 0, 0));
         });
+        
+        // Re-fetch events
+        $(document).trigger("fetch-events");
     },
     
     /**

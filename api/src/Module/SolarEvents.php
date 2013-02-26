@@ -102,6 +102,22 @@ class Module_SolarEvents implements Module
         header("Content-type: application/json");
         echo $hek->getDefaultEventTypes();
     }
+
+    /**
+     * Gets a JSON-formatted array of the events objects whose duration co-incides
+     * with startTime and whose event_type and associated frm_name match the user-
+     * selected values.
+     * 
+     * @return void
+     */
+    public function  getEventsByEventlayers()
+    {
+        include_once "src/Event/HEKAdapter.php";
+        $hek = new Event_HEKAdapter();
+        
+        header("Content-type: application/json");
+        echo $hek->getEventsByEventLayers($this->_params['startTime'], $this->_params['eventLayers']);
+    }
     
     /**
      * Gets a JSON-formatted list of Features/Events for the requested time range and FRMs 
@@ -172,6 +188,12 @@ class Module_SolarEvents implements Module
                 "required" => array('startTime'),
                 "optional" => array('eventType','cacheOnly'),
                 "bools"    => array('cacheOnly'),
+                "dates"    => array('startTime')
+            );
+            break;
+        case "getEventsByEventLayers":
+            $expected = array(
+                "required" => array('startTime','eventLayers'),
                 "dates"    => array('startTime')
             );
             break;

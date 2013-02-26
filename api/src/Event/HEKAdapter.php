@@ -290,6 +290,74 @@ class Event_HEKAdapter
 				
 		return $events;
 	}
+    
+
+    /**
+     * Returns an two-dimensional array of event types and associated frm_names
+     * 
+     * @param string $eventLayers   Query-string representation of selected event layers
+     * 
+     * @return array
+     */
+    public function parseEventLayersString($eventLayers) {
+        $eventLayers = trim($eventLayers,'[]');
+        if ( $eventLayers == '' ) {
+            return false;
+        }
+        $eventLayersArray  = explode('],[', $eventLayers);
+       
+        $layersArray = Array();
+        foreach ($eventLayersArray as $eventTypeString) {
+            $temp  = explode(',', $eventTypeString);
+            $temp2 = explode(';', $temp[1]);
+            $layersArray[$temp[0]] = $temp2;
+        }
+        
+        return $layersArray;
+    }
+
+
+    /**
+     * Return a JSON string containing an array of event objects filtered by 
+     * eventLayer URL query-string parameter
+     * 
+     * @param string $startTime Query start date
+     * @param string $eventLayers   Query-string representation of selected event layers
+     * 
+     * @return JSON array of event objects 
+     */
+    public function getEventsByEventLayers($startTime, $eventLayers)
+    {   
+        $eventLayersArray = $this->parseEventLayersString($eventLayers);
+        if ( !$eventLayersArray ) {
+            // Invalid $eventLayers string, return an empty array
+            return json_encode(Array());
+        }
+        
+        // Generate list of selected event types
+        $eventType = implode(',', array_keys($eventLayersArray));
+        
+        // Fetch events for this startTime matching list of selected event types
+        $events = $this->getEvents($startTime, Array('eventType' => $eventType));        
+
+        // Filter out events whose associated frm_name was not explicitely or implicitly selected
+        foreach ($events as $eventIndex => $event) {
+                
+            // Don't discard if 'all' frm_names for that event type were selected
+            if ( strtolower($eventLayersArray[$event['event_type']][0]) == 'all') {
+                continue;
+            }
+            // Discard event if it isn't in the list of selected frm_names for it's (selected) event type
+            else if ( !in_array($event['frm_name'], $eventLayersArray[$event['event_type']]) ) {
+                unset($events[$eventIndex]);
+            }
+        }
+        
+        // Re-index the array
+        $events = array_values($events);
+        
+        return json_encode($events);
+    }
 
 
     /**

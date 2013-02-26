@@ -95,12 +95,11 @@ var EventTree = Class.extend({
                 }
             }
         ); 
-            
-        /// trigger:  fetch/display the events related to the event types and frms that are selected
-        /// ...
         
         // Save eventLayers state to localStorage        
         Helioviewer.userSettings.set("state.eventLayers", checked);
-console.warn(Helioviewer.userSettings);
+            
+        // Fetch/display the events related to the event types and frm_names that are selected
+        $(document).trigger("fetch-events");
     }
 });
