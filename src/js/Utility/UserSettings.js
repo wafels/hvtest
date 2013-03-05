@@ -235,7 +235,6 @@ var UserSettings = Class.extend(
         else {
             this.settings = this.cookies.get("settings");
         }
-console.warn(['UserSettings._loadSavedSettings()',this.settings]);
     },
     
     /**
@@ -265,7 +264,6 @@ console.warn(['UserSettings._loadSavedSettings()',this.settings]);
             this.set("state.eventLayers", 
                      this._parseURLStringEvents(urlSettings.eventLayers));
         }
-console.warn(['UserSettings._processURLSettings()',this]);
     },
     
     /**
@@ -292,7 +290,6 @@ console.warn(['UserSettings._processURLSettings()',this]);
         $.each(urlEventLayers, function (i, eventLayerString) {
             events.push(parseEventString(eventLayerString));
         });
-console.warn(["_parseURLStringEvents()",events]);
         return events;
     },
     

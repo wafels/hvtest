@@ -12,115 +12,21 @@ var EventMarker = Class.extend(
     {
     /**
      * @constructs
-     * @description Creates a new EventMarker
+     * @description Creates an EventMarker
      * @param {Object} eventLayer EventLayer associated with the EventMarker
      * @param {JSON} event Event details
-     * @param {Date} date The date when the given event occured
-     * @param {Int} rsun The radius of the sun in pixels
-     * @param {Object} options Extra EventMarker settings to use
      */    
-    init: function (parentFRM, event, date, rsun, options) {
+    init: function (parentFRM, event) {
         $.extend(this, event);
-        $.extend(this, options);
         this.behindSun = false;
-        this.event = event;
-        this.parentFRM  = parentFRM;
-        this.appDate    = date;
-        this.rsun = rsun;
-        
-        this.setupPositionData();
-        
-        //Determine event type and catalog
-        //var catalogs = eventLayer.eventLayerAccordion.eventCatalogs;
-        //this.catalogName = catalogs[this.catalogId].name;
-        //this.type = catalogs[this.catalogId].eventType;
-        
+        this.parentFRM  = parentFRM;  
+      
         //Create dom-nodes for event marker, details label, and details popup
         this.createMarker();
-        this.createPopup();
+        //this.createPopup();
         //this.createLabel();
-    },
-    
-    setupPositionData: function () {
-        var deg2rad, radians, rsun, theta, phi, r, b_zero, phi_zero, phi_c, l_zero, 
-            x, y, old, a, b, c, d, e, f, g, h, i, j, day;  
-                
-        deg2rad = (2 * Math.PI) / 360;
         
-        if (this.event_coordsys === "UTC-HRC-TOPO") {
-            
-            radians = (this.event_coord1 + 90) * deg2rad;
-            rsun    = this.event_coord2;
-            
-            this.sunX = -1 * rsun * Math.sin(radians);
-            this.sunY = rsun * Math.cos(radians);               
-        }
-        else if (this.event_coordsys === "UTC-HGS-TOPO") {
-            //Heliographic Stonyhurst
-            theta    = this.event_coord2 * deg2rad;
-            phi      = this.event_coord1 * deg2rad;
-            r        = 1;
-            b_zero   = 0;
-            phi_zero = 0;
-            
-            this.sunX = r * Math.cos(theta) * Math.sin(phi - phi_zero);
-            this.sunY = (-1) * r * ((Math.sin(theta) * Math.cos(b_zero)) - 
-                                    (Math.cos(theta) * Math.cos(phi - phi_zero) * Math.sin(b_zero)));
-        } else if (this.event_coordsys === "UTC-HGC-TOPO") {
-            phi_c   = this.event_coord1;
-            theta   = this.event_coord2 * deg2rad;
-            phi     = 0;
-            l_zero  = 0;
-            x       = 0;
-            y       = 0;
-            old     = 0;
-            a       = 1.91787;
-            b       = -0.13067;
-            c       = -0.0825278;
-            d       = -0.17505;
-            e       = 365.27116;
-            f       = 0.26318;
-            g       = -26379.45;
-            h       = -0.00520448;
-            i       = -0.00556336;
-            j       = -0.0122842;
-            day = 1000 * 60 * 60 * 24;
-            r        = 1;
-            b_zero   = 7 * deg2rad;
-            phi_zero = 0;
-
-            x = (new Date(this.event_starttime).getTime() - new Date(1995, 0, 1).getTime()) / day;
-
-           //console.log("days/x: " + x);
-
-            if ((x > 364) && (x < 731)) {
-                y = f + (x / g) + a * Math.sin(2 * Math.PI * (x / e)) + b * Math.sin(4 * Math.PI * (x / e)) + 
-                    h * Math.sin(6 * Math.PI * (x / e)) + c * Math.cos(2 * Math.PI * (x / e)) +
-                    d * Math.cos(4 * Math.PI * (x / e)) + i * Math.cos(6 * Math.PI * (x / e)) - j;
-            }
-            else {
-                y = f + (x / g) + a * Math.sin(2 * Math.PI * (x / e)) + b * Math.sin(4 * Math.PI * (x / e)) + 
-                    h * Math.sin(6 * Math.PI * (x / e)) + c * Math.cos(2 * Math.PI * (x / e)) +
-                    d * Math.cos(4 * Math.PI * (x / e)) + i * Math.cos(6 * Math.PI * (x / e));
-            }
-                
-                
-            old = (349.03 - ((360.0 * x) / 27.2753)).mod(360);
-            l_zero = old + y;
-            //console.log("old: " + old);
-            //console.log("y  : " + y);
-            phi = (phi_c - l_zero);
-            //console.log(phi);
-            if ((phi < -90) || (phi > 90)) {
-                this.behindSun = true;
-            }
-            //Stonyhurst Conversion
-            phi = phi * deg2rad;           
-    
-            this.sunX = r * Math.cos(theta) * Math.sin(phi - phi_zero);
-            this.sunY = (-1) * r * ((Math.sin(theta) * Math.cos(b_zero)) - 
-                        (Math.cos(theta) * Math.cos(phi - phi_zero) * Math.sin(b_zero)));
-        }    
+        $(document).bind("replot-event-markers", $.proxy(this.refresh, this));
     },
     
     
@@ -128,30 +34,19 @@ var EventMarker = Class.extend(
      * @description Creates the marker and adds it to the viewport
      */
     createMarker: function () {
-        //Create container
+        var markerURL;
+
+        // Create container
         this.pos = {
-            x: this.rsun * this.sunX,
-            y: this.rsun * this.sunY
+            x:  this.hpc_x / Helioviewer.userSettings.settings.state.imageScale,
+            y: -this.hpc_y / Helioviewer.userSettings.settings.state.imageScale
         };
         
-        this.container = $('<div class="event" style="left: ' + this.pos.x + 'px; top: ' + this.pos.y + 'px;"></div>');
-        
+        this.container = $('<div class="event" style="position: absolute; left: ' + this.pos.x + 'px; top: ' + this.pos.y + 'px;"></div>');
         this.parentFRM.domNode.append(this.container);
-        this.marker = $('<div class="event-marker"></div>');
-        this.marker.css('background', 'url(resources/images/events/small-yellow-square-CME.png)');
+        markerURL = 'resources/images/events/hek/'+this.event_type.toLowerCase()+'_icon.gif';
+        this.marker = $('<img class="event-marker" src="'+markerURL+'" style="width: 18px; height: 18px;" title="'+this.concept+'" />');
         this.container.append(this.marker);
-        if (this.behindSun) {
-            this.marker.hide();
-        }
-        //make event-type CSS-friendly
-        //var cssType = this.type.replace(/ /g, "_");
-        //
-        //this.marker = $('<div class="event-marker"></div>');
-        //this.marker.css(
-        //    'background', 'url(resources/images/events/' + this.eventLayer.icon + "-" + cssType + '.png)'
-        //);
-        //
-        //this.container.append(this.marker);
     },
     
     /**
@@ -212,7 +107,7 @@ var EventMarker = Class.extend(
      * @description Creates a popup which is displayed when the event marker is clicked
      */
     createPopup: function () {
-        var content, tooltips = this.parentFRM.eventManager.controller.tooltips;
+        var content/*, tooltips = this.parentFRM.eventManager.controller.tooltips*/;
 
         // Add required parameters
         content = "<div class='event-popup-container'><strong>" + this.eventId + "</strong><br>" +
@@ -234,7 +129,7 @@ var EventMarker = Class.extend(
         });
         */
         // Create popup dialog        
-        tooltips.createDialog(this.container, this.type, content);
+        ///tooltips.createDialog(this.container, this.type, content);
     },
  
     /**
@@ -290,17 +185,15 @@ var EventMarker = Class.extend(
 
      /**
       * @description Redraws event
-      * @param {Int} rsun The updated solar radius, in pixels.
       */
-    refresh: function (rsun) {
-        this.rsun = rsun;
+    refresh: function () {
         this.pos = {
-            x: this.sunX * rsun,
-            y: this.sunY * rsun
+            x:  this.hpc_x / Helioviewer.userSettings.settings.state.imageScale,
+            y: -this.hpc_y / Helioviewer.userSettings.settings.state.imageScale
         };
         this.container.css({
-            'left': (this.pos.x - 2) + 'px',
-            'top' : (this.pos.y - 2) + 'px'
+            'left': this.pos.x + 'px',
+            'top' : this.pos.y + 'px'
         });
     },
     

@@ -39,6 +39,8 @@ var EventTree = Class.extend({
     
     _build: function (jsTreeData) {
         var self = this, saved, node;
+        
+        this._container.unbind("change_state.jstree", $.proxy(this._treeChangedState, this));
 
         this._container.jstree({
             "json_data" : { "data": jsTreeData },
@@ -61,6 +63,7 @@ var EventTree = Class.extend({
         });
         
         this._container.bind("change_state.jstree", $.proxy(this._treeChangedState, this));
+        $(document).trigger("change_state.jstree", this);
     },
     
     _treeChangedState: function (event, data) {
@@ -98,8 +101,8 @@ var EventTree = Class.extend({
         
         // Save eventLayers state to localStorage        
         Helioviewer.userSettings.set("state.eventLayers", checked);
-            
-        // Fetch/display the events related to the event types and frm_names that are selected
-        $(document).trigger("fetch-events");
+        
+        // Show/Hide events to match new state of the checkboxes
+        $(document).trigger("toggle-events");
     }
 });

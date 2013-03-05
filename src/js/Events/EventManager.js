@@ -25,30 +25,24 @@ var EventManager = Class.extend({
      *    
      * @constructs
      */
-    init: function (defaultEventTypes, date, rsun) {
-        this._eventLayers = [];
-        this._events = [];
-        this._maxLayerDimensions = {width: 0, height: 0};
-        
+    init: function (defaultEventTypes, date) {
+        this._eventLayers   = [];
+        this._events        = [];
+        this._eventMarkers  = [];
         this._treeContainer = $("#eventJSTree");
-        this._eventTypes   = {};
-        ///this._timelineData = {};
-        this._jsTreeData   = [];
-        
-        this._rsun       = rsun;
-        this._date       = date;
+        this._eventTypes    = {};
+        this._jsTreeData    = [];
+        this._date          = date;
  
-        // Populate initial Event Type checkbox hierarchy with local defaults (fast)
-        this._queryDefaultEventTypes();        
-        
-        // Update Event Type checkbox hierarchy with actual data 
+        $('<div id="event-container"></div>').appendTo("#moving-container");
+         
+
+        // Populate event_type/frm_name checkbox hierarchy with actual data 
         this._queryEventFRMs();
-        // Temporarily hack to work around un-clickable jsTree issue
-        // "TypeError: obj.find is not a function" needs to be investigated...
-        this._queryEventFRMs();
-        
-        // Event-handlers
-        $(document).bind("fetch-events", $.proxy(this._queryEvents, this));
+
+        // Set up javascript event handlers
+        $(document).bind("fetch-eventFRMs", $.proxy(this._queryEventFRMs, this));
+        $(document).bind("toggle-events", $.proxy(this._toggleEvents, this));
     },
     
     /**
@@ -82,25 +76,23 @@ var EventManager = Class.extend({
      * data and then calling generateTreeData to build the jsTree.
      */
     _parseEventFRMs: function (result) {
-        var self = this;
-
+        var self = this, domNode, eventAbbr;
+        
+        $("#event-container").empty();
+        
+        self._eventTypes = {};
         $.each(result, function (eventType, eventFRMs) {
-            // Create new EventType if it doesn't exist
-            if (!self._eventTypes[eventType]) {
-               self._eventTypes[eventType] = new EventType(eventType);
-            }
-
+            eventAbbr = eventType.split('/');
+            eventAbbr = eventAbbr[1];
+            
+            // Create and store an EventType
+            self._eventTypes[eventAbbr] = new EventType(eventAbbr);
+            
             // Process event FRMs
             $.each(eventFRMs, function (frmName, eventFRM) {
-                // Add FRM if it does not already exist
-                if (!self._eventTypes[eventType]._eventFRMs[frmName]) {
-                   ///self._eventTypes[eventType]._eventFRMs[frmName] = 
-                   ///     new EventFeatureRecognitionMethod(frmName, self._rsun);
-                   /// self._eventTypes[eventType]._eventFRMs[frmName].domNode = 
-                   ///     $('<div class="event-layer" style="position:absolute;top:-40px;left:90px;width:15px; height: 15px; background-image:url(\'/hek-dev/resources/images/events/activeregion.png\');" title="jeff" onClick="javascript:alert(\'hi jeff!\');">..</div>').appendTo("#moving-container");                    
-                } else {
-                    // TODO: Update count information
-                }
+                self._eventTypes[eventAbbr]._eventFRMs[frmName] = new EventFeatureRecognitionMethod(frmName, self._rsun);
+                domNode = '<div class="event-layer" id="'+eventAbbr+'__'+frmName.replace(/ /g,'_')+'" style="border: 1px solid blue; position: absolute;">';
+                self._eventTypes[eventAbbr]._eventFRMs[frmName].setDomNode( $(domNode).appendTo("#event-container") );
             });
         });
 
@@ -120,9 +112,9 @@ var EventManager = Class.extend({
             return;
         }
         params = {
-            "action"     : "getEventsByEventLayers",
+            "action"     : "getEvents",
             "startTime"  : new Date(this._date.getTime()).toISOString(), 
-            "eventLayers": helioviewer.viewport.serializeEvents()
+            "eventType"  : '**'
         };
         $.get("api/index.php", params, $.proxy(this._parseEvents, this), "json");
     },
@@ -131,10 +123,18 @@ var EventManager = Class.extend({
      * Save data returned from _queryEvents
      */
     _parseEvents: function (result) {
+        var eventMarker, self=this, parentDomNode;
+      
+        $.each( this._eventMarkers, function(i, eventMarker) {
+            eventMarker.remove();
+        });
+        this._eventMarkers = [];
         this._events = result;
         
-        // Create EventMarker objects...
-        // ...
+        $.each( this._events, function(i, event) {
+            self._eventMarkers.push( new EventMarker(self._eventTypes[event['event_type']]._eventFRMs[event['frm_name']], 
+                                          event) );        
+        });
     },
     
     /**
@@ -145,7 +145,7 @@ var EventManager = Class.extend({
      */
     _generateTreeData: function (data) {
       
-        var self = this, obj, index=0, event_type_arr, type_count=0;
+        var self = this, obj, index=0, event_type_arr, type_count=0, count_str;
         
         // Re-initialize _jsTreeData in case it contains old values
         self._jsTreeData = [];
@@ -184,14 +184,23 @@ var EventManager = Class.extend({
             type_count = 0;
             $.each(event_type_obj, function(frm_name, frm_obj) {
                 type_count += frm_obj['count'];
-                self._jsTreeData[index].children.push( { 'data' : frm_name+" ("+frm_obj['count']+")", 
+                
+                count_str = '';
+                if ( frm_obj['count'] > 0 ) {
+                    count_str = " ("+frm_obj['count']+")";
+                }
+                self._jsTreeData[index].children.push( { 'data' : frm_name+count_str, 
                                                          'attr' : { 'id' : event_type_arr[1]+'--'+frm_name.replace(/ /g,"_"),
                                                                     //'data-event-type' : event_type_arr[1] 
                                                                   }
                                                        } );
             });
-            obj['data'] = obj['data']+' ('+type_count+')';
             
+            count_str = '';
+            if ( type_count > 0 ) {
+                count_str = " ("+type_count+")";
+            }
+            obj['data'] = obj['data']+count_str;
             
             index++;
         });
@@ -208,184 +217,13 @@ var EventManager = Class.extend({
     },
     
     /**
-     * Reloads the windowSize, and queries new tree structure data.
+     * Queries for new tree structure data and events.
      *
      */
     updateRequestTime: function () {
         var managerStartDate, managerEndDate, eventStartDate, eventEndDate, self = this;
         this._date = new Date($("#date").val().replace(/\//g,"-") +"T"+ $("#time").val()+"Z");
- 
-/*    
-        $.each(this._eventTypes, function (typeName, eventType) {
-            $.each(eventType.getEventFRMs(), function (frmName, FRM) {
-                $.each(FRM._events, function (i, event) {
-                    eventStartDate = new Date(event.event_starttime);
-                    eventEndDate = new Date(event.event_endtime);
-                    managerStartDate = new Date(self._date.getDate()).addSeconds(-self._windowSize / 2);
-                    managerEndDate = new Date(self._date.getDate()).addSeconds(self._windowSize / 2);
-                    if (eventEndDate < managerStartDate || eventStartDate > managerEndDate) {
-                        event.setVisibility(false);
-                    }
-                    else {
-                        event.setVisibility(true);
-                    }
-                });
-            });
-        });
-*/
         this._queryEventFRMs();
-
-    },
-    
-    /**
-     * 
-     *
-     */
-/*
-    _formatTimelineData: function () {
-        var timelineEvents = [];
-        $.each(this._eventTypes, function (typeName, eventType) {
-            $.each(eventType.getEventFRMs(), function (frmName, eventFRM) {
-                $.each(eventFRM._events, function (i, event) {
-                    timelineEvents.push({
-                        'title' : event.frm_name + " " + event.event_type,
-                        'start' : event.event_starttime,
-                        'end' : event.event_endtime,
-                        'durationEvent' : false
-                    });
-                });
-            });
-        });
-        
-        this._timelineData = {
-            'dateTimeFormat' : 'iso8601',
-            'events' : timelineEvents
-        };
-    },
-*/
-    
-    query: function (queryType, queryName) {
-        var queryStartTime, params, queryRange, queryEndTime, largestQuery, resultFRM, first, self = this;
-        queryStartTime = new Date(this._date.getDate()).addSeconds(-2 / 2).getTime();
-        queryEndTime = new Date(this._date.getDate()).addSeconds(2 / 2).getTime();
-        
-        if (queryType === "frm") {
-            $.each(self._eventTypes, function (eventTypeName, eventType) {
-                if (eventType._eventFRMs[queryName]) {
-                    if (!eventType._eventFRMs[queryName].isQueried(queryStartTime, queryEndTime)) {
-                        queryRange = eventType._eventFRMs[queryName].rangeToQuery(queryStartTime, queryEndTime);
-                        params = {
-                            "action"     : "queryHEK",
-                            "eventTypes" : eventType.getName(),
-                            "startTime"  : new Date(queryRange[0]).toHEKISOString(),
-                            "endTime"    : new Date(queryRange[1]).toHEKISOString(),
-                            "frmFilter"  : queryName
-                        };
-                    
-                        $.get("api/index.php" + $.param(params), function (data) {
-                            $.each(data.result, function (i, result) {
-                                resultFRM = self._eventTypes[result.event_type]._eventFRMs[result.frm_name];
-                                if (!resultFRM.contains(new Date(getUTCTimestamp(result.event_starttime)).getTime())) {
-                                    resultFRM.addEvent(result);
-                                }
-                            });
-                            eventType._eventFRMs[queryName].addRange(queryRange[0], queryRange[1]);
-                            eventType._eventFRMs[queryName].setVisibility(true);
-                        });
-                    }
-                    else {
-                        eventType._eventFRMs[queryName].toggleVisibility();
-                    }
-                }
-                
-            });         
-        }
-        else if (queryType === "type" && !self._eventTypes[queryName].isQueried(queryStartTime, queryEndTime)) {
-            $.each(self._eventTypes, function (i, eventType) {
-                if (eventType.getName() === queryName) {
-                    largestQuery = [0, 0];
-                    if (eventType._eventFRMs.length === 0) {
-                        largestQuery = [queryStartTime, queryEndTime];
-                    }
-                    first = false;
-                    $.each(eventType._eventFRMs, function (frmName, FRM) {
-                        queryRange = FRM.rangeToQuery(queryStartTime, queryEndTime);
-                        if (first === false) {
-                            first = true;
-                            largestQuery = queryRange;
-                        }
-                        if (queryRange[0] < largestQuery[0]) {
-                            largestQuery[0] = queryRange[0];
-                        }
-                        if (queryRange[1] > largestQuery[1]) {
-                            largestQuery[1] = queryRange[1];
-                        }
-                    });
-                    
-                    if (largestQuery.toString() !== [0, 0].toString()) {
-/*params = {
-    
-    "cmd"             : "search",
-    "type"            : "column",
-    "result_limit"    : "200",
-    "event_type"      : queryName,
-    "event_starttime" : new Date(largestQuery[0]).toUTCDateString() + "T" + new Date(largestQuery[0]).toUTCTimeString(),
-    "event_endtime"   : new Date(largestQuery[1]).toUTCDateString() + "T" + new Date(largestQuery[1]).toUTCTimeString(),
-    "event_coordsys"  : "helioprojective",
-    "x1"              : "-1800",
-    "x2"              : "1800",
-    "y1"              : "-1800",
-    "y2"              : "1800",
-    "return"          : "required",
-    "cosec"           : "2"
-}
-$.get("http://www.lmsal.com/her/dev/search-hpkb/hek?" + $.param(params), $.proxy(self._displayEvents, self));
-*/
-                        params = {
-                            "action"     : "queryHEK",
-                            "eventTypes" : queryName,
-                            "startTime"  : new Date(largestQuery[0]).toHEKISOString(),
-                            "endTime"    : new Date(largestQuery[1]).toHEKISOString()
-                        };
-                    
-                        $.get("api/index.php" + $.param(params), function (data) {
-                            $.each(data.result, function (i, result) {
-                                resultFRM = self._eventTypes[result.event_type]._eventFRMs[result.frm_name];
-                                if (!resultFRM.contains(new Date(getUTCTimestamp(result.event_starttime)).getTime())) {
-                                    resultFRM.addEvent(result);
-                                    resultFRM.setVisibility(true);
-                                }
-                            });
-                            $.each(data.result, function (i, result) {
-                                resultFRM = self._eventTypes[result.event_type]._eventFRMs[result.frm_name];
-                                resultFRM.addRange(largestQuery[0], largestQuery[1]);
-                            });                    
-                        });
-                        
-                    }
-                }
-            });
-        }
-        else if (queryType === "type" && self._eventTypes[queryName].isQueried(queryStartTime, queryEndTime)) {
-            $.each(self._eventTypes, function (typeName, eventType) {
-                if (eventType.getName() === queryName) {
-                    $.each(eventType.getEventFRMs(), function (frmName, FRM) {
-                        FRM.toggleVisibility();
-                    });
-                }
-            });
-        }
-    },
-    
-    _displayEvents: function (data) {
-        var resultFRM, self = this;
-        $.each(data.result, function (i, result) {
-            resultFRM = self._eventTypes[result.event_type]._eventFRMs[result.frm_name];
-            if (!resultFRM.contains(new Date(getUTCTimestamp(result.event_starttime)).getTime())) {
-                resultFRM._events.push(result);
-            }
-        });
-        
     },
     
     refreshEvents: function () {
@@ -429,77 +267,6 @@ $.get("http://www.lmsal.com/her/dev/search-hpkb/hek?" + $.param(params), $.proxy
     },
     
     /**
-     * Updates the stored maximum dimensions. If the specified dimensions for updated are {0,0}, e.g. after
-     * a layer is removed, then all layers will be checked
-     */
-    updateMaxDimensions: function (event) {
-/*
-        var type = event.type.split("-")[0];
-        this.refreshMaxDimensions(type);
-        
-        $(document).trigger("viewport-max-dimensions-updated");
-*/
-    },
-    
-    /**
-     * Rechecks maximum dimensions after a layer is removed
-     */
-    refreshMaxDimensions: function (type) {
-/*
-        var maxLeft   = 0,
-            maxTop    = 0,
-            maxBottom = 0,
-            maxRight  = 0,
-            old       = this._maxLayerDimensions;
-
-        $.each(this._layers, function () {
-            var d = this.getDimensions();
-
-            maxLeft   = Math.max(maxLeft, d.left);
-            maxTop    = Math.max(maxTop, d.top);
-            maxBottom = Math.max(maxBottom, d.bottom);
-            maxRight  = Math.max(maxRight, d.right);
-
-        });
-        
-        this._maxLayerDimensions = {width: maxLeft + maxRight, height: maxTop + maxBottom};
-
-        if ((this._maxLayerDimensions.width !== old.width) || (this._maxLayerDimensions.height !== old.height)) {
-            $(document).trigger("layer-max-dimensions-changed", [type, this._maxLayerDimensions]);
-        }
-*/
-    },
-    
-    /**
-     * @description Returns the largest width and height of any layers (does not have to be from same layer)
-     * @return {Object} The width and height of the largest layer
-     * 
-     */
-    getMaxDimensions: function () {
-/*
-        return this._maxLayerDimensions;
-*/
-    },
-
-    /**
-     * @description Removes an event layer
-     * @param {string} The id of the event layer to remove
-     */
-    removeEventLayer: function (id) {
-        var type  = id.split("-")[0],
-            index = this.indexOf(id), 
-            eventLayer = this._eventLayers[index];
-        
-        eventLayer.domNode.remove();
-        this._eventLayers = $.grep(this._eventLayers, function (e, i) {
-            return (e.id !== eventLayer.id);
-        });
-        eventLayer = null;
-        
-        this.refreshMaxDimensions(type);
-    },
-    
-    /**
      * @description Iterates through event layers
      */
     each: function (fn) {
@@ -517,6 +284,49 @@ $.get("http://www.lmsal.com/her/dev/search-hpkb/hek?" + $.param(params), $.proxy
         });
         
         return eventLayers;       
+    },
+    
+    _toggleEvents: function (event) {
+        var newState, checkedEventTypes = [], checkedFRMs = {}, self = this;
+        
+        newState = Helioviewer.userSettings.get("state.eventLayers");
+
+        // Populate checkedEventTypes and checkedFRMs to make it easier to 
+        // compare the state of the checkbox hierarchy with the all stored 
+        // event type / frm DOM nodes.
+        $.each( newState, function(i, checkedTypeObj) {
+            checkedEventTypes.push(checkedTypeObj['event_type']);
+            
+            checkedFRMs[checkedTypeObj['event_type']] = [];
+            $.each ( checkedTypeObj['frms'], function(j, frmName) {
+                checkedFRMs[checkedTypeObj['event_type']].push(frmName);
+            });
+        });
+        
+        $.each( this._eventTypes, function(eventTypeName, eventTypeObj) {
+            $.each( eventTypeObj._eventFRMs, function(frmName, frmObj) {
+                                
+                // eventTypeName not found in newState, so this FRMs can't be checked
+                // so .hide() this FRM's event layer
+                if ( $.inArray(eventTypeName, checkedEventTypes) == -1 ) {
+                    self._eventTypes[eventTypeName]._eventFRMs[frmName].domNode.hide();
+                }
+                else {
+                    // eventTypeName/frmName pair is checked
+                    // so .show() this FRM's event layer
+                    if ( checkedFRMs[eventTypeName][0] == 'all' || 
+                          $.inArray(frmName.replace(/ /g,'_'), checkedFRMs[eventTypeName]) != -1 ) {
+                    
+                        self._eventTypes[eventTypeName]._eventFRMs[frmName].domNode.show();
+                    }
+                    // eventTypeName/frmName pair is NOT checked
+                    // so .hide() this FRM's event layer
+                    else {
+                        self._eventTypes[eventTypeName]._eventFRMs[frmName].domNode.hide();
+                    }
+                }
+            });
+        });        
     }
     
 });

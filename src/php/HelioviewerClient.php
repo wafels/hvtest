@@ -255,7 +255,7 @@ abstract class HelioviewerClient
                         "Utility/SettingsLoader.js", "Utility/UserSettings.js", "Tiling/Manager/LayerManager.js", 
                         "Events/EventManager.js", "Events/EventType.js", "Events/EventTree.js", 
                         "Events/EventFeatureRecognitionMethod.js", "Events/EventLayerManager.js", 
-                        "Events/EventLayerManager.js", "Events/HelioviewerEventLayer.js", 
+                        "Events/EventMarker.js", "Events/EventLayerManager.js", "Events/HelioviewerEventLayer.js", 
                         "Events/HelioviewerEventLayerManager.js");
             foreach(array_merge($js, $includes) as $file)
                 printf("<script src=\"src/js/%s?$signature\" type=\"text/javascript\"></script>\n", $file);

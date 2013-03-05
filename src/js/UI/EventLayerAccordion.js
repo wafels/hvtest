@@ -101,9 +101,9 @@ var EventLayerAccordion = Layer.extend(
             cell:   body,
             index:  index,
             open:   startOpened
-        });  
+        });
 
-        this._eventManager = new EventManager(null, this._date, null);
+        this._eventManager = new EventManager(null, this._date);
     },
     
 
@@ -174,23 +174,16 @@ var EventLayerAccordion = Layer.extend(
         var actualDate, weight, domNode, self = this;
         this._date = requestDate;
         
-        // Refresh Event/FRM checkbox hierarchy
+        // Refresh Event/FRM checkbox hierarchy and EventMarkers
         this._eventManager.updateRequestTime();
         
         // Update value/color of timestamp(s)
         // For HEK events, we can _always_ use the exact same date as the requestDate
         $("#EventLayerAccordion-Container .timestamp").each(function (i, item) {
-            domNode    = $(this);
-
-            // actualDate = new Date(getUTCTimestamp(domNode.text()));
-            // weight = self._getScaledTimeDifference(actualDate, requestDate);
-            weight = 0;
+            domNode = $(this);
             domNode.html(self._date.toUTCDateString() + " " + self._date.toUTCTimeString())
-                   .css("color", self._chooseTimeStampColor(weight, 0, 0, 0));
+                   .css("color", self._chooseTimeStampColor(0, 0, 0, 0));
         });
-        
-        // Re-fetch events
-        $(document).trigger("fetch-events");
     },
     
     /**

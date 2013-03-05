@@ -47,6 +47,7 @@ var ZoomControls = Class.extend(
      */
     _setImageScale: function (v) {
         $(document).trigger('image-scale-changed', [this.increments[v]]);
+        $(document).trigger('replot-event-markers');
     },
 
     /**

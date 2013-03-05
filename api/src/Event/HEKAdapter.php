@@ -38,7 +38,8 @@ class Event_HEKAdapter
     public function __construct()
     {
         $this->_baseURL = HEK_BASE_URL . '?cosec=2&cmd=search&type=column' 
-                                       . '&event_coordsys=helioprojective&x1=-30000&x2=30000&y1=-30000&y2=30000&';
+                                       . '&event_coordsys=helioprojective&x1=-30000&x2=30000&y1=-30000&y2=30000&'
+                                       . 'requestfrom=Helioviewer&requestinghost='.$_SERVER['HTTP_HOST'].'&';
         $this->_defaultEventTypesJSONPath = HV_API_ROOT_DIR.'/resources/JSON/defaultEventTypes.json';
 
         include_once 'src/Net/Proxy.php';

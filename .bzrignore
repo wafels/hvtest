@@ -34,3 +34,4 @@ docs/profiling.tar
 .idea
 .bzrignore
 .metadata
+status/info.php
