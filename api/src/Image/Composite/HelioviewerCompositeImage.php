@@ -30,8 +30,8 @@ require_once 'src/Database/ImgIndex.php';
  */
 class Image_Composite_HelioviewerCompositeImage
 {
-	private   $_composite;
-	private   $_dir;
+    private   $_composite;
+    private   $_dir;
     private   $_imageLayers;
     private   $_filepath;
     private   $_filename;
@@ -126,8 +126,8 @@ class Image_Composite_HelioviewerCompositeImage
       
         $jp2 = new Image_JPEG2000_JP2Image($jp2Filepath, $image['width'], $image['height'], $image['scale']);
 
-        $offsetX =  $image['sunCenterX']  - ($image['width'] / 2);
-        $offsetY = ($image['height'] / 2) -  $image['sunCenterY'];
+        $offsetX =   $image['refPixelX'] - ($image['width']  / 2);
+        $offsetY = -($image['refPixelY'] - ($image['height'] / 2));
 
         // Options for individual layers
         $options = array(
@@ -227,6 +227,8 @@ class Image_Composite_HelioviewerCompositeImage
 
         // Flatten image and write to disk
         $imagickImage->setImageAlphaChannel(IMagick::ALPHACHANNEL_OPAQUE);
+        $imagickImage->setImageBackgroundColor('black');
+        $imagickImage = $imagickImage->flattenImages();
         $imagickImage->writeImage($output);
     }
     
