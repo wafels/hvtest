@@ -184,11 +184,12 @@
                 "EIT"    => $providers['sdac'],
                 "MDI"    => $providers['sdac'],
                 "LASCO"  => $providers['sdac'],
-                "SECCHI" => $providers['sdac']
+                "SECCHI" => $providers['sdac'],
+                "SWAP"   => $providers['rob']
             );
 
-            // Only include datasources with data
-            if ($oldest['datetime'] and $name !=="MDI") {
+            // Only include datasources that are actively acquiring
+            if ($oldest['datetime'] and $name !=="MDI" and $name !== "SXT") {
                 if (isset($attributions[$name])) {
                     $attribution = $attributions[$name];
                 } else {
