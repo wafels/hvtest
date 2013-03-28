@@ -17,6 +17,11 @@
 	<div id="header">
         <a href='http://www.helioviewer.org'><img src="../resources/images/logos/hvlogo1s_transparent_logo.png" alt="Helioviewer logo" /></a>
         <div id='headerText'>The Helioviewer Project - Data Monitor</div>
+        <div id='explainText'> </div>
+        <div id='explainText'>Shows the observation times of the most recent JPEG2000 images available</div>
+        <div id='explainText'>via the Helioviewer Project and compares those times to the current UTC</div>
+        <div id='explainText'>and expected acquisition latencies.</div>
+        <div id='explainText'> </div>
         <div id='currentTime'>Current UTC: <?php echo $now;?></div>
     </div>
     
