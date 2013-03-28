@@ -174,7 +174,8 @@
             $providers = array(
                 "lmsal"    => "<a class='provider-link' href='http://www.lmsal.com/' target='_blank'>LMSAL</a>",
                 "stanford" => "<a class='provider-link' href='http://jsoc.stanford.edu/' target='_blank'>Stanford</a>",
-                "sdac"     => "<a class='provider-link' href='http://umbra.nascom.nasa.gov/' target='_blank'>SDAC</a>"
+                "sdac"     => "<a class='provider-link' href='http://umbra.nascom.nasa.gov/' target='_blank'>SDAC</a>",
+                "rob"      => "<a class='provider-link' href='http://sidc.oma.be/' target='_blank'>ROB-SIDC</a>"
             );
 
             // Attribution
