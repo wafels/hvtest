@@ -17,7 +17,7 @@
 	<div id="header">
         <a href='http://www.helioviewer.org'><img src="../resources/images/logos/hvlogo1s_transparent_logo.png" alt="Helioviewer logo" /></a>
         <div id='headerText'>The Helioviewer Project - Data Monitor</div>
-        <div id='currentTime'>Current time: <?php echo $now;?></div>
+        <div id='currentTime'>Current UTC: <?php echo $now;?></div>
     </div>
     
     <!-- Legend -->
