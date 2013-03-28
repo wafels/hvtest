@@ -189,7 +189,7 @@
                 "SWAP"   => $providers['rob']
             );
 
-            // Only include datasources that are actively acquiring
+            // Only include datasources that are actively acquiring data
             if ($oldest['datetime'] and $name !=="MDI" and $name !== "SXT") {
                 if (isset($attributions[$name])) {
                     $attribution = $attributions[$name];
