@@ -5,6 +5,9 @@
     } else {
         $resolution = "daily";
     }
+    date_default_timezone_set('UTC');
+    $dt = new DateTime();
+    $now = $dt->format('Y-m-d H:i:s');
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -34,6 +37,7 @@
             <div id="pieChart"></div>
             <div id="barCharts"></div>
         </div>
+        <div id="currentTime">Current UT: <?php echo $now;?></div>
         <div id="footer">
             Note: Helioviewer.org only collects information about types of queries made.  Helioviewer.org does not collect or store any information that could be used to identify users.
         </div>
