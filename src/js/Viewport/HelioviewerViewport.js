@@ -266,8 +266,6 @@ var HelioviewerViewport = Class.extend(
      */ 
     loadROIPosition: function (event) {
         var sandbox, sbWidth, sbHeight, centerX, centerY;
-        
-        //console.log("sandbox: " + $("#sandbox").width() + ", " + $("#sandbox").height());
 
         sandbox = $("#sandbox");
         sbWidth  = sandbox.width();
@@ -325,8 +323,12 @@ var HelioviewerViewport = Class.extend(
             dates.push(layer.image.date);
         });
         
+        // If there are no image layers loaded then use the requestDate
+        if (dates.length === 0) {
+            return Date.parseUTCDate(this.requestDate.toISOString());
+        }
         // If there is only one layer loaded then use its date
-        if (dates.length === 1) {
+        else if (dates.length === 1) {
             return Date.parseUTCDate(dates[0]);
         }
         

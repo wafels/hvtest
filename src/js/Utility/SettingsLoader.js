@@ -67,6 +67,7 @@ var SettingsLoader = (
                 centerY: 0,
                 date: date.getTime(),
                 eventLayers: [],
+                eventLabels: true,
                 imageScale: serverSettings.defaultImageScale,
                 tileLayers: [{
                     observatory: 'SDO',

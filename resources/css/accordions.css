@@ -45,7 +45,7 @@ span.event-accordion-header-right > span.accordion-header-divider {
     margin-bottom:2px;
 }
 
-.removeBtn {
+.removeBtn, .labelsBtn {
     position: absolute;
     right: 10px;
 }
@@ -78,11 +78,22 @@ select.layer-select {
 	width: 100px;
 	border: 1px solid #5c5c5c;
 	margin: 2px 0px 0px 1px;
-	}
+}
 
 .image-download-btn {
     margin-left: 223px;
     float: left;
     cursor: pointer;
+}
+
+/* EventLayerAccordion Styles */
+.checkboxBtn {
+    font-size: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    padding: 3px;
+}
+.checkboxBtn:hover {
+    color: #d18f61;
 }
 

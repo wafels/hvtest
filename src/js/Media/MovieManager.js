@@ -59,14 +59,17 @@ var MovieManager = MediaManager.extend(
      * @return {Movie} A Movie object
      */
     add: function (
-            id, duration, imageScale, layers, dateRequested, startDate, endDate, 
-            frameRate, numFrames, x1, x2, y1, y2, width, height, thumbnail, url
+            id, duration, imageScale, layers, events, eventsLabels, dateRequested, 
+            startDate, endDate, frameRate, numFrames, x1, x2, y1, y2, width, height, 
+            thumbnail, url
     ) {
         var movie = {
             "id"            : id,
             "duration"      : duration,
             "imageScale"    : imageScale,
             "layers"        : layers,
+            "events"        : events,
+            "eventsLabels"  : eventsLabels,
             "dateRequested" : dateRequested,
             "startDate"     : startDate,
             "endDate"       : endDate,
@@ -107,11 +110,14 @@ var MovieManager = MediaManager.extend(
      * 
      * @return {Movie} A Movie object
      */
-    queue: function (id, eta, token, imageScale, layers, dateRequested, startDate, endDate, x1, x2, y1, y2) {
+    queue: function (id, eta, token, imageScale, layers, events, eventsLabels, 
+                     dateRequested, startDate, endDate, x1, x2, y1, y2) {
         var movie = {
             "id"            : id,
             "imageScale"    : imageScale,
             "layers"        : layers,
+            "events"        : events,
+            "eventsLabels"  : eventsLabels,
             "dateRequested" : dateRequested,
             "startDate"     : startDate,
             "endDate"       : endDate,

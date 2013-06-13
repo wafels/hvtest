@@ -75,7 +75,7 @@ var EventLayerAccordion = Layer.extend(
      */
     _createAccordionEntry: function (index, id, name, visible, startOpened) {
 
-        var visibilityBtn/*, removeBtn*/, hidden, head, body;
+        var visibilityBtn, labelsBtn/*, removeBtn*/, hidden, head, body, self=this;
         
         // initial visibility
         hidden = (visible ? "" : " hidden");
@@ -86,13 +86,18 @@ var EventLayerAccordion = Layer.extend(
         removeBtn = "<span class='ui-icon ui-icon-closethick removeBtn' id='removeBtn-" + id +
                     "' title='Remove layer'></span>";
         */
+        labelsBtn = "<span class='ui-icon ui-icon-tag labelsBtn' id='labelsBtn-" + id +
+                    "' title='Toggle event labels'></span>";
+                    
         head = "<div class='layer-Head ui-accordion-header ui-helper-reset ui-state-default ui-corner-all shadow'>" + 
                "<span class=tile-accordion-header-left>" + name +
                "</span><span class=tile-accordion-header-right><span class='timestamp'></span>" + 
-               "<span class=accordion-header-divider>|</span>" + visibilityBtn /*+ removeBtn*/ + "</span></div>";
+               "<span class=accordion-header-divider>|</span>" + visibilityBtn + labelsBtn /*+ removeBtn*/ + "</span></div>";
         
         // Create accordion entry body
-        body ='<div id="eventJSTree"></div>';
+        body  = '<div id="eventJSTree" style="margin-bottom: 5px;"></div>';
+        body += '<div id="checkboxBtn-On-'+id+'" title="Toggle All Event Checkboxes On" style="display: inline-block; font-size: 10px; margin-right: 10px;"><div class="ui-icon ui-icon-circlesmall-plus" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;"></div>check all</div>';
+        body += '<div id="checkboxBtn-Off-'+id+'" title="Toggle All Event Checkboxes Off" style="display: inline-block; font-size: 10px;"><div class="ui-icon ui-icon-circlesmall-minus" style="display: inline-block; vertical-align: middle; margin-bottom: 2px;"></div>check none</div>';
         
         //Add to accordion
         this.domNode.dynaccordion("addSection", {
@@ -103,7 +108,45 @@ var EventLayerAccordion = Layer.extend(
             open:   startOpened
         });
 
-        this._eventManager = new EventManager(null, this._date);
+        this.getEventGlossary();
+        
+        this.domNode.find("#checkboxBtn-"+id).click( function() {
+            $(document).trigger("toggle-checkboxes");
+        });
+        
+        this.domNode.find("#checkboxBtn-On-"+id).click( function() {
+            $(document).trigger("toggle-checkboxes-to-state", ['on']);
+        });
+        
+        this.domNode.find("#checkboxBtn-Off-"+id).click( function() {
+            $(document).trigger("toggle-checkboxes-to-state", ['off']);
+        });
+        
+        this.domNode.find("#labelsBtn-"+id).click( function(e) {
+            $(document).trigger("toggle-event-labels");
+            e.stopPropagation();
+        });
+        
+    },
+    
+    
+    /**
+     * Queries data to build the EventType and EventFeatureRecognitionMethod
+     * classes.
+     *
+     */
+    getEventGlossary: function () {
+        self = this;
+        
+        var params = {
+            "action"     : "getEventGlossary"
+        };
+        $.get("api/index.php", params, $.proxy(this._setEventGlossary, this), "json");
+    },
+    
+    
+    _setEventGlossary: function(response) {
+        this._eventManager = new EventManager(response, this._date);
     },
     
 
@@ -133,24 +176,33 @@ var EventLayerAccordion = Layer.extend(
      */
     _setupEventHandlers: function (id) {
         var toggleVisibility, opacityHandle, removeLayer, self = this,
-            visibilityBtn = $("#visibilityBtn-" + id),
-            removeBtn     = $("#removeBtn-" + id);
+            visibilityBtn = $("#visibilityBtn-" + id)/*,
+            removeBtn     = $("#removeBtn-" + id)*/;
 
         // Function for toggling layer visibility
         toggleVisibility = function (e) {
-            $(document).trigger("toggle-event-visibility", [id]);
+            var domNode;
+
+            domNode = $(document).find("#event-container");
+            if ( domNode.css('display') == 'none') {
+                domNode.show();
+            }
+            else {
+                domNode.hide();
+            }
+            
             $("#visibilityBtn-" + id).toggleClass('hidden');
             e.stopPropagation();
         };
 
         // Function for handling layer remove button
-        removeLayer = function (e) {
-            $(document).trigger("remove-event-layer", [id]);
-            self._removeTooltips(id);
-            self.domNode.dynaccordion('removeSection', {id: id});
-            $(document).trigger("save-event-layers");
-            e.stopPropagation();
-        };
+//        removeLayer = function (e) {
+//            $(document).trigger("remove-event-layer", [id]);
+//            self._removeTooltips(id);
+//            self.domNode.dynaccordion('removeSection', {id: id});
+//            $(document).trigger("save-event-layers");
+//            e.stopPropagation();
+//        };
         
         visibilityBtn.bind('click', this, toggleVisibility);
 //        removeBtn.bind('click', this, removeLayer);
@@ -185,6 +237,7 @@ var EventLayerAccordion = Layer.extend(
                    .css("color", self._chooseTimeStampColor(0, 0, 0, 0));
         });
     },
+    
     
     /**
      * 

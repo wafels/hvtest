@@ -283,16 +283,29 @@ class Module_WebClient implements Module
     {
         include_once 'src/Image/Composite/HelioviewerScreenshot.php';
         include_once 'src/Helper/HelioviewerLayers.php';
+        include_once 'src/Helper/HelioviewerEvents.php';
         
         // Data Layers
         $layers = new Helper_HelioviewerLayers($this->_params['layers']);
+
+        // Event Layers
+        $events = Array();
+        if ( array_key_exists('events', $this->_params) ) {
+            $events = new Helper_HelioviewerEvents($this->_params['events']);
+        }
         
+        // Event Labels
+        $eventLabels = false;
+        if ( array_key_exists('eventLabels', $this->_params) ) {
+            $eventLabels = $this->_params['eventLabels'];
+        }
+      
         // Region of interest
         $roi = $this->_getRegionOfInterest();
         
         // Create the screenshot
         $screenshot = new Image_Composite_HelioviewerScreenshot(
-            $layers, $this->_params['date'], $roi, $this->_options
+            $layers, $events, $eventLabels, $this->_params['date'], $roi, $this->_options
         );
         
         // Display screenshot
@@ -777,11 +790,14 @@ class Module_WebClient implements Module
         case "takeScreenshot":
             $expected = array(
                 "required" => array('date', 'imageScale', 'layers'),
-                "optional" => array('display', 'watermark', 'x1', 'x2', 'y1', 'y2', 'x0', 'y0', 'width', 'height', 'callback'),
-                "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2', 'x0', 'y0'),
+                "optional" => array('display', 'watermark', 'x1', 'x2', 
+                                    'y1', 'y2', 'x0', 'y0', 'width', 'height', 
+                                    'events', 'eventLabels', 'callback'),
+                "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2', 
+                                    'x0', 'y0'),
                 "ints"     => array('width', 'height'),
                 "dates"	   => array('date'),
-                "bools"    => array('display', 'watermark'),
+                "bools"    => array('display', 'watermark', 'eventLabels'),
                 "alphanum" => array('callback')
             );
             break;

@@ -4,7 +4,7 @@
     $params = array(
         "strings" => array("date", "movieId", "output"),
         "floats"  => array("centerX", "centerY", "imageScale"),
-        "bools"   => array("debug", "hideWatermark")
+        "bools"   => array("debug", "hideWatermark", "eventLabels")
     );
     
     $urlSettings = array();
@@ -19,10 +19,14 @@
             $urlSettings[$float] = (float) $_GET[$float];
     }
     foreach($params['bools'] as $bool) {
-        if(isset($_GET[$bool]) && ($_GET[$bool] == "true" || $_GET[$bool] == "1")) {
+        if ( isset($_GET[$bool]) && (strtolower($_GET[$bool]) == "true" || $_GET[$bool] == 1) ) {
             $urlSettings[$bool] = true;
-        } else {
+        } 
+        else if ( isset($_GET[$bool]) && (strtolower($_GET[$bool]) == "false" || $_GET[$bool] == 0) ) {
             $urlSettings[$bool] = false;
+        }
+        else {
+            unset($urlSettings[$bool]);
         }
     }
     

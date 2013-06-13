@@ -15,6 +15,7 @@
  * @link     http://launchpad.net/helioviewer.org
  */
 require_once HV_API_ROOT_DIR . '/src/Helper/HelioviewerLayers.php';
+require_once HV_API_ROOT_DIR . '/src/Helper/HelioviewerEvents.php';
 require_once HV_API_ROOT_DIR . '/src/Helper/RegionOfInterest.php';
 require_once HV_API_ROOT_DIR . '/src/Helper/DateTimeConversions.php';
 require_once HV_API_ROOT_DIR . '/src/Database/ImgIndex.php';
@@ -59,9 +60,11 @@ class Movie_HelioviewerMovie
     public $status;
     public $timestamp;
     public $watermark;
+    public $eventsLabels;
 
     private $_db;
     private $_layers;
+    private $_events;
     private $_roi;
     private $_timestamps = array();
     private $_frames     = array();
@@ -98,10 +101,12 @@ class Movie_HelioviewerMovie
         $this->width        = (int) $info['width'];
         $this->height       = (int) $info['height'];
         $this->watermark    = (bool) $info['watermark'];
+        $this->eventsLabels = (bool) $info['eventsLabels'];
         $this->maxFrames    = min((int) $info['maxFrames'], HV_MAX_MOVIE_FRAMES);
         
         // Data Layers
         $this->_layers = new Helper_HelioviewerLayers($info['dataSourceString']);
+        $this->_events = new Helper_HelioviewerEvents($info['eventSourceString']);
         
         // Regon of interest
         $this->_roi = Helper_RegionOfInterest::parsePolygonString($info['roi'], $info['imageScale']);
@@ -190,6 +195,7 @@ class Movie_HelioviewerMovie
                 "duration"   => $this->getDuration(),
                 "imageScale" => $this->imageScale,
                 "layers"     => $this->_layers->serialize(),
+                "events"     => $this->_events->serialize(),
                 "x1"         => $this->_roi->left(),
                 "y1"         => $this->_roi->top(),
                 "x2"         => $this->_roi->right(),
@@ -305,7 +311,8 @@ class Movie_HelioviewerMovie
             $filepath =  sprintf("%sframes/frame%d.bmp", $this->directory, $frameNum);
 
             try {
-	            $screenshot = new Image_Composite_HelioviewerMovieFrame($filepath, $this->_layers, $time, $this->_roi, $options);
+	            $screenshot = new Image_Composite_HelioviewerMovieFrame($filepath, $this->_layers, 
+                                      $this->_events, $this->eventsLabels, $time, $this->_roi, $options);
 	            
 	            if ($frameNum == $previewIndex) {
 	                $previewImage = $screenshot; // Make a copy of frame to be used for preview images

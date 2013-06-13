@@ -35,3 +35,4 @@ docs/profiling.tar
 .bzrignore
 .metadata
 status/info.php
+lib/jquery-number-master

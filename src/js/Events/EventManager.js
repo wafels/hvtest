@@ -25,17 +25,25 @@ var EventManager = Class.extend({
      *    
      * @constructs
      */
-    init: function (defaultEventTypes, date) {
-        this._eventLayers   = [];
-        this._events        = [];
-        this._eventMarkers  = [];
-        this._treeContainer = $("#eventJSTree");
-        this._eventTypes    = {};
-        this._jsTreeData    = [];
-        this._date          = date;
- 
+    init: function (eventGlossary, date) {
+        this._eventLayers    = [];
+        this._events         = [];
+        this._eventMarkers   = [];
+        this._eventTypes     = {};
+        this._treeContainer  = $("#eventJSTree");
+        this._jsTreeData     = [];
+        this._date           = date;
+        this._eventLabelsVis = Helioviewer.userSettings.get("state.eventLabels");
+        this._eventGlossary  = eventGlossary;
+        
+        this.earth();
+        
         $('<div id="event-container"></div>').appendTo("#moving-container");
-         
+
+        // Populate event_type/frm_name checkbox hierarchy with placeholder data 
+        // (important in case the JSON event cache is missing and would take 
+        //  a while to re-generate.)
+        this._queryDefaultEventTypes();
 
         // Populate event_type/frm_name checkbox hierarchy with actual data 
         this._queryEventFRMs();
@@ -43,6 +51,21 @@ var EventManager = Class.extend({
         // Set up javascript event handlers
         $(document).bind("fetch-eventFRMs", $.proxy(this._queryEventFRMs, this));
         $(document).bind("toggle-events", $.proxy(this._toggleEvents, this));
+        $(document).bind('toggle-event-labels',  $.proxy(this.toggleEventLabels, this));
+    },
+    
+    reinit: function(date) {
+        $("#event-container").remove();
+        $('<div id="event-container"></div>').appendTo("#moving-container");
+        
+        this._eventLayers   = [];
+        this._events        = [];
+        this._eventMarkers  = [];
+        this._eventTypes    = {};
+        this._jsTreeData    = [];
+        this._date          = date;
+        
+        this._queryEventFRMs();
     },
     
     /**
@@ -63,11 +86,14 @@ var EventManager = Class.extend({
      *
      */
     _queryEventFRMs: function () {
-        var params = {
-            "action"     : "getEventFRMs",
-            "startTime"  : new Date(this._date.getTime()).addSeconds(-2 / 2).toISOString()
-        };
-        $.get("api/index.php", params, $.proxy(this._parseEventFRMs, this), "json");
+        if (this._events.length == 0 ) {
+            var params = {
+                "action"     : "getEventFRMs",
+                "startTime"  : new Date(this._date.getTime()).toISOString(),
+                "ar_filter"  : true
+            };
+            $.get("api/index.php", params, $.proxy(this._parseEventFRMs, this), "json");
+        }
     },
     
     /**
@@ -76,8 +102,8 @@ var EventManager = Class.extend({
      * data and then calling generateTreeData to build the jsTree.
      */
     _parseEventFRMs: function (result) {
-        var self = this, domNode, eventAbbr;
-        
+        var self = this, domNode, eventAbbr, settings;
+
         $("#event-container").empty();
         
         self._eventTypes = {};
@@ -90,9 +116,15 @@ var EventManager = Class.extend({
             
             // Process event FRMs
             $.each(eventFRMs, function (frmName, eventFRM) {
-                self._eventTypes[eventAbbr]._eventFRMs[frmName] = new EventFeatureRecognitionMethod(frmName, self._rsun);
-                domNode = '<div class="event-layer" id="'+eventAbbr+'__'+frmName.replace(/ /g,'_')+'" style="border: 1px solid blue; position: absolute;">';
-                self._eventTypes[eventAbbr]._eventFRMs[frmName].setDomNode( $(domNode).appendTo("#event-container") );
+                self._eventTypes[eventAbbr]._eventFRMs[frmName] 
+                    = new EventFeatureRecognitionMethod(frmName, self.eventGlossary);
+        
+                domNode = '<div class="event-layer" id="' 
+                        + eventAbbr + '__' + frmName.replace(/ /g,'_') 
+                        + '" style="position: absolute;">';
+
+                self._eventTypes[eventAbbr]._eventFRMs[frmName].setDomNode( 
+                    $(domNode).appendTo("#event-container") );
             });
         });
 
@@ -123,7 +155,9 @@ var EventManager = Class.extend({
      * Save data returned from _queryEvents
      */
     _parseEvents: function (result) {
-        var eventMarker, self=this, parentDomNode;
+        var eventMarker, self=this, parentDomNode, eventGlossary;
+
+        eventGlossary = this._eventGlossary;
       
         $.each( this._eventMarkers, function(i, eventMarker) {
             eventMarker.remove();
@@ -131,10 +165,17 @@ var EventManager = Class.extend({
         this._eventMarkers = [];
         this._events = result;
         
-        $.each( this._events, function(i, event) {
-            self._eventMarkers.push( new EventMarker(self._eventTypes[event['event_type']]._eventFRMs[event['frm_name']], 
-                                          event) );        
+        $.each( this._events, function(i, event) { 
+            if ( typeof self._eventTypes[event['event_type']] != 'undefined' ) {  
+                self._eventMarkers.push(
+                    new EventMarker(eventGlossary, 
+                        self._eventTypes[event['event_type']]._eventFRMs[event['frm_name']], 
+                        event, i+1) 
+                );
+            }    
         });
+        
+        this._toggleEvents();
     },
     
     /**
@@ -210,10 +251,8 @@ var EventManager = Class.extend({
         if (!self._eventTree) {
             self._eventTree = new EventTree(this._jsTreeData, this._treeContainer);
         }
-        // Otherwise call it's reload method to update the existing tree with new data
-        else {
-            self._eventTree.reload(this._jsTreeData);
-        }        
+        
+        self._eventTree.reload(this._jsTreeData);      
     },
     
     /**
@@ -222,18 +261,9 @@ var EventManager = Class.extend({
      */
     updateRequestTime: function () {
         var managerStartDate, managerEndDate, eventStartDate, eventEndDate, self = this;
-        this._date = new Date($("#date").val().replace(/\//g,"-") +"T"+ $("#time").val()+"Z");
-        this._queryEventFRMs();
+
+        this.reinit(new Date($("#date").val().replace(/\//g,"-") +"T"+ $("#time").val()+"Z"));
     },
-    
-    refreshEvents: function () {
-        $.each(this._eventTypes, function (typeName, eventType) {
-            $.each(eventType.getEventFRMs(), function (frmName, FRM) {
-                FRM.refreshEvents();
-            });
-        });
-    },
-    
     
 
     /**
@@ -326,7 +356,83 @@ var EventManager = Class.extend({
                     }
                 }
             });
-        });        
+        });
+        
+        this.eventLabels();
+    },
+    
+    toggleEventLabels: function (event) {
+        
+        if ( this._eventLabelsVis ) {
+            $(document).trigger('toggle-event-label-off');
+        }
+        else {
+            $(document).trigger('toggle-event-label-on');
+        }
+        
+        this._eventLabelsVis = !this._eventLabelsVis;
+        return true;
+    },
+    
+    eventLabels: function (event) {    
+        this._eventLabelsVis = Helioviewer.userSettings.get("state.eventLabels");
+        
+        if ( this._eventLabelsVis ) {
+            $(document).trigger('toggle-event-label-on');
+        }
+        else {
+            $(document).trigger('toggle-event-label-off');
+        }
+        
+        return true;
+    },
+    
+    earth: function() {
+        
+        if ( $('#earth-container').length > 0 ) {
+           return;
+        }
+        
+        $('<div id="earth-container"></div>').appendTo("#helioviewer-viewport-container-inner");
+
+        var rsunInArcseconds = 959.705;
+        var imageScale = Helioviewer.userSettings.get("state.imageScale");
+        var earthFractionOfSun = 1/109.1;
+        
+        var earthScaleInPixels = 2* earthFractionOfSun * (rsunInArcseconds / imageScale);
+        
+        var domNode = $('#earth-container');
+                var earthURL = 'resources/images/earth.png';
+        domNode.css({
+                'position': 'absolute', 
+                'bottom':'0',
+                      'z-index' :  999,
+                      'width' : '60px',
+                      'height': '60px',
+                      'background-color':'black',
+                      'border-top': '1px solid #333',
+                      'border-right': '1px solid #333',
+                      'border-top-right-radius' : '6px',
+                      'box-shadow':'0px 0px 5px black'
+        });
+        $('<img id="earthScale" src="resources/images/earth.png" style="width: '+earthScaleInPixels+'px;height: '+earthScaleInPixels+'px;position: absolute;left: 50%;   top: 50%;margin-left: -'+earthScaleInPixels/2+'px;   margin-top: -'+earthScaleInPixels/2+'px;" />').appendTo("#earth-container");
+        $('<div style="color: white; text-align: center; font-size: 10px; padding: 3px 0 0 0;">Earth Scale</div>').appendTo("#earth-container");
+        $(document).bind("earth-scale",   $.proxy(this.earthRescale, this));
+    },
+    
+    earthRescale: function() {
+        var rsunInArcseconds = 959.705;
+        var imageScale = Helioviewer.userSettings.get("state.imageScale");
+        var earthFractionOfSun = 1/109.1;
+        
+        var earthScaleInPixels = 2* earthFractionOfSun * (rsunInArcseconds / imageScale);
+        
+        $('#earthScale').css({
+            'width' : earthScaleInPixels+'px',
+            'height': earthScaleInPixels+'px',
+            'margin-left': -earthScaleInPixels/2+'px',
+            'margin-top' : -earthScaleInPixels/2+'px'
+        });
     }
     
 });

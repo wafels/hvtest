@@ -29,8 +29,6 @@ var EventLayerManager = EventManager.extend(
         this._requestDate      = requestDate;
         this.defaultEventTypes = defaultEventTypes;
         this.viewportScale     = viewportScale;
-
-        this.tileVisibilityRange  = {xStart: 0, xEnd: 0, yStart: 0, yEnd: 0};
       
 
         $(document).bind("event-layer-finished-loading", $.proxy(this.updateMaxDimensions, this))
@@ -46,22 +44,6 @@ var EventLayerManager = EventManager.extend(
     save: function () {
         var eventLayers = this.toJSON();
         Helioviewer.userSettings.set("state.eventLayers", eventLayers);
-    },
-
-    /**
-     * Loads initial layers either from URL parameters, saved user settings, or the defaults.
-     */
-    _loadStartingLayers: function (eventLayers) {
-        var eventLayer, self = this;
-
-        $.each(eventLayers, function (index, params) {
-/// This interface needs updating...
-            eventLayer = new EventLayer(index, self._requestDate, self.tileSize, self.viewportScale, 
-                                  self.tileVisibilityRange, params.nickname, params.visible, 
-                                  params.opacity, true);
-
-            self.addEventLayer(eventLayer);
-        });
     },
     
     /**

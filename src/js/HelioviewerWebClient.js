@@ -24,7 +24,7 @@ var HelioviewerWebClient = HelioviewerClient.extend(
      */
     init: function (urlSettings, serverSettings, zoomLevels) {
         var urlDate, imageScale, paddingHeight;
-        
+      
         this._super(urlSettings, serverSettings, zoomLevels);
 
         // Debugging helpers
@@ -52,7 +52,10 @@ var HelioviewerWebClient = HelioviewerClient.extend(
         
         // User Interface components
         this.zoomControls   = new ZoomControls('#zoomControls', imageScale, zoomLevels,
-                                               this.serverSettings.minImageScale, this.serverSettings.maxImageScale); 
+                                               this.serverSettings.minImageScale,
+                                               this.serverSettings.maxImageScale);
+
+        this.earthScale     = new EarthScale('#earth-scale-container', imageScale); 
 
         this.fullScreenMode = new FullscreenControl("#fullscreen-btn", 500);
         
@@ -552,6 +555,15 @@ var HelioviewerWebClient = HelioviewerClient.extend(
     },
     
     /**
+     * Returns the currently selected event layers
+     * 
+     * @return {String} Serialized event layer string
+     */
+    getEventsLabels: function () {
+        return Helioviewer.userSettings.get("state.eventLabels");
+    },
+    
+    /**
      * Returns a string representation of the layers which are visible and
      * overlap the specified region of interest
      */
@@ -592,7 +604,8 @@ var HelioviewerWebClient = HelioviewerClient.extend(
             "centerX"     : Helioviewer.userSettings.get("state.centerX"),
             "centerY"     : Helioviewer.userSettings.get("state.centerY"), 
             "imageLayers" : encodeURI(this.viewport.serialize()), 
-            "eventLayers" : encodeURI(this.viewport.serializeEvents())
+            "eventLayers" : encodeURI(this.viewport.serializeEvents()),
+            "eventLabels" : Helioviewer.userSettings.get("state.eventLabels")
         };
         
         return this.serverSettings.rootURL + "/?" + decodeURIComponent($.param(params));

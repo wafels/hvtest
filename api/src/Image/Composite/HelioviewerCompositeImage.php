@@ -41,6 +41,7 @@ class Image_Composite_HelioviewerCompositeImage
     protected $height;
     protected $interlace;
     protected $layers;
+    protected $events;
     protected $roi;
     protected $scale;
     protected $watermark;
@@ -56,7 +57,7 @@ class Image_Composite_HelioviewerCompositeImage
      *                              
      * @return void
      */
-    public function __construct($layers, $obsDate, $roi, $options)
+    public function __construct($layers, $events, $eventLabels, $obsDate, $roi, $options)
     {
         set_time_limit(90); // Extend time limit to avoid timeouts
         
@@ -76,6 +77,8 @@ class Image_Composite_HelioviewerCompositeImage
 
         $this->db     = $options['database'] ? $options['database'] : new Database_ImgIndex();
         $this->layers = $layers;
+        $this->events = $events;
+        $this->eventsLabels = $eventLabels;
         $this->date   = $obsDate;
         $this->roi    = $roi;
         
@@ -157,7 +160,8 @@ class Image_Composite_HelioviewerCompositeImage
         
         $classname = "Image_ImageType_" . $type;
         return new $classname(
-            $jp2, $tmpFile, $this->roi, $layer['observatory'], $layer['instrument'], $layer['detector'], $layer['measurement'], 
+            $jp2, $tmpFile, $this->roi, $layer['observatory'], 
+            $layer['instrument'], $layer['detector'], $layer['measurement'], 
             $offsetX, $offsetY, $options, $image['sunCenterOffsetParams']
         );
     }
@@ -190,6 +194,10 @@ class Image_Composite_HelioviewerCompositeImage
             // For single layer images the composite image is simply the first image layer
             //$imagickImage = new IMagick($this->_imageLayers[0]->getFilepath());
             $image = $this->_imageLayers[0]->getIMagickImage();
+        }
+        
+        if ( count($this->events) > 0 ) {
+            $this->_addEventLayer($image);
         }
         
         if ($this->watermark) {
@@ -227,6 +235,8 @@ class Image_Composite_HelioviewerCompositeImage
 
         // Flatten image and write to disk
         $imagickImage->setImageAlphaChannel(IMagick::ALPHACHANNEL_OPAQUE);
+        $imagickImage->setImageBackgroundColor('black');
+        $imagickImage = $imagickImage->flattenImages();
         $imagickImage->writeImage($output);
     }
     
@@ -280,6 +290,140 @@ class Image_Composite_HelioviewerCompositeImage
         }
 
         $imagickImage->setImageDepth(8);
+    }
+    
+    /**
+     * Composites visible Feature/Event markers, regions, and labels onto image.
+     *
+     * @param object $imagickImage An Imagick object
+     *
+     * @return void
+     */
+    private function _addEventLayer($imagickImage)
+    {
+        $maxPixelScale = 0.60511022;  // arcseconds per pixel
+    
+        if ($this->width < 200 || $this->height < 200) {
+            return;
+        }      
+
+        $markerPinPixelOffsetX = 12;
+        $markerPinPixelOffsetY = 38;
+        
+        require_once 'src/Event/HEKAdapter.php';
+        $hek = new Event_HEKAdapter();
+
+        // Query the HEK
+        $events = $hek->getEvents($this->date, Array());
+        
+        
+        // Lay down all relevant event REGIONS first
+        $allowedFRMs = $this->events->toArray();
+
+        foreach($events as $index => $event) {
+          
+            $found = false;
+            foreach( $allowedFRMs as $j => $frm ) {
+
+                if ( $event['event_type'] == $frm['event_type'] && 
+                     ($frm['frm_name'] == 'all' || $frm['frm_name']==str_replace(' ','_',$event['frm_name']) ||
+                      strpos($frm['frm_name'], str_replace(' ','_',$event['frm_name']) ) !==false ) ) {
+               
+                    $found = true;
+                    break;
+                }
+            }
+            if ( $found === false ) {
+                continue;
+            }
+            
+            if ( array_key_exists('hv_poly_width_max_zoom_pixels',$event) ) { 
+                $region_polygon = new IMagick( $event['hv_poly_url']);
+                $width  = $event['hv_poly_width_max_zoom_pixels']  * ($maxPixelScale/$this->roi->imageScale());
+                $height = $event['hv_poly_height_max_zoom_pixels'] * ($maxPixelScale/$this->roi->imageScale());
+                $x = 0;
+                $y = 0;
+                
+                $x = (( $event['hv_poly_hpc_x_final'] - $this->roi->left()) / $this->roi->imageScale());
+                $y = (( $event['hv_poly_hpc_y_final'] - $this->roi->top() ) / $this->roi->imageScale());
+                
+                $region_polygon->resizeImage($width,$height,Imagick::FILTER_LANCZOS,1);
+                $imagickImage->compositeImage($region_polygon, IMagick::COMPOSITE_DISSOLVE, $x, $y);
+            }
+        }
+        if ( isset($region_polygon) ) {
+            $region_polygon->destroy();
+        }
+        
+        // Now lay down the event MARKERS
+        foreach($events as $index => $event) {
+            
+            $found = false;
+            $allowedFRMs = $this->events->toArray();
+            
+            foreach( $allowedFRMs as $j => $frm ) {
+                if ( $event['event_type'] == $frm['event_type'] && 
+                     ($frm['frm_name'] == 'all' || $frm['frm_name']==str_replace(' ','_',$event['frm_name']) ||
+                      strpos($frm['frm_name'], str_replace(' ','_',$event['frm_name']) ) !==false ) ) {
+                
+                    $found = true;
+                    continue;
+                }
+            }
+            if ( $found === false ) {
+                continue;
+            }
+            
+            $marker = new IMagick( HV_ROOT_DIR . "/resources/images/eventMarkers/"
+                                   .$event['event_type'].".png");
+            $x = (( $event['hv_hpc_x_final'] - $this->roi->left()) / $this->roi->imageScale()) - $markerPinPixelOffsetX;
+            $y = ((-$event['hv_hpc_y_final'] - $this->roi->top() ) / $this->roi->imageScale()) - $markerPinPixelOffsetY;
+            
+            $imagickImage->compositeImage($marker, IMagick::COMPOSITE_DISSOLVE, $x, $y);            
+            
+            if ( $this->eventsLabels == true ) {
+                $x = (( $event['hv_hpc_x_final'] - $this->roi->left()) / $this->roi->imageScale()) + 11;
+                $y = ((-$event['hv_hpc_y_final'] - $this->roi->top() ) / $this->roi->imageScale()) - 24;
+            
+                $count = 0;
+                if ( !array_key_exists('hv_labels_formatted', $event) || count($event['hv_labels_formatted']) < 1 ) {
+                    $event['hv_labels_formatted'] = Array('Event Type' => $event['concept']);
+                }
+                foreach( $event['hv_labels_formatted'] as $key => $value ) {
+                    
+                    /*$value = utf8_encode($value);*/
+                    
+                    // Outline words in black
+                    $text = new IMagickDraw();
+                    $text->setTextEncoding('utf-8');
+                    $text->setFont('/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf');
+                    $text->setFontSize(10);
+                    $text->setStrokeColor('#000C');
+                    $text->setStrokeAntialias(true);
+                    $text->setStrokeWidth(3);
+                    $text->setStrokeOpacity(0.3);
+                    $imagickImage->annotateImage($text, $x, $y+($count*12), 0, /*utf8_decode(*/$value/*)*/);
+        
+                    // Write words in white over outline
+                    $text = new IMagickDraw();
+                    $text->setTextEncoding('utf-8');
+                    $text->setFont('/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf');
+                    $text->setFontSize(10);
+                    $text->setFillColor('#ffff');
+                    $text->setTextAntialias(true);
+                    $text->setStrokeWidth(0);
+                    $imagickImage->annotateImage($text, $x, $y+($count*12), 0, /*utf8_decode(*/$value/*)*/);
+                
+                    $count++;
+                }
+                // Cleanup
+                $text->destroy();
+            }
+            
+        }
+        if ( isset($marker) ) {
+            $marker->destroy();
+        }
     }
     
     /**
@@ -358,6 +502,7 @@ class Image_Composite_HelioviewerCompositeImage
         // Outline words in black
         $underText = new IMagickDraw();
         $underText->setStrokeColor($black);
+        $underText->setStrokeAntialias(true);
         $underText->setStrokeWidth(2);
         $imagickImage->annotateImage($underText, 20, $lowerPad, 0, $nameCmd);
         $imagickImage->annotateImage($underText, 125, $lowerPad, 0, $timeCmd);
@@ -365,6 +510,7 @@ class Image_Composite_HelioviewerCompositeImage
         // Write words in white over outline
         $text = new IMagickDraw();
         $text->setFillColor($white);
+        $text->setTextAntialias(true);
         $text->setStrokeWidth(0);
         $imagickImage->annotateImage($text, 20, $lowerPad, 0, $nameCmd);
         $imagickImage->annotateImage($text, 125, $lowerPad, 0, $timeCmd);

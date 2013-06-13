@@ -66,6 +66,7 @@ class Module_Movies implements Module
         include_once 'lib/Resque.php';
         include_once 'lib/Redisent/Redisent.php';
         include_once 'src/Helper/HelioviewerLayers.php';
+        include_once 'src/Helper/HelioviewerEvents.php';
         include_once 'src/Database/MovieDatabase.php';
         include_once 'src/Database/ImgIndex.php';
         
@@ -105,6 +106,8 @@ class Module_Movies implements Module
         if ($layers->length() < 1 || $layers->length() > 3) {
             throw new Exception("Invalid layer choices! You must specify 1-3 comma-separated layer names.", 22);
         }
+        
+        $events = new Helper_HelioviewerEvents($this->_params['events']);
         
         // TODO 2012/04/11
         // Discard any layers which do not share an overlap with the roi to
@@ -152,7 +155,8 @@ class Module_Movies implements Module
         // Create entry in the movies table in MySQL
         $dbId = $movieDb->insertMovie($this->_params['startTime'], $this->_params['endTime'], $imageScale, 
                                       $roiString, $maxFrames, $options['watermark'], $this->_params['layers'], $bitmask, 
-                                      $layers->length(), $queueSize, $options['frameRate'], $options['movieLength']);
+                                      $this->_params['events'], $this->_params['eventsLabels'], $layers->length(), 
+                                      $queueSize, $options['frameRate'], $options['movieLength']);
 
         // Convert id
         $publicId = alphaID($dbId, false, 5, HV_MOVIE_ID_PASS);
@@ -763,10 +767,10 @@ class Module_Movies implements Module
             break;
         case "queueMovie":
             $expected = array(
-                "required" => array('startTime', 'endTime', 'layers', 'imageScale'),
+                "required" => array('startTime', 'endTime', 'layers', 'events', 'eventsLabels', 'imageScale'),
                 "optional" => array('format', 'frameRate', 'maxFrames', 'movieLength', 'watermark', 'width', 'height', 'x0', 'y0', 'x1', 'x2', 'y1', 'y2', 'callback'),
                 "alphanum" => array('format', 'callback'),
-                "bools"    => array('watermark'),
+                "bools"    => array('watermark', 'eventsLabels'),
                 "dates"    => array('startTime', 'endTime'),
                 "floats"   => array('imageScale', 'frameRate', 'movieLength', 'x0', 'y0', 'x1', 'x2', 'y1', 'y2'),
                 "ints"     => array('maxFrames', 'width', 'height')

@@ -303,7 +303,7 @@ var TimeControls = Class.extend(
     },
     
    /**
-    * @description Time-incremenet change event handler
+    * @description Time-increment change event handler
     * @param {Event} e Prototype Event Object
     */
     _onTimeIncrementChange: function (e) {

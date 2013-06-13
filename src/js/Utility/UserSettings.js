@@ -264,6 +264,17 @@ var UserSettings = Class.extend(
             this.set("state.eventLayers", 
                      this._parseURLStringEvents(urlSettings.eventLayers));
         }
+          
+        // Event labels are ON by default
+        if ( urlSettings.eventLabels == true ) {
+            this.set("state.eventLabels", true);
+        }
+        // Override event label default with value from URL
+        else if ( typeof urlSettings.eventLabels != 'undefined'
+            && urlSettings.eventLabels == false) {
+        
+            this.set("state.eventLabels", false);
+        }
     },
     
     /**

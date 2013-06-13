@@ -69,7 +69,7 @@ class Module_SolarEvents implements Module
         $hek = new Event_HEKAdapter();
         
         header("Content-type: application/json");
-        echo $hek->getEventFRMs($this->_params['startTime']);
+        echo $hek->getEventFRMs($this->_params['startTime'], $this->_options);
     }
 
     /**
@@ -101,6 +101,20 @@ class Module_SolarEvents implements Module
         
         header("Content-type: application/json");
         echo $hek->getDefaultEventTypes();
+    }
+
+    /**
+     * 
+     * 
+     * @return void
+     */
+    public function  getEventGlossary()
+    {
+        include_once "src/Event/HEKAdapter.php";
+        $hek = new Event_HEKAdapter();
+        
+        header("Content-type: application/json");
+        echo $hek->getEventGlossary();
     }
 
     /**
@@ -186,20 +200,24 @@ class Module_SolarEvents implements Module
         case "getEvents":
             $expected = array(
                 "required" => array('startTime'),
-                "optional" => array('eventType','cacheOnly'),
-                "bools"    => array('cacheOnly'),
+                "optional" => array('eventType','cacheOnly','force','ar_filter'),
+                "bools"    => array('cacheOnly','force','ar_filter'),
                 "dates"    => array('startTime')
             );
             break;
         case "getEventsByEventLayers":
             $expected = array(
                 "required" => array('startTime','eventLayers'),
+                "optional" => array('ar_filter'),
+                "bools"    => array('ar_filter'),
                 "dates"    => array('startTime')
             );
             break;
         case "getEventFRMs":
             $expected = array(
                "required" => array('startTime'),
+               "optional" => array('ar_filter'),
+               "bools"    => array('ar_filter'),
                "dates"    => array('startTime')
             );
             break;

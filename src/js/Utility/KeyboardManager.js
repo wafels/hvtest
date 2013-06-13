@@ -119,6 +119,7 @@ var KeyboardManager = Class.extend(
         // All other keys
         charMapping = {
             'c': 'center-viewport',
+            'd': 'toggle-event-labels',
             'm': 'toggle-mouse-coords',
             '-': 'zoom-out',
             '_': 'zoom-out',

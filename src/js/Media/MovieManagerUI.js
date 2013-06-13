@@ -29,6 +29,8 @@ var MovieManagerUI = MediaManagerUI.extend(
         this._movieScale = null;
         this._movieROI = null;
         this._movieLayers = null;
+        this._movieEvents = null;
+        this._movieEventsLabels = null;
         this._initEvents();
         this._initSettings();
     },
@@ -66,10 +68,12 @@ var MovieManagerUI = MediaManagerUI.extend(
         
         // Movie request parameters
         baseParams = {
-            action     : "queueMovie",
-            imageScale : this._movieScale,
-            layers     : this._movieLayers,
-            format     : this._manager.format
+            action       : "queueMovie",
+            imageScale   : this._movieScale,
+            layers       : this._movieLayers,
+            events       : this._movieEvents,
+            eventsLabels : this._movieEventsLabels,
+            format       : this._manager.format
         };
        
         // Add ROI and start and end dates
@@ -142,6 +146,7 @@ var MovieManagerUI = MediaManagerUI.extend(
         }
 
         var layers = helioviewer.getVisibleLayers(roi);
+        var events = helioviewer.getEvents();
 
         // Make sure selection region and number of layers are acceptible
         if (!this._validateRequest(roi, layers)) {
@@ -152,6 +157,8 @@ var MovieManagerUI = MediaManagerUI.extend(
         this._movieScale  = helioviewer.getImageScale();
         this._movieROI    = this._toArcsecCoords(roi, this._movieScale);
         this._movieLayers = layers;
+        this._movieEvents = events;
+        this._movieEventsLabels = helioviewer.getEventsLabels();
         
         this.hide();
         this._settingsConsole.hide();
@@ -187,7 +194,7 @@ var MovieManagerUI = MediaManagerUI.extend(
 
             movie = self._manager.queue(
                 response.id, response.eta, response.token, 
-                params.imageScale, params.layers, 
+                params.imageScale, params.layers, params.events, params.eventsLabels, 
                 new Date().toISOString(), params.startTime, params.endTime, 
                 params.x1, params.x2, params.y1, params.y2
             );
@@ -850,7 +857,7 @@ var MovieManagerUI = MediaManagerUI.extend(
                    "scrolling=no frameborder=0 style='margin-bottom: 2px;' />" +
                    "<br />" + 
                    "<span class='video-links'>" + downloadLink + youtubeBtn +
-                   linkBtn + bbcodeBtn + hekBtn + sswBtn + addthisBtn + "</span></div>";
+                   linkBtn + bbcodeBtn + /*hekBtn + sswBtn + */ addthisBtn + "</span></div>";
         }
     },
     

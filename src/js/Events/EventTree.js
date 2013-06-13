@@ -14,6 +14,9 @@ var EventTree = Class.extend({
     init: function (data, container) {
         this._container = container;
         this._build(data);
+                
+        $(document).bind("toggle-checkboxes", $.proxy(this.toggle_checkboxes, this));
+        $(document).bind("toggle-checkboxes-to-state", $.proxy(this.toggle_checkboxes_state, this));
     },
     
     destroy: function (data) {
@@ -33,38 +36,105 @@ var EventTree = Class.extend({
         this._container.jstree("open_all",null,true);
     },
     
+    toggle_checkboxes: function () {
+        var numChecked;
+        numChecked = Helioviewer.userSettings.get("state.eventLayers").length;
+        if ( numChecked > 0 ) {
+            this._container.jstree("uncheck_all",null,true);
+        }
+        else {
+            this._container.jstree("check_all",null,true);
+            // Unbind event handler that normally triggers when checkboxes are checked/unchecked 
+            // because we're about to do that a lot
+            this._container.unbind("change_state.jstree", $.proxy(this._treeChangedState, this));
+            
+            $(document).trigger("fetch-eventFRMs");
+            
+            // Bind event handler that triggers whenever checkboxes are checked/unchecked
+            this._container.bind("change_state.jstree", $.proxy(this._treeChangedState, this));
+        }
+        
+    },
+    
+    toggle_checkboxes_state: function (e, toState) {
+        if (toState == 'off') {
+            this._container.jstree("uncheck_all",null,true);
+        }
+        else if (toState == 'on') {
+            this._container.jstree("check_all",null,true);
+        }
+        else {
+            this.toggle_checkboxes();
+            return;
+        }
+        
+        // Unbind event handler that normally triggers when checkboxes are checked/unchecked 
+        // because we're about to do that a lot
+        this._container.unbind("change_state.jstree", $.proxy(this._treeChangedState, this));
+            
+        $(document).trigger("fetch-eventFRMs");
+            
+        // Bind event handler that triggers whenever checkboxes are checked/unchecked
+        this._container.bind("change_state.jstree", $.proxy(this._treeChangedState, this));
+    },
+    
     jstreeFunc: function (name, args) {
         this._container.jstree(name, args);
     },
     
     _build: function (jsTreeData) {
         var self = this, saved, node;
-        
-        this._container.unbind("change_state.jstree", $.proxy(this._treeChangedState, this));
 
         this._container.jstree({
             "json_data" : { "data": jsTreeData },
             "themes"    : { "theme":"default", "dots":true, "icons":false },
             "plugins"   : [ "json_data", "themes", "ui", "checkbox" ],
         });
+        
+        // Bind an event handler to each row that will trigger on hover
+        $.each(jsTreeData, function(index, event_type) {
+        
+            $('#'+event_type['attr'].id+' a').hover($.proxy(self.hoverOn,this), $.proxy(self.hoverOff,this));
+            
+            // Dim rows that don't have associated features/events
+            if ( event_type.children.length == 0 ) {
+                $('#'+event_type['attr'].id).css({'opacity':'0.5'});
+            }
+            
+            $.each(event_type['children'], function(j, frm) {
+                $('#'+frm['attr'].id+' a').hover($.proxy(self.hoverOnFRM,this), $.proxy(self.hoverOffFRM,this));
+            })
+        });
 
+        
+        // Unbind event handler that normally triggers when checkboxes are checked/unchecked 
+        // because we're about to do that a lot
+        this._container.unbind("change_state.jstree", $.proxy(this._treeChangedState, this));
+        
+        // Loop over saved eventLayer state, checking the appropriate checkboxes to match.
         saved = Helioviewer.userSettings.get("state.eventLayers");
         $.each(saved, function(i,eventLayer) {
             if (eventLayer.frms[0] == 'all') {
                 node = "#"+eventLayer.event_type;
-                self.jstreeFunc("check_node", node);
+                if ( $(node).length != 0 ) {
+                    self.jstreeFunc("check_node", node);
+                }
             }
             else {
                 $.each(eventLayer.frms, function(j,frm) {
                     node = "#"+eventLayer.event_type+"--"+frm;
-                    self.jstreeFunc("check_node", node);
+                    if ( $(node).length != 0 ) {
+                        self.jstreeFunc("check_node", node);
+                    }
                 });   
             }   
         });
         
+        // Re-bind event handler that triggers whenever checkboxes are checked/unchecked
         this._container.bind("change_state.jstree", $.proxy(this._treeChangedState, this));
         $(document).trigger("change_state.jstree", this);
     },
+    
     
     _treeChangedState: function (event, data) {
         var checked = [], event_types = [], index;
@@ -104,5 +174,97 @@ var EventTree = Class.extend({
         
         // Show/Hide events to match new state of the checkboxes
         $(document).trigger("toggle-events");
+    },
+    
+    hoverOn: function (event) {
+        var emphasisNodes, eventLayerNodes, found;
+        emphasisNodes  = $("[id^="+this['attr'].id+"__]");
+        eventLayerNodes = $("#event-container > div.event-layer");
+        
+        $.each( eventLayerNodes, function(i, obj) {
+            found = false;
+            $.each( emphasisNodes, function(j, emphObj) {
+                if ( $(obj)[0].id == $(emphObj)[0].id ) {
+                    found = true;
+                }
+            });
+            
+            if ( found === false && emphasisNodes.length > 0 ) {
+                $(obj).css({'opacity':'0.20'});
+            }
+            else { 
+                $(obj).css({'opacity':'1.00'});
+            }
+        });
+    },
+    
+    hoverOff: function (event) {
+        $("#event-container > div.event-layer").css({'opacity':'1.0'});
+    }, 
+    
+    hoverOnFRM: function (event) {         
+        var emphasisNode, deEmphasisNodes, eventTypeAbbr, eventLayerNodes, found;
+        eventTypeAbbr = this['attr'].id.split("--")[0];
+
+        emphasisNode  = $("#"+this['attr'].id.replace("--", "__"));
+        deEmphasisNodes = $("[id^="+eventTypeAbbr+"__]");
+
+        eventLayerNodes = $("#event-container > div.event-layer");
+        
+        $.each( eventLayerNodes, function(i, obj) {
+            
+            if ( $(obj)[0].id == $(emphasisNode)[0].id ) {
+                $(obj).css({'opacity':'1.00'});
+            }
+            else {
+                found = false;
+                $.each( deEmphasisNodes, function(j, deEmphObj) {
+                    if ( $(obj)[0].id == $(deEmphObj)[0].id ) {
+                        found = true;
+                    }
+                });
+                if ( found === true ) {
+                    //$(obj).css({'opacity':'0.50'});
+                    $(obj).css({'opacity':'0.20'});
+                }
+                else {
+                    $(obj).css({'opacity':'0.20'});
+                }
+            }
+        });
+        
+    }, 
+    
+    hoverOffFRM: function (event) {         
+        var emphasisNode, deEmphasisNodes, eventTypeAbbr, eventLayerNodes, found;
+        eventTypeAbbr = this['attr'].id.split("--")[0];
+
+        emphasisNode  = $("#"+this['attr'].id.replace("--", "__"));
+        deEmphasisNodes = $("[id^="+eventTypeAbbr+"__]");
+
+        eventLayerNodes = $("#event-container > div.event-layer");
+        
+        $.each( eventLayerNodes, function(i, obj) {
+            
+            if ( $(obj)[0].id == $(emphasisNode)[0].id ) {
+                $(obj).css({'opacity':'1.0'});
+            }
+            else {
+                found = false;
+                $.each( deEmphasisNodes, function(j, deEmphObj) {
+                    if ( $(obj)[0].id == $(deEmphObj)[0].id ) {
+                        found = true;
+                    }
+                });
+                if ( found === true ) {
+                    //$(obj).css({'opacity':'0.50'});
+                    $(obj).css({'opacity':'1.0'});
+                }
+                else {
+                    $(obj).css({'opacity':'1.0'});
+                }
+            }
+        });
+        
     }
 });

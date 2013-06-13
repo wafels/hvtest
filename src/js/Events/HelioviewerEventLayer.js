@@ -29,22 +29,12 @@ var HelioviewerEventLayer = Class.extend(
      * </div>
      */
     init: function (index, date, viewportScale, name, visible) {
-        ///this._super(index, date, tileSize, viewportScale, tileVisibilityRange, name, visible, opacity);
         
         // Create a random id which can be used to link event layer with its corresponding event layer accordion entry
         this.id = "event-layer-" + new Date().getTime();
 
-        this._setupEventHandlers();
-
         $(document).trigger("create-event-layer-accordion-entry", 
-            [index, this.id, name, date, false, visible]
+            [index, this.id, name, date, true, visible]
         );
-    },
-    
-    /**
-     * @description Sets up event-handlers to deal with viewport motion
-     */
-    _setupEventHandlers: function () {
-        $(document).bind('toggle-event-visibility', $.proxy(this.toggleVisibility, this));
     }
 });

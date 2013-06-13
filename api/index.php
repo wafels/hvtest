@@ -80,7 +80,8 @@ function loadModule($params)
         "getFRMs"                => "SolarEvents",
         "getDefaultEventTypes"   => "SolarEvents",
         "getEvents"              => "SolarEvents",
-        "getEventsByEventLayers" => "SolarEvents"
+        "getEventsByEventLayers" => "SolarEvents",
+        "getEventGlossary"       => "SolarEvents"
     );
     
     include_once "src/Validation/InputValidator.php";
