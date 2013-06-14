@@ -78,7 +78,7 @@ class Event_HEKAdapter
         else {
             /// TEMPORARY:
             $this->_hostname = 'CLI';
-            $this->_docroot = '/var/www-hek';
+            $this->_docroot = '/var/www-hek-dev';
         }
     
         $this->_baseURL = HEK_BASE_URL . '?cosec=2&cmd=search&type=column' 
