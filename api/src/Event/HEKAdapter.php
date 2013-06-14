@@ -562,6 +562,116 @@ class Event_HEKAdapter
         
 		return $events;
 	}
+    
+    
+    /**
+     * Returns an associative array of F/E marker label key/value pairs
+     * 
+     * @param array $event   HEK event data
+     * 
+     * @return array
+     */
+    public function _buildLabelArray($event) {
+    
+        $labelArray = Array();
+        
+        if ( $event['event_type'] == 'AR') {
+            if ( $event['frm_name'] == 'HMI HARP' ) {
+                $labelArray['Area at Disk Center'] = str_replace('+','',sprintf("%.1e",(float)$event['area_atdiskcenter'])) . " " 
+                                                   . str_replace('2','²',$event['area_unit']);
+            }
+            else if ( $event['frm_name'] == 'NOAA SWPC Observer' ) {
+                $labelArray['NOAA Number']  = $event['ar_noaanum'];
+                
+                if ( preg_match_all('/(ALPHA|BETA|GAMMA)/',$event['ar_mtwilsoncls'], $matches) > 0 ) {
+                    $ar_mtwilsoncls = implode('',$matches[0]);
+                    $ar_mtwilsoncls = str_replace(Array('ALPHA','BETA','GAMMA'),Array('α','β','γ'),$ar_mtwilsoncls);
+                }
+                else {
+                    $ar_mtwilsoncl  = $event['ar_mtwilsoncls'];
+                }
+                $labelArray['Mt. Wilson Class.'] = $ar_mtwilsoncls;
+            }
+            else if ( $event['frm_name'] == 'SPoCA' ) {
+                $labelArray['Area at Disk Center'] = str_replace('+','',sprintf("%.1e",(float)$event['area_atdiskcenter']))       . " ± " 
+                                                   . str_replace('+','',sprintf("%.1e",(float)$event['area_atdiskcenteruncert'])) . " " 
+                                                   . str_replace('2','²',$event['area_unit']);
+            }
+        }
+        else if ( $event['event_type'] == 'CE') {
+            if ( $event['frm_name'] == 'CACTus (Computer Aided CME Tracking)' ) {
+                $labelArray['Radial Lin. Vel.'] = $event['cme_radiallinvel']       . " "
+                                                . $event['cme_radiallinvelstddev'] . " "
+                                                . $event['cme_radiallinvelunit'];
+                $labelArray['Angular Width']    = $event['cme_angularwidth']       . " " 
+                                                . $event['cme_angularwidthunit'];
+            }
+            else if ( $event['frm_name'] == 'CDAW_GopalswamyYashiroFreeland' ) {
+                $labelArray['Radial Lin. Vel.'] = $event['cme_radiallinvel'] . " "
+                                                . $event['cme_radiallinvelunit'];
+                $labelArray['Angular Width']    = $event['cme_angularwidth'] . " " 
+                                                . $event['cme_angularwidthunit'];
+                $labelArray['Mass']             = $event['cme_mass']         . " " 
+                                                . $event['cme_massunit'];
+            }
+        }
+        else if ( $event['event_type'] == 'CH') {
+            if ( $event['frm_name'] == 'LMSAL forecaster + SSW PFSS package' ||
+                 $event['frm_name'] == 'LMSAL forecaster 2 + SSW PFSS package' ) {
+                
+                $labelArray['Area at Disk Center'] = str_replace('+','',sprintf("%.1e",(float)$event['area_atdiskcenter'])) . " " 
+                                                   . str_replace('2','²',$event['area_unit']);
+            }
+            else if ( $event['frm_name'] == 'SPoCA' ) {
+                $labelArray['Area at Disk Center'] = str_replace('+','',sprintf("%.1e",(float)$event['area_atdiskcenter']))       . " ± " 
+                                                   . str_replace('+','',sprintf("%.1e",(float)$event['area_atdiskcenteruncert'])) . " " 
+                                                   . str_replace('2','²',$event['area_unit']);
+            }
+        }
+        else if ( $event['event_type'] == 'EF') {
+            if ( $event['frm_name'] == 'Emerging flux region module' ) {
+                if ( $event['area_atdiskcenter'] != null && $event['area_atdiskcenteruncert'] != null ) {
+                    $labelArray['Area at Disk Center'] = str_replace('+','',sprintf("%.1e",(float)$event['area_atdiskcenter']))       . " ± " 
+                                                       . str_replace('+','',sprintf("%.1e",(float)$event['area_atdiskcenteruncert'])) . " " 
+                                                       . str_replace('2','²',$event['area_unit']);
+                }
+                if ( $event['ef_pospeakfluxonsetrate'] != null && $event['ef_onsetrateunit'] != null ) {
+                    $labelArray['Peak Pos. Flux Onset'] = round((float)$event['ef_pospeakfluxonsetrate'],1) . " " 
+                                                        . $event['ef_onsetrateunit'];
+                }
+                if ( $event['ef_negpeakfluxonsetrate'] != null && $event['ef_onsetrateunit'] != null ) {                    
+                    $labelArray['Peak Neg. Flux Onset'] = round((float)$event['ef_negpeakfluxonsetrate'],1) . " " 
+                                                        . $event['ef_onsetrateunit'];
+                }
+            }
+        }
+        else if ( $event['event_type'] == 'FI') {
+            if ( $event['frm_name'] == 'AAFDCC' ) {
+                $labelArray['Filament Length'] = str_replace('+','',sprintf("%.1e",(float)$event['fi_length'])) . " " 
+                                               . $event['fi_lengthunit'];
+            }
+        }
+        else if ( $event['event_type'] == 'FL') {
+            if ( $event['frm_name'] == 'SEC standard' ) {
+                $labelArray['GOES Class'] = $event['fl_goescls'];
+            }
+            else if ( $event['frm_name'] == 'Flare Detective - Trigger Module' ) {
+                $labelArray['Peak Flux'] = round((float)$event['fl_peakflux'],1) . " " 
+                                         . $event['fl_peakfluxunit'];
+            }
+        }
+        else if ( $event['event_type'] == 'SG') {
+            if ( $event['frm_name'] == 'Sigmoid Sniffer' ) {
+                $labelArray['Shape'] = $event['sg_shape'];
+            }
+        }
+        else {
+            $labelArray = Array("Event Type" => $event['concept']);
+        }
+        
+        return $labelArray;
+    }
+    
 
     /**
      * Comparison function for usort().
