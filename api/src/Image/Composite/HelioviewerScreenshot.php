@@ -71,6 +71,8 @@ class Image_Composite_HelioviewerScreenshot extends Image_Composite_HelioviewerC
             $this->watermark,
             $this->layers->serialize(),
             $this->layers->getBitMask(),
+            $this->events->serialize(),
+            $this->eventsLabels,
             $this->layers->length()
             // NEED ALSO events DATA, with database table support
         );
