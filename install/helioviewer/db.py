@@ -396,6 +396,8 @@ def create_movies_table(cursor):
       `watermark`         TINYINT(1) UNSIGNED NOT NULL,
       `dataSourceString`  VARCHAR(255) NOT NULL,
       `dataSourceBitMask` BIGINT UNSIGNED,
+      `eventSourceString` VARCHAR(1024) DEFAULT NULL,
+      `eventsLabels`      TINYINT(1) UNSIGNED NOT NULL,
       `numLayers`         TINYINT UNSIGNED,
       `queueNum`          SMALLINT UNSIGNED,
       `frameRate`         FLOAT UNSIGNED,
@@ -467,6 +469,8 @@ def create_screenshots_table(cursor):
       `watermark`         TINYINT(1) UNSIGNED DEFAULT TRUE,
       `dataSourceString`  VARCHAR(255) NOT NULL,
       `dataSourceBitMask` BIGINT UNSIGNED,
+      `eventSourceString` VARCHAR(1024) DEFAULT NULL,
+      `eventsLabels`      TINYINT(1) UNSIGNED NOT NULL,
       `numLayers`         TINYINT UNSIGNED NOT NULL DEFAULT 1,
        PRIMARY KEY (`id`)
     ) DEFAULT CHARSET=utf8;""")
