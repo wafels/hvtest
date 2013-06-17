@@ -259,8 +259,8 @@ var UserSettings = Class.extend(
             this.set("state.tileLayers", 
                      this._parseURLStringLayers(urlSettings.imageLayers));
         }
-        
-        if (urlSettings.eventLayers) {
+       
+        if (typeof urlSettings.eventLayers != 'undefined' && urlSettings.eventLayers != '') {
             this.set("state.eventLayers", 
                      this._parseURLStringEvents(urlSettings.eventLayers));
         }
