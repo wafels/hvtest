@@ -338,7 +338,7 @@ class Image_Composite_HelioviewerCompositeImage
             }
             
             if ( array_key_exists('hv_poly_width_max_zoom_pixels',$event) ) { 
-                $region_polygon = new IMagick( $event['hv_poly_url']);
+                $region_polygon = new IMagick(HV_ROOT_DIR.'/'.urldecode($event['hv_poly_url']));
                 $width  = $event['hv_poly_width_max_zoom_pixels']  * ($maxPixelScale/$this->roi->imageScale());
                 $height = $event['hv_poly_height_max_zoom_pixels'] * ($maxPixelScale/$this->roi->imageScale());
                 $x = 0;

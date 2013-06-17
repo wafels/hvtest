@@ -12,7 +12,7 @@ LCK="/tmp/event_cache.LCK";
 exec 8>$LCK;
 
 #host=`hostname`
-host='hek.delphi.nascom.nasa.gov'
+host='hekbeta.helioviewer.org'
 
 echo ""
 echo "### "`date`" ###"
