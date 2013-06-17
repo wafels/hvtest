@@ -418,11 +418,19 @@ class Event_HEKAdapter
                 $event['hv_hpc_r_scaled'] = sqrt(pow($event['hpc_x'],2)+pow($event['hpc_y'],2)) * $au_scalar;
                 
                 if ( $event['hv_hpc_r_scaled'] < 961.07064 ) {
+
                     // Differential rotation of the event marker's X,Y position
-                    // from event_starttime to requestTime ("$startTime")
-                    list($event['hv_hpc_x_notscaled_rot'],$event['hv_hpc_y_notscaled_rot']) 
-                        = rot_hpc( $event['hpc_x'], $event['hpc_y'], $event['event_starttime'].'.000Z', 
-                                   $startTime, $spacecraft=null, $vstart=null, $vend=null);
+
+                    $rotateFromTime = $event['event_starttime'].'.000Z';
+                    $rotateToTime   = $startTime;
+                    
+                    if ( $event['frm_name'] == 'SPoCA' ) {
+                        $rotateFromTime = $event['event_endtime'].'.000Z';
+                    }
+
+					list($event['hv_hpc_x_notscaled_rot'],$event['hv_hpc_y_notscaled_rot']) 
+                        = rot_hpc( $event['hpc_x'], $event['hpc_y'], $rotateFromTime, 
+                                   $rotateToTime, $spacecraft=null, $vstart=null, $vend=null);
                         
                     $event['hv_hpc_x_rot_delta_notscaled'] = $event['hv_hpc_x_notscaled_rot'] - $event['hpc_x'];
                     $event['hv_hpc_y_rot_delta_notscaled'] = $event['hv_hpc_y_notscaled_rot'] - $event['hpc_y'];
