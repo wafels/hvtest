@@ -937,7 +937,7 @@ class Event_HEKAdapter
         
         $cache_file      = rawurlencode($event['kb_archivid']).'.png';
         $cache_file_path = $cache_base_dir.'/'.$cache_file;
-        $polygonURL      = str_replace(HV_CACHE_DIR, HV_CACHE_URL, $cache_base_dir).'/'.rawurlencode($cache_file);
+        $polygonURL      = str_replace(HV_CACHE_DIR, 'cache', $cache_base_dir).'/'.rawurlencode($cache_file);
         
         $fp = fopen($cache_file_path, 'wb');
         fwrite($fp,$canvas);
