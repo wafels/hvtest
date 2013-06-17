@@ -728,6 +728,8 @@ var MovieManagerUI = MediaManagerUI.extend(
                     response.duration,
                     response.imageScale,
                     response.layers,
+                    response.events,
+                    response.eventsLabels,
                     response.timestamp.replace(" ", "T") + ".000Z",
                     response.startDate,
                     response.endDate,
