@@ -34,7 +34,7 @@ var HelioviewerEventLayerManager = EventLayerManager.extend(
         // Add the event layer
         this.addEventLayer(
             new HelioviewerEventLayer(this._eventLayers.length, this._requestDate, this.viewportScale, 
-                'HEK', true)
+                'HEK', true, true)
         );
 
         // Don't save the event layer here.  We're just adding the accordion stuff, 
@@ -53,7 +53,7 @@ var HelioviewerEventLayerManager = EventLayerManager.extend(
         // Add the event layer
         this.addEventLayer(
             new HelioviewerEventLayer(this._eventLayers.length, this._requestDate, this.viewportScale, 
-                'HEK', true)
+                'HEK', true, Helioviewer.userSettings.get("state.eventLabels"))
         );
     },
     
