@@ -64,8 +64,8 @@ var EventLayerAccordion = Layer.extend(
      * 
      * @param {Object} layer The new layer to add
      */
-    addLayer: function (event, index, id, name, date, startOpened, visible) {
-        this._createAccordionEntry(index, id, name, visible, startOpened);
+    addLayer: function (event, index, id, name, date, startOpened, markersVisible, labelsVisible) {
+        this._createAccordionEntry(index, id, name, markersVisible, labelsVisible, startOpened);
         this._setupEventHandlers(id);
         this._updateTimeStamp(id, date);
     },
@@ -73,20 +73,21 @@ var EventLayerAccordion = Layer.extend(
     /**
      *
      */
-    _createAccordionEntry: function (index, id, name, visible, startOpened) {
+    _createAccordionEntry: function (index, id, name, markersVisible, labelsVisible, startOpened) {
 
-        var visibilityBtn, labelsBtn/*, removeBtn*/, hidden, head, body, self=this;
+        var visibilityBtn, labelsBtn/*, removeBtn*/, markersHidden, labelsHidden, head, body, self=this;
         
         // initial visibility
-        hidden = (visible ? "" : " hidden");
+        markersHidden = (markersVisible ? "" : " hidden");
+        labelsHidden  = ( labelsVisible ? "" : " hidden");
         
-        visibilityBtn = "<span class='layerManagerBtn visible" + hidden + "' id='visibilityBtn-" + id +
+        visibilityBtn = "<span class='layerManagerBtn visible" + markersHidden + "' id='visibilityBtn-" + id +
                         "' title='Toggle layer visibility'></span>";
         /*
         removeBtn = "<span class='ui-icon ui-icon-closethick removeBtn' id='removeBtn-" + id +
                     "' title='Remove layer'></span>";
         */
-        labelsBtn = "<span class='ui-icon ui-icon-tag labelsBtn' id='labelsBtn-" + id +
+        labelsBtn = "<span class='labelsBtn" + labelsHidden + "' id='labelsBtn-" + id +
                     "' title='Toggle event labels'></span>";
                     
         head = "<div class='layer-Head ui-accordion-header ui-helper-reset ui-state-default ui-corner-all shadow'>" + 
@@ -123,7 +124,7 @@ var EventLayerAccordion = Layer.extend(
         });
         
         this.domNode.find("#labelsBtn-"+id).click( function(e) {
-            $(document).trigger("toggle-event-labels");
+            $(document).trigger("toggle-event-labels", [$("#labelsBtn-"+id)]);
             e.stopPropagation();
         });
         
@@ -136,8 +137,6 @@ var EventLayerAccordion = Layer.extend(
      *
      */
     getEventGlossary: function () {
-        self = this;
-        
         var params = {
             "action"     : "getEventGlossary"
         };

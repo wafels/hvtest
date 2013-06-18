@@ -227,7 +227,7 @@ var EventMarker = Class.extend(
     },
     
     toggleEventLabel: function (event) {
-        self = this;
+
         if ( !this.label ) {            
             this.label = $('<div/>');
             this.label.hide();

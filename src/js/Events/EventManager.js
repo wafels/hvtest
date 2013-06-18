@@ -361,13 +361,19 @@ var EventManager = Class.extend({
         this.eventLabels();
     },
     
-    toggleEventLabels: function (event) {
+    toggleEventLabels: function (event, labelsBtn) {
+    
+        if (typeof labelsBtn == 'undefined') {
+            labelsBtn = $('span[id^="labelsBtn-event-layer-"]');
+        }
         
         if ( this._eventLabelsVis ) {
             $(document).trigger('toggle-event-label-off');
+            labelsBtn.addClass('hidden');
         }
         else {
             $(document).trigger('toggle-event-label-on');
+            labelsBtn.removeClass('hidden');
         }
         
         this._eventLabelsVis = !this._eventLabelsVis;

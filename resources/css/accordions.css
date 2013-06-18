@@ -50,6 +50,22 @@ span.event-accordion-header-right > span.accordion-header-divider {
     right: 10px;
 }
 
+.labelsBtn { 
+	background: url(../../resources/images/blackGlass/labels_visible_10x10.png) transparent;
+	width: 10px;
+	height: 10px;
+	margin: 3px 3px 0 0;
+}
+.labelsBtn:hover { 
+	background: url(../../resources/images/blackGlass/labels_visible_hover_10x10.png) transparent;
+}
+.labelsBtn.hidden { 
+	background: url(../../resources/images/blackGlass/labels_hidden_10x10.png) transparent;
+}
+.labelsBtn.hidden:hover { 
+	background: url(../../resources/images/blackGlass/labels_hidden_hover_10x10.png) transparent;
+}
+
 div.accordion-arrow {
 	float:left;
 	border:none;
