@@ -82,7 +82,7 @@ var EventLayerAccordion = Layer.extend(
         labelsHidden  = ( labelsVisible ? "" : " hidden");
         
         visibilityBtn = "<span class='layerManagerBtn visible" + markersHidden + "' id='visibilityBtn-" + id +
-                        "' title='Toggle layer visibility'></span>";
+                        "' title='Toggle visibility of event marker pins'></span>";
         /*
         removeBtn = "<span class='ui-icon ui-icon-closethick removeBtn' id='removeBtn-" + id +
                     "' title='Remove layer'></span>";
@@ -137,8 +137,6 @@ var EventLayerAccordion = Layer.extend(
      *
      */
     getEventGlossary: function () {
-        self = this;
-        
         var params = {
             "action"     : "getEventGlossary"
         };
@@ -176,7 +174,7 @@ var EventLayerAccordion = Layer.extend(
      * @param {String} id
      */
     _setupEventHandlers: function (id) {
-        var toggleVisibility, opacityHandle, removeLayer, self = this,
+        var toggleVisibility, opacityHandle, removeLayer, visState, self = this,
             visibilityBtn = $("#visibilityBtn-" + id)/*,
             removeBtn     = $("#removeBtn-" + id)*/;
 
@@ -187,12 +185,15 @@ var EventLayerAccordion = Layer.extend(
             domNode = $(document).find("#event-container");
             if ( domNode.css('display') == 'none') {
                 domNode.show();
+                Helioviewer.userSettings.set("state.eventLayerVisible", true);
+                $("#visibilityBtn-" + id).removeClass('hidden');
             }
             else {
                 domNode.hide();
+                Helioviewer.userSettings.set("state.eventLayerVisible", false);
+                $("#visibilityBtn-" + id).addClass('hidden');
             }
             
-            $("#visibilityBtn-" + id).toggleClass('hidden');
             e.stopPropagation();
         };
 
