@@ -115,7 +115,9 @@ var EventMarker = Class.extend(
                            'height' :  this.region_scaled.height + 'px'
                 // Additional styles found in events.css
             });
-            this.parentFRM.domNode.append(this.eventRegionDomNode);
+            if ( typeof this.parentFRM != 'undefined' ) {
+                this.parentFRM.domNode.append(this.eventRegionDomNode);
+            }
             
             this.eventRegionDomNode.bind("click", $.proxy(this.toggleEventPopUp, this));
             this.eventRegionDomNode.mouseenter($.proxy(this.toggleEventLabel, this));

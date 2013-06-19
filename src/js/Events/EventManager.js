@@ -26,6 +26,8 @@ var EventManager = Class.extend({
      * @constructs
      */
     init: function (eventGlossary, date) {
+        var visState;
+    
         this._eventLayers    = [];
         this._events         = [];
         this._eventMarkers   = [];
@@ -39,6 +41,19 @@ var EventManager = Class.extend({
         this.earth();
         
         $('<div id="event-container"></div>').appendTo("#moving-container");
+        
+        visState = Helioviewer.userSettings.get("state.eventLayerVisible");
+        if ( typeof visState == 'undefined') {
+            Helioviewer.userSettings.set("state.eventLayerVisible", true);
+            visState = true;
+        }
+        
+        if ( visState === false && $("#event-container").css('display') != 'none' ) {
+            $('span[id^="visibilityBtn-event-layer-"]').click();
+        }
+        else if ( visState === true && $("#event-container").css('display') == 'none' ) {   
+            $('span[id^="visibilityBtn-event-layer-"]').click();
+        }
 
         // Populate event_type/frm_name checkbox hierarchy with placeholder data 
         // (important in case the JSON event cache is missing and would take 
@@ -55,8 +70,24 @@ var EventManager = Class.extend({
     },
     
     reinit: function(date) {
+        var visState;
+        
         $("#event-container").remove();
         $('<div id="event-container"></div>').appendTo("#moving-container");
+       
+        visState = Helioviewer.userSettings.get("state.eventLayerVisible");
+        if ( typeof visState == 'undefined') {
+            Helioviewer.userSettings.set("state.eventLayerVisible", true);
+            visState = true;
+        }
+        
+        if ( visState === false && $("#event-container").css('display') != 'none' ) {
+            $('span[id^="visibilityBtn-event-layer-"]').click();
+        }
+        else if ( visState === true && $("#event-container").css('display') == 'none' ) {   
+            $('span[id^="visibilityBtn-event-layer-"]').click();
+        }
+        
         
         this._eventLayers   = [];
         this._events        = [];
