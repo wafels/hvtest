@@ -171,9 +171,7 @@ var EventManager = Class.extend({
      */
     _queryEvents: function () {
         var params;
-        if ( helioviewer.viewport.serializeEvents() == '' ) {
-            return;
-        }
+
         params = {
             "action"     : "getEvents",
             "startTime"  : new Date(this._date.getTime()).toISOString(), 
