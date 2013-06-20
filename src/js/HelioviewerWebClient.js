@@ -520,7 +520,7 @@ var HelioviewerWebClient = HelioviewerClient.extend(
 
         $(document).trigger("message-console-info", 
             ["<b>Welcome to Helioviewer.org</b>, a solar data browser. First time here? Be sure to check out our " +
-             "<a href=\"http://wiki.helioviewer.org/wiki/Helioviewer.org_User_Guide\" " +
+             "<a href=\"http://wiki.helioviewer.org/wiki/Helioviewer.org_User_Guide_2.4.0\" " +
              "class=\"message-console-link\" target=\"_blank\"> User Guide</a>.", {sticky: true}]
         );
         

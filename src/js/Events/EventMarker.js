@@ -534,7 +534,7 @@ var EventMarker = Class.extend(
         }
         else if ( tab == 'all' ) {
                 $.each( this.event, function (key, value) {
-                    if ( /*key.substring(0, 3) != 'hv_' &&*/ key != 'refs' ) {
+                    if ( key.substring(0, 3) != 'hv_' && key != 'refs' ) {
                         
                         lookup = self._eventGlossary[key];
                         if ( typeof lookup != 'undefined' ) {
