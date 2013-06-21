@@ -457,11 +457,12 @@ class Image_Composite_HelioviewerCompositeImage
             
         // Draw Earth to scale
         $earth = new IMagick(HV_ROOT_DIR .'/resources/images/earth.png');
-        $width  = $earth->getImageWidth()  * ($this->maxPixelScale/$this->roi->imageScale());
-        $height = $earth->getImageHeight() * ($this->maxPixelScale/$this->roi->imageScale());
-        $x = $rect_width/2 - $width/2;
-        $y = $imagickImage->getImageHeight() - ($rect_height/2 + $height/2);
-        $earth->resizeImage($width,$height,Imagick::FILTER_LANCZOS,1);
+        $rsunInArcseconds = 959.705;
+        $earthFractionOfSun = 1/109.1;
+        $earthScaleInPixels = 2* $earthFractionOfSun * ($rsunInArcseconds / $this->roi->imageScale());
+        $x = $rect_width/2 - $earthScaleInPixels/2;
+        $y = $imagickImage->getImageHeight() - ($rect_height/2 + $earthScaleInPixels/2);
+        $earth->resizeImage($earthScaleInPixels,$earthScaleInPixels,Imagick::FILTER_LANCZOS,1);
         $imagickImage->compositeImage($earth, IMagick::COMPOSITE_DISSOLVE, $x, $y);
             
         // Write 'Earth Scale' label in white
