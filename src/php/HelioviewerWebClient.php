@@ -265,7 +265,7 @@ class HelioviewerWebClient extends HelioviewerClient
                             <!--Social buttons -->
                             <div id="social-buttons">
                                 <!-- Link button -->
-                                <div id="link-button" class="text-btn qtip-left" title="Get a link to the current page.">
+                                <div id="link-button" class="text-btn qtip-left" title="Generate a direct link to the current view.">
                                     <span class="ui-icon ui-icon-link" style="float: left;"></span>
                                     <span style="line-height: 1.6em">Link</span>
                                 </div>
@@ -277,13 +277,13 @@ class HelioviewerWebClient extends HelioviewerClient
                                 </div>-->
 
                                 <!-- Movie button -->
-                                <div id="movie-button" class="text-btn">
+                                <div id="movie-button" class="text-btn qtip-left" title="Generate a movie based on the current view.">
                                     <span class="ui-icon ui-icon-video" style="float: left;"></span>
                                     <span style="line-height: 1.6em">Movie</span>
                                 </div>
 
                                 <!-- Screenshot button -->
-                                <div id="screenshot-button" class="text-btn">
+                                <div id="screenshot-button" class="text-btn qtip-left" title="Save a screenshot of the current view.">
                                     <span class="ui-icon ui-icon-image" style="float: left;"></span>
                                     <span style="line-height: 1.6em">Screenshot</span>
                                 </div>
@@ -680,3 +680,4 @@ class HelioviewerWebClient extends HelioviewerClient
 <?php
     }
 }
+?>
