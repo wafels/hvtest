@@ -42,6 +42,9 @@ class Image_Composite_HelioviewerCompositeImage
     protected $interlace;
     protected $layers;
     protected $events;
+    protected $eventsLabels;
+    protected $earthScale;
+    protected $maxPixelScale;
     protected $roi;
     protected $scale;
     protected $watermark;
@@ -57,7 +60,7 @@ class Image_Composite_HelioviewerCompositeImage
      *                              
      * @return void
      */
-    public function __construct($layers, $events, $eventLabels, $obsDate, $roi, $options)
+    public function __construct($layers, $events, $eventLabels, $earthScale, $obsDate, $roi, $options)
     {
         set_time_limit(90); // Extend time limit to avoid timeouts
         
@@ -79,18 +82,22 @@ class Image_Composite_HelioviewerCompositeImage
         $this->layers = $layers;
         $this->events = $events;
         $this->eventsLabels = $eventLabels;
+        $this->earthScale   = $earthScale;
         $this->date   = $obsDate;
         $this->roi    = $roi;
         
         $this->compress  = $options['compress'];
         $this->interlace = $options['interlace'];
         $this->watermark = $options['watermark'];
+        
+        $this->maxPixelScale = 0.60511022;  // arcseconds per pixel
     }
     
     /**
      * Builds the composite image.
      * 
-     * TODO: Instead of writing out individual layers as files and then reading them back in simply use the IMagick
+     * TODO: Instead of writing out individual layers as files and then reading 
+     *       them back in simply use the IMagick
      *       objects directly.
      *
      * @return void
@@ -200,6 +207,10 @@ class Image_Composite_HelioviewerCompositeImage
             $this->_addEventLayer($image);
         }
         
+        if ($this->earthScale) {
+            $this->_addEarthScale($image);
+        }
+        
         if ($this->watermark) {
             $this->_addWatermark($image);
         }
@@ -301,8 +312,6 @@ class Image_Composite_HelioviewerCompositeImage
      */
     private function _addEventLayer($imagickImage)
     {
-        $maxPixelScale = 0.60511022;  // arcseconds per pixel
-    
         if ($this->width < 200 || $this->height < 200) {
             return;
         }      
@@ -339,8 +348,10 @@ class Image_Composite_HelioviewerCompositeImage
             
             if ( array_key_exists('hv_poly_width_max_zoom_pixels',$event) ) { 
                 $region_polygon = new IMagick(HV_ROOT_DIR.'/'.urldecode($event['hv_poly_url']));
-                $width  = $event['hv_poly_width_max_zoom_pixels']  * ($maxPixelScale/$this->roi->imageScale());
-                $height = $event['hv_poly_height_max_zoom_pixels'] * ($maxPixelScale/$this->roi->imageScale());
+                $width  = $event['hv_poly_width_max_zoom_pixels']  
+                        * ($this->maxPixelScale/$this->roi->imageScale());
+                $height = $event['hv_poly_height_max_zoom_pixels'] 
+                        * ($this->maxPixelScale/$this->roi->imageScale());
                 $x = 0;
                 $y = 0;
                 
@@ -391,8 +402,6 @@ class Image_Composite_HelioviewerCompositeImage
                 }
                 foreach( $event['hv_labels_formatted'] as $key => $value ) {
                     
-                    /*$value = utf8_encode($value);*/
-                    
                     // Outline words in black
                     $text = new IMagickDraw();
                     $text->setTextEncoding('utf-8');
@@ -412,7 +421,7 @@ class Image_Composite_HelioviewerCompositeImage
                     $text->setFillColor('#ffff');
                     $text->setTextAntialias(true);
                     $text->setStrokeWidth(0);
-                    $imagickImage->annotateImage($text, $x, $y+($count*12), 0, /*utf8_decode(*/$value/*)*/);
+                    $imagickImage->annotateImage($text, $x, $y+($count*12), 0, $value);
                 
                     $count++;
                 }
@@ -425,6 +434,54 @@ class Image_Composite_HelioviewerCompositeImage
             $marker->destroy();
         }
     }
+    
+    
+    
+    /**
+     * Composites an Earth-scale indicator onto the lower left corner.
+     *
+     * @param object $imagickImage An Imagick object
+     *
+     * @return void
+     */
+    private function _addEarthScale($imagickImage) {
+        $rect_width  = 62;
+        $rect_height = 62;
+          
+        // Draw black rectangle background for indicator and label
+        $draw = new ImagickDraw();
+        $draw->setFillColor('#000000FF');
+        $draw->rectangle( 0, $imagickImage->getImageHeight(), $rect_width, 
+                             $imagickImage->getImageHeight()-$rect_width );
+        $imagickImage->drawImage($draw);
+            
+        // Draw Earth to scale
+        $earth = new IMagick(HV_ROOT_DIR .'/resources/images/earth.png');
+        $width  = $earth->getImageWidth()  * ($this->maxPixelScale/$this->roi->imageScale());
+        $height = $earth->getImageHeight() * ($this->maxPixelScale/$this->roi->imageScale());
+        $x = $rect_width/2 - $width/2;
+        $y = $imagickImage->getImageHeight() - ($rect_height/2 + $height/2);
+        $earth->resizeImage($width,$height,Imagick::FILTER_LANCZOS,1);
+        $imagickImage->compositeImage($earth, IMagick::COMPOSITE_DISSOLVE, $x, $y);
+            
+        // Write 'Earth Scale' label in white
+        $text = new IMagickDraw();
+        $text->setTextEncoding('utf-8');
+        $text->setFont('/usr/share/fonts/truetype/ttf-dejavu/DejaVuSans.ttf');
+        $text->setFontSize(10);
+        $text->setFillColor('#ffff');
+        $text->setTextAntialias(true);
+        $text->setStrokeWidth(0);
+        $x = 3;
+        $y = $imagickImage->getImageHeight() - ($rect_height - 12);
+        $imagickImage->annotateImage($text, $x, $y, 0,'Earth Scale');
+      
+        // Cleanup
+        $draw->destroy();
+        $earth->destroy();
+        $text->destroy();
+    }
+    
     
     /**
      * Composites a watermark (the date strings of the image) onto the lower left corner and the HV logo in the
@@ -491,7 +548,7 @@ class Image_Composite_HelioviewerCompositeImage
 
         // Put the names on first, then put the times on as a separate layer so the times are nicely aligned.
         foreach ($this->_imageLayers as $layer) {
-            $lowerPad -= 12;
+            $lowerPad -= 18;
             $nameCmd  .= $layer->getWaterMarkName();
             $timeCmd  .= $layer->getWaterMarkDateString();
         }
@@ -504,16 +561,16 @@ class Image_Composite_HelioviewerCompositeImage
         $underText->setStrokeColor($black);
         $underText->setStrokeAntialias(true);
         $underText->setStrokeWidth(2);
-        $imagickImage->annotateImage($underText, 20, $lowerPad, 0, $nameCmd);
-        $imagickImage->annotateImage($underText, 125, $lowerPad, 0, $timeCmd);
+        $imagickImage->annotateImage($underText,  80, $lowerPad, 0, $nameCmd);
+        $imagickImage->annotateImage($underText, 185, $lowerPad, 0, $timeCmd);
         
         // Write words in white over outline
         $text = new IMagickDraw();
         $text->setFillColor($white);
         $text->setTextAntialias(true);
         $text->setStrokeWidth(0);
-        $imagickImage->annotateImage($text, 20, $lowerPad, 0, $nameCmd);
-        $imagickImage->annotateImage($text, 125, $lowerPad, 0, $timeCmd);
+        $imagickImage->annotateImage($text,  80, $lowerPad, 0, $nameCmd);
+        $imagickImage->annotateImage($text, 185, $lowerPad, 0, $timeCmd);
         
         // Cleanup
         $black->destroy();

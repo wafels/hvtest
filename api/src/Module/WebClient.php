@@ -299,13 +299,19 @@ class Module_WebClient implements Module
         if ( array_key_exists('eventLabels', $this->_params) ) {
             $eventLabels = $this->_params['eventLabels'];
         }
+        
+        // Earth Scale
+        $earthScale = false;
+        if ( array_key_exists('earthScale', $this->_params) ) {
+            $earthScale = $this->_params['earthScale'];
+        }
       
         // Region of interest
         $roi = $this->_getRegionOfInterest();
         
         // Create the screenshot
         $screenshot = new Image_Composite_HelioviewerScreenshot(
-            $layers, $events, $eventLabels, $this->_params['date'], $roi, $this->_options
+            $layers, $events, $eventLabels, $earthScale, $this->_params['date'], $roi, $this->_options
         );
         
         // Display screenshot
@@ -792,12 +798,13 @@ class Module_WebClient implements Module
                 "required" => array('date', 'imageScale', 'layers'),
                 "optional" => array('display', 'watermark', 'x1', 'x2', 
                                     'y1', 'y2', 'x0', 'y0', 'width', 'height', 
-                                    'events', 'eventLabels', 'callback'),
+                                    'events', 'eventLabels', 'earthScale', 
+                                    'callback'),
                 "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2', 
                                     'x0', 'y0'),
                 "ints"     => array('width', 'height'),
                 "dates"	   => array('date'),
-                "bools"    => array('display', 'watermark', 'eventLabels'),
+                "bools"    => array('display', 'watermark', 'eventLabels', 'earthScale'),
                 "alphanum" => array('callback')
             );
             break;

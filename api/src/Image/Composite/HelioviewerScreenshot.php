@@ -31,9 +31,9 @@ class Image_Composite_HelioviewerScreenshot extends Image_Composite_HelioviewerC
 	/**
 	 * Creates a new screenshot
 	 */
-    public function __construct($layers, $events, $eventLabels, $obsDate, $roi, $options)
+    public function __construct($layers, $events, $eventLabels, $earthScale, $obsDate, $roi, $options)
     {
-    	parent::__construct($layers, $events, $eventLabels, $obsDate, $roi, $options);
+    	parent::__construct($layers, $events, $eventLabels, $earthScale, $obsDate, $roi, $options);
     	
         $this->id = $this->_getScreenshotId();
     	$this->build($this->_buildFilepath());
