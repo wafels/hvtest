@@ -31,6 +31,7 @@ var MovieManagerUI = MediaManagerUI.extend(
         this._movieLayers = null;
         this._movieEvents = null;
         this._movieEventsLabels = null;
+        this._movieEarthScale   = null;
         this._initEvents();
         this._initSettings();
     },
@@ -73,6 +74,7 @@ var MovieManagerUI = MediaManagerUI.extend(
             layers       : this._movieLayers,
             events       : this._movieEvents,
             eventsLabels : this._movieEventsLabels,
+            earthScale   : true,
             format       : this._manager.format
         };
        
@@ -194,7 +196,7 @@ var MovieManagerUI = MediaManagerUI.extend(
 
             movie = self._manager.queue(
                 response.id, response.eta, response.token, 
-                params.imageScale, params.layers, params.events, params.eventsLabels, 
+                params.imageScale, params.layers, params.events, params.eventsLabels, params.earthScale, 
                 new Date().toISOString(), params.startTime, params.endTime, 
                 params.x1, params.x2, params.y1, params.y2
             );
@@ -730,6 +732,7 @@ var MovieManagerUI = MediaManagerUI.extend(
                     response.layers,
                     response.events,
                     response.eventsLabels,
+                    response.earthScale,
                     response.timestamp.replace(" ", "T") + ".000Z",
                     response.startDate,
                     response.endDate,

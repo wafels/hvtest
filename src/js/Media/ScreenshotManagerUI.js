@@ -154,7 +154,7 @@ var ScreenshotManagerUI = MediaManagerUI.extend(
      * viewport roi
      */
     _takeScreenshot: function (roi) {
-        var params, dataType, imageScale, layers, events, eventLabels, screenshot, self = this; 
+        var params, dataType, imageScale, layers, events, eventLabels, earthScale, screenshot, self = this; 
         
         if (typeof roi === "undefined") {
             roi = helioviewer.getViewportRegionOfInterest();
@@ -164,6 +164,7 @@ var ScreenshotManagerUI = MediaManagerUI.extend(
         layers      = helioviewer.getVisibleLayers(roi);
         events      = helioviewer.getEvents();
         eventLabels = Helioviewer.userSettings.get("state.eventLabels");
+        earthScale  = true;
 
         // Make sure selection region and number of layers are acceptible
         if (!this._validateRequest(roi, layers)) {
@@ -176,6 +177,7 @@ var ScreenshotManagerUI = MediaManagerUI.extend(
             layers        : layers,
             events        : events,
             eventLabels   : eventLabels,
+            earthScale    : earthScale,
             date          : helioviewer.getDate().toISOString(),
             display       : false
         }, this._toArcsecCoords(roi, imageScale));

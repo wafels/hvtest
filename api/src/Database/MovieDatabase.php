@@ -39,17 +39,17 @@ class Database_MovieDatabase
      * Inserts a new movie entry into the database and returns it's id
      */
     public function insertMovie($startTime, $endTime, $imageScale, $roi, $maxFrames, $watermark, $layerString, 
-                                $layerBitMask, $eventString, $eventsLabels, $numLayers, $queueNum, $frameRate, $movieLength)
+                                $layerBitMask, $eventString, $eventsLabels, $earthScale, $numLayers, $queueNum, $frameRate, $movieLength)
     {
         $sql = "INSERT INTO movies VALUES(NULL, NULL, ?, ?, ?, PolygonFromText(?), " .
-               "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL);";
+               "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL);";
                
         $startTime = isoDateToMySQL($startTime);
         $endTime   = isoDateToMySQL($endTime);
                  
         $stmt = $this->_dbConnection->link->prepare($sql);
-        $stmt->bind_param('ssdsisssssiiss', $startTime, $endTime, $imageScale, $roi, $maxFrames, $watermark,
-                                          $layerString, $layerBitMask, $eventString, $eventsLabels, 
+        $stmt->bind_param('ssdsissssssiiss', $startTime, $endTime, $imageScale, $roi, $maxFrames, $watermark,
+                                          $layerString, $layerBitMask, $eventString, $eventsLabels, $earthScale, 
                                           $numLayers, $queueNum, $frameRate, $movieLength);
 
         $result = $stmt->execute();

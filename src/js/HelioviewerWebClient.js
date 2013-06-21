@@ -118,6 +118,14 @@ var HelioviewerWebClient = HelioviewerClient.extend(
                 at: "bottom middle"
             }
         });
+        
+        // Top-left tooltips
+        $(".qtip-topleft").qtip({
+            position: {
+                my: "bottom right",
+                at: "top middle"
+            }
+        });
     },
     
     /**

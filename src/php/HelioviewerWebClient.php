@@ -265,7 +265,7 @@ class HelioviewerWebClient extends HelioviewerClient
                             <!--Social buttons -->
                             <div id="social-buttons">
                                 <!-- Link button -->
-                                <div id="link-button" class="text-btn qtip-left" title="Generate a direct link to the current view.">
+                                <div id="link-button" class="text-btn qtip-topleft" title="Generate a direct link to the current view.">
                                     <span class="ui-icon ui-icon-link" style="float: left;"></span>
                                     <span style="line-height: 1.6em">Link</span>
                                 </div>
@@ -277,19 +277,19 @@ class HelioviewerWebClient extends HelioviewerClient
                                 </div>-->
 
                                 <!-- Movie button -->
-                                <div id="movie-button" class="text-btn qtip-left" title="Generate a movie based on the current view.">
+                                <div id="movie-button" class="text-btn qtip-topleft" title="Generate a movie based on the current view.">
                                     <span class="ui-icon ui-icon-video" style="float: left;"></span>
                                     <span style="line-height: 1.6em">Movie</span>
                                 </div>
 
                                 <!-- Screenshot button -->
-                                <div id="screenshot-button" class="text-btn qtip-left" title="Save a screenshot of the current view.">
+                                <div id="screenshot-button" class="text-btn qtip-topleft" title="Save a screenshot of the current view.">
                                     <span class="ui-icon ui-icon-image" style="float: left;"></span>
                                     <span style="line-height: 1.6em">Screenshot</span>
                                 </div>
                                 
                                 <!-- Settings button -->
-                                <div id="settings-button" class="text-btn qtip-left" title="Configure Helioviewer.org user preferences.">
+                                <div id="settings-button" class="text-btn qtip-topleft" title="Configure Helioviewer.org user preferences.">
                                     <span class="ui-icon ui-icon-gear" style="float: left;"></span>
                                     <span style="line-height: 1.6em">Settings</span>
                                 </div>
@@ -303,7 +303,7 @@ class HelioviewerWebClient extends HelioviewerClient
                             </div>
 
                             <!-- Fullscreen toggle -->
-                            <div id='fullscreen-btn' class='qtip-left' title="Toggle fullscreen display.">
+                            <div id='fullscreen-btn' class='qtip-topleft' title="Toggle fullscreen display.">
                                 <span class='ui-icon ui-icon-arrow-4-diag'></span>
                             </div>
 

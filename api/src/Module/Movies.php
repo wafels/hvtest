@@ -155,7 +155,7 @@ class Module_Movies implements Module
         // Create entry in the movies table in MySQL
         $dbId = $movieDb->insertMovie($this->_params['startTime'], $this->_params['endTime'], $imageScale, 
                                       $roiString, $maxFrames, $options['watermark'], $this->_params['layers'], $bitmask, 
-                                      $this->_params['events'], $this->_params['eventsLabels'], $layers->length(), 
+                                      $this->_params['events'], $this->_params['eventsLabels'], $this->_params['earthScale'], $layers->length(), 
                                       $queueSize, $options['frameRate'], $options['movieLength']);
 
         // Convert id
@@ -767,10 +767,13 @@ class Module_Movies implements Module
             break;
         case "queueMovie":
             $expected = array(
-                "required" => array('startTime', 'endTime', 'layers', 'events', 'eventsLabels', 'imageScale'),
-                "optional" => array('format', 'frameRate', 'maxFrames', 'movieLength', 'watermark', 'width', 'height', 'x0', 'y0', 'x1', 'x2', 'y1', 'y2', 'callback'),
+                "required" => array('startTime', 'endTime', 'layers', 'events', 
+                                    'eventsLabels',  'imageScale'),
+                "optional" => array('format', 'frameRate', 'maxFrames', 'earthScale', 
+                                    'movieLength', 'watermark', 'width', 'height', 
+                                    'x0', 'y0', 'x1', 'x2', 'y1', 'y2', 'callback'),
                 "alphanum" => array('format', 'callback'),
-                "bools"    => array('watermark', 'eventsLabels'),
+                "bools"    => array('watermark', 'eventsLabels', 'earthScale'),
                 "dates"    => array('startTime', 'endTime'),
                 "floats"   => array('imageScale', 'frameRate', 'movieLength', 'x0', 'y0', 'x1', 'x2', 'y1', 'y2'),
                 "ints"     => array('maxFrames', 'width', 'height')

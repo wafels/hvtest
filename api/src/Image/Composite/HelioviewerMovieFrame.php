@@ -29,9 +29,9 @@ class Image_Composite_HelioviewerMovieFrame extends Image_Composite_HelioviewerC
     /**
      * Helioviewer movie frame
      */
-    public function __construct($filepath, $layers, $events, $eventsLabels, $obsDate, $roi, $options)
+    public function __construct($filepath, $layers, $events, $eventsLabels, $earthScale, $obsDate, $roi, $options)
     {
-        parent::__construct($layers, $events, $eventsLabels, $obsDate, $roi, $options);
+        parent::__construct($layers, $events, $eventsLabels, $earthScale, $obsDate, $roi, $options);
         $this->build($filepath);
     }
 }

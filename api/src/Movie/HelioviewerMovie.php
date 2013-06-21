@@ -61,6 +61,7 @@ class Movie_HelioviewerMovie
     public $timestamp;
     public $watermark;
     public $eventsLabels;
+    public $earthScale;
 
     private $_db;
     private $_layers;
@@ -102,6 +103,7 @@ class Movie_HelioviewerMovie
         $this->height       = (int) $info['height'];
         $this->watermark    = (bool) $info['watermark'];
         $this->eventsLabels = (bool) $info['eventsLabels'];
+        $this->earthScale   = (bool) $info['earthScale'];
         $this->maxFrames    = min((int) $info['maxFrames'], HV_MAX_MOVIE_FRAMES);
         
         // Data Layers
@@ -312,7 +314,7 @@ class Movie_HelioviewerMovie
 
             try {
 	            $screenshot = new Image_Composite_HelioviewerMovieFrame($filepath, $this->_layers, 
-                                      $this->_events, $this->eventsLabels, $time, $this->_roi, $options);
+                                      $this->_events, $this->eventsLabels, $this->earthScale, $time, $this->_roi, $options);
 	            
 	            if ($frameNum == $previewIndex) {
 	                $previewImage = $screenshot; // Make a copy of frame to be used for preview images
