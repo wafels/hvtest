@@ -165,6 +165,11 @@ var ScreenshotManagerUI = MediaManagerUI.extend(
         events      = helioviewer.getEvents();
         eventLabels = Helioviewer.userSettings.get("state.eventLabels");
         earthScale  = true;
+        
+        if ( Helioviewer.userSettings.get("state.eventLayerVisible") === false ) {
+            events = '';
+            eventLabels = false;
+        }
 
         // Make sure selection region and number of layers are acceptible
         if (!this._validateRequest(roi, layers)) {

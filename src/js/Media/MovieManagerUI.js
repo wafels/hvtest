@@ -67,6 +67,11 @@ var MovieManagerUI = MediaManagerUI.extend(
         
         this.building = true;
         
+        if ( Helioviewer.userSettings.get("state.eventLayerVisible") === false ) {
+            this._movieEvents = '';
+            this._movieEventsLabels = false;
+        }
+        
         // Movie request parameters
         baseParams = {
             action       : "queueMovie",
