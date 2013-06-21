@@ -398,6 +398,7 @@ def create_movies_table(cursor):
       `dataSourceBitMask` BIGINT UNSIGNED,
       `eventSourceString` VARCHAR(1024) DEFAULT NULL,
       `eventsLabels`      TINYINT(1) UNSIGNED NOT NULL,
+      `earthScale`        TINYINT(1) UNSIGNED NOT NULL,
       `numLayers`         TINYINT UNSIGNED,
       `queueNum`          SMALLINT UNSIGNED,
       `frameRate`         FLOAT UNSIGNED,
