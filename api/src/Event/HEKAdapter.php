@@ -923,6 +923,7 @@ class Event_HEKAdapter
         
         /* Set the format to PNG */
         $canvas->setImageFormat('png');
+        $canvas->setInterlaceScheme(Imagick::INTERLACE_PNG);
         
         /* Output the image */
         $dateArray = date_parse($event['event_starttime']);
