@@ -24,7 +24,11 @@ var EventLayerManager = EventManager.extend(
         this._treeContainer = $("#eventJSTree");
         this._eventTypes    = {};
         this._jsTreeData    = [];
-        this._date          = date;
+
+        if ( typeof date == 'undefined' ) {
+            var date = requestDate;
+        }
+        this._date = date;
 
         this._requestDate      = requestDate;
         this.defaultEventTypes = defaultEventTypes;
