@@ -154,7 +154,7 @@ var ScreenshotManagerUI = MediaManagerUI.extend(
      * viewport roi
      */
     _takeScreenshot: function (roi) {
-        var params, dataType, imageScale, layers, events, eventLabels, earthScale, screenshot, self = this; 
+        var params, dataType, imageScale, layers, events, eventLabels, scale, scaleType, scaleX, scaleY, screenshot, self = this; 
         
         if (typeof roi === "undefined") {
             roi = helioviewer.getViewportRegionOfInterest();
@@ -163,8 +163,6 @@ var ScreenshotManagerUI = MediaManagerUI.extend(
         imageScale  = helioviewer.getImageScale();
         layers      = helioviewer.getVisibleLayers(roi);
         events      = helioviewer.getEvents();
-        eventLabels = Helioviewer.userSettings.get("state.eventLabels");
-        earthScale  = true;
         
         if ( Helioviewer.userSettings.get("state.eventLayerVisible") === false ) {
             events = '';
@@ -181,8 +179,11 @@ var ScreenshotManagerUI = MediaManagerUI.extend(
             imageScale    : imageScale,
             layers        : layers,
             events        : events,
-            eventLabels   : eventLabels,
-            earthScale    : earthScale,
+            eventLabels   : Helioviewer.userSettings.get("state.eventLabels"),
+            scale         : Helioviewer.userSettings.get("state.scale"),
+            scaleType     : Helioviewer.userSettings.get("state.scaleType"),
+            scaleX        : Helioviewer.userSettings.get("state.scaleX"),
+            scaleY        : Helioviewer.userSettings.get("state.scaleY"),
             date          : helioviewer.getDate().toISOString(),
             display       : false
         }, this._toArcsecCoords(roi, imageScale));

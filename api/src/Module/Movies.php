@@ -140,7 +140,7 @@ class Module_Movies implements Module
         $estBuildTime = $this->_estimateMovieBuildTime($movieDb, $numFrames, $numPixels, $options['format']);
 
         // If all workers are in use, increment and use estimated wait counter
-        if($queueSize +1 >= sizeOf($movieWorkers)) {
+        if ( $queueSize +1 >= sizeOf($movieWorkers) ) {
             $eta = $redis->incrby('helioviewer:movie_queue_wait', $estBuildTime);
             $updateCounter = true;
         } else {
@@ -153,10 +153,14 @@ class Module_Movies implements Module
         $bitmask = bindec($layers->getBitMask());
         
         // Create entry in the movies table in MySQL
-        $dbId = $movieDb->insertMovie($this->_params['startTime'], $this->_params['endTime'], $imageScale, 
-                                      $roiString, $maxFrames, $options['watermark'], $this->_params['layers'], $bitmask, 
-                                      $this->_params['events'], $this->_params['eventsLabels'], $this->_params['earthScale'], $layers->length(), 
-                                      $queueSize, $options['frameRate'], $options['movieLength']);
+        $dbId = $movieDb->insertMovie($this->_params['startTime'], 
+            $this->_params['endTime'], $imageScale, $roiString,  $maxFrames, 
+            $options['watermark'],     $this->_params['layers'], $bitmask, 
+            $this->_params['events'],  $this->_params['eventsLabels'], 
+            $this->_params['scale'],   $this->_params['scaleType'], 
+            $this->_params['scaleX'],  $this->_params['scaleY'], 
+            $layers->length(), $queueSize, $options['frameRate'], 
+            $options['movieLength']);
 
         // Convert id
         $publicId = alphaID($dbId, false, 5, HV_MOVIE_ID_PASS);
@@ -374,11 +378,11 @@ class Module_Movies implements Module
             header("Cache-Control: private", false);
             header("Content-Disposition: attachment; filename=\"" . $filename . "\"");
             header("Content-Transfer-Encoding: binary");
-            header("Content-Length: " . filesize($filepath));
+            header("Content-Length: " . @filesize($filepath));
             header("Content-type: video/" . $this->_params['format']);
             
             // Return movie data
-            echo file_get_contents($filepath);
+            echo @file_get_contents($filepath);
             
         // Otherwise return an error
         } else {
@@ -533,12 +537,6 @@ class Module_Movies implements Module
         } else {
             // Otherwise read form data back in from session variables
             session_start();
-
-            $id          = $_SESSION['video-id'];
-            $title       = $_SESSION['video-title'];
-            $description = $_SESSION['video-description'];
-            $tags        = $_SESSION['video-tags'];
-            $share       = $_SESSION['video-share'];
             
             if (!isset($_SESSION['video-title'])) {
                 $msg = "Error encountered during authentication. ". 
@@ -546,6 +544,12 @@ class Module_Movies implements Module
                        "for Helioviewer.org in your Google settings page and try again.</a>";
                 throw new Exception($msg, 42);
             }
+
+            $id          = $_SESSION['video-id'];
+            $title       = $_SESSION['video-title'];
+            $description = $_SESSION['video-description'];
+            $tags        = $_SESSION['video-tags'];
+            $share       = $_SESSION['video-share'];
         }
         
         // Output format
@@ -573,15 +577,17 @@ class Module_Movies implements Module
 
         // Default options
         $defaults = array(
-            "num" => 10,
-            "since" => '1000/01/01T00:00:00.000Z'
+            "num"   => 10,
+            "since" => '2000/01/01T00:00:00.000Z',
+            "force" => false
         );
         $opts = array_replace($defaults, $this->_options);
                 
         // Get a list of recent videos
         $videos = array();
         
-        foreach($movies->getSharedVideos($opts['num'], $opts['since']) as $video) {
+        foreach($movies->getSharedVideos($opts['num'], $opts['since'], $opts['force']) as $video) {
+
             $youtubeId = $video['youtubeId'];
             $movieId   = (int) $video['movieId'];
              
@@ -668,7 +674,7 @@ class Module_Movies implements Module
         $filename = basename($filepath);  
         
         // Movie URL
-        $url = str_replace(HV_ROOT_DIR, HV_WEB_ROOT_URL, $filepath);
+        $url = str_replace(HV_CACHE_DIR, HV_CACHE_URL, $filepath);
         ?>
 <!DOCTYPE html> 
 <html> 
@@ -769,13 +775,16 @@ class Module_Movies implements Module
             $expected = array(
                 "required" => array('startTime', 'endTime', 'layers', 'events', 
                                     'eventsLabels',  'imageScale'),
-                "optional" => array('format', 'frameRate', 'maxFrames', 'earthScale', 
+                "optional" => array('format', 'frameRate', 'maxFrames', 'scale', 
+                                    'scaleType', 'scaleX', 'scaleY', 
                                     'movieLength', 'watermark', 'width', 'height', 
                                     'x0', 'y0', 'x1', 'x2', 'y1', 'y2', 'callback'),
-                "alphanum" => array('format', 'callback'),
-                "bools"    => array('watermark', 'eventsLabels', 'earthScale'),
+                "alphanum" => array('format', 'scaleType', 'callback'),
+                "bools"    => array('watermark', 'eventsLabels', 'scale'),
                 "dates"    => array('startTime', 'endTime'),
-                "floats"   => array('imageScale', 'frameRate', 'movieLength', 'x0', 'y0', 'x1', 'x2', 'y1', 'y2'),
+                "floats"   => array('imageScale', 'frameRate', 'movieLength', 
+                                    'x0', 'y0', 'x1', 'x2', 'y1', 'y2', 
+                                    'scaleX', 'scaleY'),
                 "ints"     => array('maxFrames', 'width', 'height')
             );
             break;
@@ -789,10 +798,11 @@ class Module_Movies implements Module
             break;
         case "getUserVideos":
             $expected = array(
-                "optional" => array('num', 'since', 'callback'),
+                "optional" => array('num', 'since', 'force', 'callback'),
                 "alphanum" => array('callback'),
                 "ints"     => array('num'),
-                "dates"    => array('since')
+                "dates"    => array('since'),
+                "bools"    => array('force')
             );
             break;
         case "checkYouTubeAuth":

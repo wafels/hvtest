@@ -218,6 +218,8 @@ class Module_WebClient implements Module
         // Look up image properties
         $imgIndex = new Database_ImgIndex();
         $image = $imgIndex->getImageInformation($this->_params['id']);
+        
+        $this->_options['date'] = $image['date'];
 
         // Tile filepath
         $filepath =  $this->_getTileCacheFilename(
@@ -290,9 +292,10 @@ class Module_WebClient implements Module
 
         // Event Layers
         $events = Array();
-        if ( array_key_exists('events', $this->_params) ) {
-            $events = new Helper_HelioviewerEvents($this->_params['events']);
+        if ( !array_key_exists('events', $this->_params) ) {
+            $this->_params['events'] = '';
         }
+        $events = new Helper_HelioviewerEvents($this->_params['events']);
         
         // Event Labels
         $eventLabels = false;
@@ -300,10 +303,16 @@ class Module_WebClient implements Module
             $eventLabels = $this->_params['eventLabels'];
         }
         
-        // Earth Scale
-        $earthScale = false;
-        if ( array_key_exists('earthScale', $this->_params) ) {
-            $earthScale = $this->_params['earthScale'];
+        // Scale
+        $scale  = false;
+        $scaleType = 'earth';
+        $scaleX = 0;
+        $scaleY = 0;
+        if ( array_key_exists('scale', $this->_params) ) {
+            $scale  = $this->_params['scale'];
+            $scaleType = $this->_params['scaleType'];
+            $scaleX = $this->_params['scaleX'];
+            $scaleY = $this->_params['scaleY'];
         }
       
         // Region of interest
@@ -311,7 +320,7 @@ class Module_WebClient implements Module
         
         // Create the screenshot
         $screenshot = new Image_Composite_HelioviewerScreenshot(
-            $layers, $events, $eventLabels, $earthScale, $this->_params['date'], $roi, $this->_options
+            $layers, $events, $eventLabels, $scale, $scaleType, $scaleX, $scaleY, $this->_params['date'], $roi, $this->_options
         );
         
         // Display screenshot
@@ -332,24 +341,24 @@ class Module_WebClient implements Module
 
         // Create cache dir if it doesn't already exist
         $cacheDir = HV_CACHE_DIR . "/remote";
-        if (!file_exists($cacheDir)) {
+        if ( !@file_exists($cacheDir) ) {
             mkdir($cacheDir, 0777, true);
         }
         
         // Check for feed in cache
         $cache = new JG_Cache($cacheDir);
 
-        if(!($feed = $cache->get('news.xml', 1800))) {
+        if( !($feed = $cache->get('news.xml', 1800)) ) {
             
             // Re-fetch if it is old than 30 mins
             include_once 'src/Net/Proxy.php';
             $proxy = new Net_Proxy(HV_NEWS_FEED_URL);
-            $feed = $proxy->query();
+            $feed  = $proxy->query();
             $cache->set('news.xml', $feed);
         }
 
         // Print Response as XML or JSONP/XML
-        if(isset($this->_params['callback'])) {
+        if ( isset($this->_params['callback']) ) {
             $this->_printJSON($feed, true, true);
         } else {
             header("Content-Type: text/xml;charset=UTF-8");
@@ -412,11 +421,21 @@ class Module_WebClient implements Module
      * Creates a SSW script to download the original data associated with
      * the specified parameters.
      */
-     public function getSSWScript()
+     public function getSciDataScript()
      {
-         include_once 'src/Helper/SSW.php';
-         $roi = $this->_getRegionOfInterest();
-         createSSWScript("SDO", "AIA", "AIA", "171");
+         if (      strtolower($this->_params['lang']) == 'sswidl' ) {
+             include_once 'src/Helper/SSWIDL.php';
+             $script = new Helper_SSWIDL($this->_params);
+         }
+         else if ( strtolower($this->_params['lang']) == 'sunpy' ) {
+             include_once 'src/Helper/SunPy.php';
+             $script = new Helper_SunPy($this->_params);
+         }
+         else { 
+             handleError('Invalid value specified for request parameter.',25);
+         }
+         
+         $script->buildScript();
      }
 
     /**
@@ -614,8 +633,8 @@ class Module_WebClient implements Module
     {
         $cacheDir = HV_CACHE_DIR . "/tiles" . $directory;
  
-        if (!file_exists($cacheDir)) {
-            mkdir($cacheDir, 0777, true);
+        if ( !@file_exists($cacheDir) ) {
+            @mkdir($cacheDir, 0777, true);
         }
     }
 
@@ -770,14 +789,27 @@ class Module_WebClient implements Module
                 "alphanum" => array('callback')
             );
             break;
-        case "getSSWScript":
+        case "getSciDataScript":
             $expected = array(
-                "required" => array('startTime', 'endTime', 'imageScale', 'layers'),
-                "optional" => array('x1', 'x2', 'y1', 'y2', 'x0', 'y0', 'width', 'height', 'callback'),
-                "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2', 'x0', 'y0'),
+                "required" => array('imageScale', 'imageLayers', 'eventLayers', 
+                                    'startTime', 'lang', 'fovType'),
+                "optional" => array('endTime', 'x0','y0', 'hpc_x', 'hpc_y', 
+                                    'width', 'height', 'movieId', 
+                                    'x1','y1', 'x2','y2', 
+                                    'hpc_bbox_ll_x', 'hpc_bbox_ll_y',
+                                    'hpc_bbox_ur_x', 'hpc_bbox_ur_y',
+                                    'rot_from_time', 'kb_archivid',  
+                                    'event_type',
+                                    'callback'),
+                "floats"   => array('imageScale', 'x0','y0','x1','y1','x2','y2',
+                                    'hpc_x', 'hpc_y', 
+                                    'hpc_bbox_ll_x', 'hpc_bbox_ll_y',
+                                    'hpc_bbox_ur_x', 'hpc_bbox_ur_y'),
                 "ints"     => array('width', 'height'),
-                "dates"    => array('startTime', 'endTime'),
-                "alphanum" => array('callback')
+                "dates"    => array('startTime', 'endTime', 'rot_from_time'),
+                "alphanum" => array('movieId', 'fovType', 'event_type',
+                                    'callback'),
+                "urls"     => array('kb_archivid')
             );
             break;
         case "getUsageStatistics":
@@ -798,14 +830,14 @@ class Module_WebClient implements Module
                 "required" => array('date', 'imageScale', 'layers'),
                 "optional" => array('display', 'watermark', 'x1', 'x2', 
                                     'y1', 'y2', 'x0', 'y0', 'width', 'height', 
-                                    'events', 'eventLabels', 'earthScale', 
-                                    'callback'),
+                                    'events', 'eventLabels', 'scale', 'scaleType',
+                                    'scaleX', 'scaleY', 'callback'),
                 "floats"   => array('imageScale', 'x1', 'x2', 'y1', 'y2', 
-                                    'x0', 'y0'),
+                                    'x0', 'y0', 'scaleX', 'scaleY'),
                 "ints"     => array('width', 'height'),
                 "dates"	   => array('date'),
-                "bools"    => array('display', 'watermark', 'eventLabels', 'earthScale'),
-                "alphanum" => array('callback')
+                "bools"    => array('display', 'watermark', 'eventLabels', 'scale'),
+                "alphanum" => array('scaleType', 'callback')
             );
             break;
         case "getStatus":

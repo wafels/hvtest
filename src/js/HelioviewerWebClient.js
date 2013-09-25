@@ -7,7 +7,7 @@
 /*global document, window, $, HelioviewerClient, ImageSelectTool, MovieBuilder, 
   TooltipHelper, HelioviewerViewport, ScreenshotBuilder, ScreenshotHistory,
   MovieHistory, UserVideoGallery, MessageConsole, Helioviewer,
-  KeyboardManager, SettingsLoader, TimeControls, FullscreenControl, addthis,
+  KeyboardManager, SettingsLoader, TimeControls, FullscreenControl,
   ZoomControls, ScreenshotManagerUI, MovieManagerUI, assignTouchHandlers, 
   TileLayerAccordion, VisualGlossary, _gaq */
 "use strict";
@@ -55,9 +55,10 @@ var HelioviewerWebClient = HelioviewerClient.extend(
                                                this.serverSettings.minImageScale,
                                                this.serverSettings.maxImageScale);
 
-        this.earthScale     = new EarthScale('#earth-scale-container', imageScale); 
+        this.earthScale     = new ImageScale(); 
 
         this.fullScreenMode = new FullscreenControl("#fullscreen-btn", 500);
+        this.moreScreenMode = new MorescreenControl("#morescreen-btn", 500);
         
         this.displayBlogFeed(3, false);
         
@@ -75,11 +76,6 @@ var HelioviewerWebClient = HelioviewerClient.extend(
         this._setupSettingsUI();
         
         this._displayGreeting();
-
-        // Initialize AddThis
-        if (typeof(addthis) !== "undefined") {
-            addthis.init();            
-        }
     },
     
     /**
@@ -187,13 +183,30 @@ var HelioviewerWebClient = HelioviewerClient.extend(
         
         // About dialog
         this._setupDialog("#helioviewer-about", "#about-dialog", {
-            "title": "Helioviewer - About",
-            height : 300
+            "title"  : "Helioviewer - About",
+            "height" : 400
         });
 
         // Keyboard shortcuts dialog
         this._setupDialog("#helioviewer-usage", "#usage-dialog", {
             "title": "Helioviewer - Usage Tips"
+        });
+        
+        // Science Data Script Download dialog
+        this._scienceDialog("#science-data-button", "#science-data-dialog", {
+            "buttons": {
+                "Generate Script": function () {
+                    self.getSciDownloadScript($('form#helioviewer-science-data-script'));
+                    $(this).dialog("close");
+                }
+            },
+            "title": "Science Data Download Script Generation",
+            "width": 400,
+            "height": 'auto',
+            "resizable": false,
+            "create": function (e) {
+
+            }
         });
         
         // Settings dialog
@@ -223,7 +236,41 @@ var HelioviewerWebClient = HelioviewerClient.extend(
             autoOpen  : true,
             draggable : true,
             width     : 480,
-            height    : 480
+            height    : 400
+        };
+        
+        // Button click handler
+        $(btn).click(function () {
+            var d   = $(dialog),
+                btn = $(this);
+
+            if (btn.hasClass("dialog-loaded")) {
+                if (d.dialog('isOpen')) {
+                    d.dialog('close');
+                }
+                else {
+                    d.dialog('open');
+                }
+            } else {
+                d.load(this.href, onLoad).dialog($.extend(defaults, options));
+                btn.addClass("dialog-loaded");
+            }
+            return false; 
+        });
+    },
+    
+    /**
+     * Sets up event handlers for a single dialog
+     */
+    _scienceDialog: function (btn, dialog, options, onLoad) {
+        // Default options
+        var defaults = {
+            title     : "Helioviewer.org",
+            autoOpen  : true,
+            draggable : true,
+            width     : 480,
+            height    : 400,
+            position  : ['top',80]
         };
         
         // Button click handler
@@ -311,7 +358,8 @@ var HelioviewerWebClient = HelioviewerClient.extend(
      */
     _initEventHandlers: function () {
         var self = this, 
-            msg  = "Use the following link to refer to current page:";
+            msg  = "Use the following link to refer to current page:",
+            btns;
         
         $('#link-button').click(function (e) {
             // Google analytics event
@@ -326,15 +374,23 @@ var HelioviewerWebClient = HelioviewerClient.extend(
         //$('#jhelioviewer-button').click($.proxy(this.launchJHelioviewer, this));
 
         // Highlight both text and icons for text buttons
-        $("#social-buttons .text-btn, #movie-manager-container .text-btn, #image-area-select-buttons > .text-btn, " + 
-          "#screenshot-manager-container .text-btn").hover(
+        
+        btns = $("#social-buttons .text-btn, " +
+                 "#movie-manager-container .text-btn, " + 
+                 "#image-area-select-buttons > .text-btn, " + 
+                 "#screenshot-manager-container .text-btn, " + 
+                 "#event-container .text-btn");
+        btns.live("mouseover",
             function () {
                 $(this).find(".ui-icon").addClass("ui-icon-hover");
-            },
+            });
+        btns.live("mouseout",
             function () {
                 $(this).find(".ui-icon").removeClass("ui-icon-hover");
-            }
-        );
+            });
+        
+        $('#science-data-button').click($.proxy(this.sciDataForm, this));
+             
         
         // Fix drag and drop for mobile browsers
         $("#helioviewer-viewport, .ui-slider-handle").each(function () {
@@ -351,8 +407,276 @@ var HelioviewerWebClient = HelioviewerClient.extend(
             }
             
             $("#helioviewer-url-input-box").attr('value', url).select();
-        });
+        });   
     },
+    
+    sciDataForm: function (e, params) {
+        var contents, html, tileLayers, tileAccordions, subDates=false, 
+            subDate, subTime, subDate, subTime, source='', self=this;
+        
+        if ( typeof params == 'undefined' ) {
+            params = {
+                "fovType"     :'viewport',
+                "startDate"   : self.timeControls.getDate(),
+                "endDate"     : self.timeControls.getDate(),
+                "imageLayers" : Helioviewer.userSettings.get("state.tileLayers"), // array
+                "eventLayers" : this.viewport.serializeEvents(),  // string
+                "eventLayersVisible" : Helioviewer.userSettings.get("state.eventLayerVisible"),
+                "imageScale"  : Helioviewer.userSettings.get("state.imageScale"), 
+                "x0"          : Helioviewer.userSettings.get("state.centerX"), 
+                "y0"          :-Helioviewer.userSettings.get("state.centerY"), 
+                "width"       : this.viewport.dimensions['width'], 
+                "height"      : this.viewport.dimensions['height']
+            };
+        }
+        
+        switch (params['fovType']) {
+            case 'viewport':
+                source = ' - Current View';
+                break;
+            case 'movie':
+                source = ' - Movie';
+                break;
+            case 'hek':
+                source = ' - Feature/Event';
+                break;
+        }
+        $('#ui-dialog-title-science-data-dialog').html('Science Data Download Script'+source);
+              
+        if ( typeof params.imageLayers == 'string' ) {
+            tileLayers = Array();
+            $.each(params.imageLayers.split('],['), function(i,layer) {
+                layer = layer.replace(/[\[\]]/g,'');
+                tileLayers.push(parseLayerString(layer));
+            });
+            params.imageLayers = tileLayers;
+        }
+        
+        if ( params.startDate.toUTCString() == params.endDate.toUTCString() ) {
+            subDates = true;
+        }
+        
+        tileAccordions = $('#TileLayerAccordion-Container').find('.dynaccordion-section .timestamp');
+        
+        $('#helioviewer-script-contents').html('<legend>Datasets to Include:</legend><div id="helioviewer-script-data-sources" style="padding: 2px 0 12px 0;"></div>');
+            
+        $.each(params.imageLayers, function(i,layer) {
+            var cssname='', nickname='', valname='', prev='';
+            
+            $.each(Array(layer.observatory,layer.instrument,layer.detector,layer.measurement), function(i,l) {
+                if ( prev != l ) {
+                    nickname += l + ' ';
+                }
+                cssname += l + '-';
+                valname += l + ',';
+                prev = l;
+            });
+            
+            cssname  = cssname.substring(0, cssname.length - 1);
+            nickname = nickname.substring(0, nickname.length - 1);
+            valname  = valname.substring(0, valname.length - 1);
+                       
+            html = '<div style="clear:both;">' + 
+                       '<div style="float: left; padding-top: 4px;">' +
+                           '<input type="checkbox" name="'+valname+'" id="'+cssname+'" value="true" />' +
+                       '</div>' +
+                       '<div style="float: left;">' +
+                           '<div><label for="'+cssname+'">'+nickname+'</label></div>';
+
+            if ( subDates ) {
+                subDate = $(tileAccordions[i]).html().split(' ');
+                subTime = subDate[1];
+                subDate = subDate[0];
+            
+                html +=    '<div>' + 
+                               '<span class="sub-date" style="font-size: 10px;">' + 
+                                   subDate + ' ' + subTime + ' UTC' + 
+                               '</span>' + 
+                               '<input type="hidden" id="'+cssname+'-startDate" name="'+cssname+'-startDate" value="'+subDate+'" />' + 
+                               '<input type="hidden" id="'+cssname+'-startTime" name="'+cssname+'-startTime" value="'+subTime+'" />' + 
+                           '</div>';
+            }
+            
+            html+=     '</div>' +
+                   '</div>';
+                             
+            $('#helioviewer-script-data-sources').append(html);
+            if ( layer.visible ) {
+                $('#'+cssname).attr('checked','checked');
+            }
+        });
+        
+        
+        if ( params.eventLayers.length > 0 ) {
+            html = '<div style="clear:both;">' + 
+                       '<div style="float: left; padding-top: 4px;">' +
+                           '<input type="checkbox" name="hek" id="science-data-source-hek" value="true" />' +
+                       '</div>' +
+                       '<div style="float: left;">' +
+                           '<label for="science-data-source-hek">Heliophysics Event Knowledgebase (HEK)</label>';
+            
+            if ( subDates ) { 
+                html +=    '<div class="sub-date">' +
+                               '<span style="font-size: 10px;">' + 
+                                   params.startDate.toUTCDateString() + ' ' + 
+                                   params.startDate.toUTCTimeString() + ' UTC' +
+                               '</span>' + 
+                               '<input type="hidden" name="hek-startDate" value="'+params.startDate.toUTCDateString()+'" />' +
+                               '<input type="hidden" name="hek-startTime" value="'+params.startDate.toUTCTimeString()+'" />' +
+                           '</div>';
+            }
+            
+            html +=    '</div>' +
+                   '</div>';
+        
+            $('#helioviewer-script-data-sources').append(html);
+            if ( params.eventLayersVisible == true ) {
+                $('#science-data-source-hek').attr('checked','checked');
+                $('#helioviewer-script-data-sources').append(
+                    $('<input type="hidden" name="eventLayers" value="'+params.eventLayers+'" />')
+                );
+            }
+        }
+        
+        $('#helioviewer-script-data-sources').append('<br />');
+        
+        contents = $('#helioviewer-script-contents');
+        
+        contents.append(
+            $('<input type="hidden" name="fovType" value="'+params.fovType+'" />')
+        );
+        
+        if ( "x0" in params && "y0" in params && "width" in params && "height" in params ) {
+            contents.append(
+                $('<input type="hidden" name="x0" value="'+params.x0+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="y0" value="'+params.y0+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="width" value="'+params.width+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="height" value="'+params.height+'" />')
+            );
+        }
+        else if ( "x1" in params && "y1" in params && "x2" in params && "y2" in params ) {
+            contents.append(
+                $('<input type="hidden" name="x1" value="'+params.x1+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="y1" value="'+params.y1+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="x2" value="'+params.x2+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="y2" value="'+params.y2+'" />')
+            );
+        }
+        // HEK data to be used to determine SDO cutout service parameters
+        else if ( "hpc_x"         in params && "hpc_y"         in params && 
+                  "hpc_bbox_ll_x" in params && "hpc_bbox_ll_y" in params &&
+                  "hpc_bbox_ur_x" in params && "hpc_bbox_ur_y" in params &&
+                  "rot_from_time" in params && "kb_archivid"   in params ) {
+            
+            contents.append(
+                $('<input type="hidden" name="hpc_x" value="'+params.hpc_x+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="hpc_y" value="'+params.hpc_y+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="hpc_bbox_ll_x" value="'+params.hpc_bbox_ll_x+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="hpc_bbox_ll_y" value="'+params.hpc_bbox_ll_y+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="hpc_bbox_ur_x" value="'+params.hpc_bbox_ur_x+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="hpc_bbox_ur_y" value="'+params.hpc_bbox_ur_y+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="rot_from_time" value="'+params.rot_from_time+'" />')
+            );
+            contents.append(
+                $('<input type="hidden" name="kb_archivid" value="'+params.kb_archivid+'" />')
+            );
+        }
+        
+        if ( "movieId" in params ) {
+            contents.append(
+                $('<input type="hidden" name="movieId" value="'+params.movieId+'" />')
+            );
+        }
+        
+        if ( subDates ) {
+            $('#helioviewer-script-dates span').css('margin-left','19px');
+            
+            $('#science-data-dates-custom').show();
+            $('#science-data-dates-checkbox').prop('checked',false);
+            $.each( $('#dates-custom .dimmable'), function(i,n) {
+                $(n).addClass('form-disabled');
+            });
+            
+            $('#helioviewer-script-dates #startDate').val(params.startDate.toUTCDateString()).prop('disabled',true);
+            $('#helioviewer-script-dates #startTime').val(params.startDate.toUTCTimeString()).prop('disabled',true);
+            
+            $('#helioviewer-script-dates #endDate').val(params.startDate.toUTCDateString()).prop('disabled',true);
+            $('#helioviewer-script-dates #endTime').val(params.startDate.toUTCTimeString()).prop('disabled',true);
+            
+            $('#science-data-dates-checkbox').click(function(e,i) {
+                
+                if ( $('#science-data-dates-checkbox').attr('checked') ) {           
+                    $('.sub-date').hide(200);
+                    
+                    $('#helioviewer-script-dates #startDate').prop('disabled',false);
+                    $('#helioviewer-script-dates #startTime').prop('disabled',false);
+            
+                    $('#helioviewer-script-dates #endDate').prop('disabled',false);
+                    $('#helioviewer-script-dates #endTime').prop('disabled',false);
+                    
+                    $.each( $('#dates-custom .dimmable'), function(i,n) {
+                        $(n).removeClass('form-disabled');
+                    });
+                }
+                else {
+                    $('.sub-date').show(200);
+                
+                    $('#helioviewer-script-dates #startDate').prop('disabled',true);
+                    $('#helioviewer-script-dates #startTime').prop('disabled',true);
+            
+                    $('#helioviewer-script-dates #endDate').prop('disabled',true);
+                    $('#helioviewer-script-dates #endTime').prop('disabled',true);
+                    
+                    $.each( $('#dates-custom .dimmable'), function(i,n) {
+                        $(n).addClass('form-disabled');
+                    });
+
+                }
+            });
+        }
+        else {
+            $('#helioviewer-script-dates span').css('margin-left','0');
+            
+            $('#helioviewer-script-dates #startDate').val(params.startDate.toUTCDateString()).prop('disabled',false);
+            $('#helioviewer-script-dates #startTime').val(params.startDate.toUTCTimeString()).prop('disabled',false);
+            
+            $('#helioviewer-script-dates #endDate').val(params.endDate.toUTCDateString()).prop('disabled',false);
+            $('#helioviewer-script-dates #endTime').val(params.endDate.toUTCTimeString()).prop('disabled',false);
+            
+            $('#science-data-dates-custom').hide();
+            $('#science-data-dates-checkbox').prop('checked',true);
+            $.each( $('#dates-custom .dimmable'), function(i,n) {
+                $(n).removeClass('form-disabled');
+            });
+            
+            $('#helioviewer-script-dates').show();
+        }
+    },
+        
     
     /**
      * displays a dialog containing a link to the current page
@@ -391,6 +715,87 @@ var HelioviewerWebClient = HelioviewerClient.extend(
             },
             success: callback
         });
+    },
+    
+    /**
+     * Download science data associated with the current Viewport
+     */
+    getSciDownloadScript: function (form) {     
+        
+        var ///jGrowlOpts, 
+            ///body, 
+            self = this, 
+            endDate, 
+            imageLayers='', eventLayers='',
+            endTime='', startTime='',
+            apiRequest;     
+        
+        $.each(form.find('#helioviewer-script-contents input:checkbox:checked'), function(i,layer) {
+            var imageLayer = $(layer).attr('name');
+            if ( imageLayer == 'hek' ) {
+                eventLayers = form.find("input[name*='eventLayers']").val();
+            }
+            else {
+                imageLayers += '['+
+                                   $(layer).attr('name')+','+
+                                   form.find('#'+$(layer).attr('id')+'-startDate').val()+','+
+                                   form.find('#'+$(layer).attr('id')+'-startTime').val()+
+                               ']';
+            }
+        });
+        imageLayers = imageLayers.replace(/\]\[/g,'],[');
+                
+        startTime = form.find('input#startDate').val()+'T'+form.find('input#startTime').val()+'Z';
+        startTime = startTime.replace(/\//g,'-');
+        
+        // Download link
+        apiRequest = Helioviewer.api + 
+            "?action=getSciDataScript" +
+            "&fovType="    +encodeURIComponent(form.find("input[name*='fovType']").val()) +
+            "&lang="       +encodeURIComponent(form.find('input:radio:checked').val()) +
+            "&imageLayers="+encodeURIComponent(imageLayers) +
+            "&eventLayers="+encodeURIComponent(eventLayers) +
+            "&imageScale=" +encodeURIComponent(this.viewport.getImageScale()) +  // arcsec/pixel
+            "&startTime="  +encodeURIComponent(startTime);
+                
+        if ( form.find('#science-data-dates-checkbox').attr('checked') == 'checked' && 
+             form.find('input#endDate').val() != '' && 
+             form.find('input#endTime').val() != '' ) {
+            
+            endTime   = form.find('input#endDate').val()+'T'+form.find('input#endTime').val()+'Z';
+            endTime   = endTime.replace(/\//g,'-');
+            
+            apiRequest += "&endTime="+encodeURIComponent(endTime);  // arcsec/pixel
+        }   
+        
+        if ( form.find("input[name*='x0']").val() ) {
+            apiRequest += "&x0="    +encodeURIComponent(form.find("input[name*='x0']").val())+  
+                          "&y0="    +encodeURIComponent(form.find("input[name*='y0']").val())+
+                          "&width=" +encodeURIComponent(form.find("input[name*='width']").val())+
+                          "&height="+encodeURIComponent(form.find("input[name*='height']").val()); // pixels
+        }
+        else if ( form.find("input[name*='x1']").val() ) {
+            apiRequest += "&x1="+encodeURIComponent(form.find("input[name*='x1']").val())+
+                          "&y1="+encodeURIComponent(form.find("input[name*='y1']").val())+
+                          "&x2="+encodeURIComponent(form.find("input[name*='x2']").val())+
+                          "&y2="+encodeURIComponent(form.find("input[name*='y2']").val()); // arcsec
+        }
+        else if ( form.find("input[name*='fovType']").val().toLowerCase() == 'hek' ) {
+            apiRequest += "&hpc_x="        +encodeURIComponent(form.find("input[name*='hpc_x']").val())+  
+                          "&hpc_y="        +encodeURIComponent(form.find("input[name*='hpc_y']").val())+
+                          "&hpc_bbox_ll_x="+encodeURIComponent(form.find("input[name*='hpc_bbox_ll_x']").val())+
+                          "&hpc_bbox_ll_y="+encodeURIComponent(form.find("input[name*='hpc_bbox_ll_y']").val())+
+                          "&hpc_bbox_ur_x="+encodeURIComponent(form.find("input[name*='hpc_bbox_ur_x']").val())+
+                          "&hpc_bbox_ur_y="+encodeURIComponent(form.find("input[name*='hpc_bbox_ur_y']").val())+
+                          "&rot_from_time="+encodeURIComponent(form.find("input[name*='rot_from_time']").val())+
+                          "&kb_archivid="  +encodeURIComponent(form.find("input[name*='kb_archivid']").val());
+        }
+
+        if ( form.find("input[name*='movieId']").length == 1 ) {
+            apiRequest += "&movieId="+encodeURIComponent(form.find("input[name*='movieId']").val());
+        }
+                       
+        location.href = apiRequest;
     },
     
     

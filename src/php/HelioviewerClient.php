@@ -46,7 +46,9 @@ abstract class HelioviewerClient
         $this->urlSettings = $urlSettings;
         
         // Debug support
-        if ($this->urlSettings['debug']) {
+        if ( array_key_exists('debug', $this->urlSettings) && 
+             $this->urlSettings['debug'] ) {
+             
             $this->config['compress_js'] = $this->config['compress_css'] = false;
         }
 
@@ -100,11 +102,6 @@ abstract class HelioviewerClient
         // Google Analytics
         if ($this->config['google_analytics_id']) {
             $this->loadGoogleAnalytics();
-        }
-        
-        // AddThis
-        if ($this->config['addthis_analytics_id']) {
-            $this->loadAddThis();
         }
     }
 
@@ -233,6 +230,7 @@ abstract class HelioviewerClient
      */
     protected function loadCustomJS($signature, $includes=array()) {
         echo "\n<!-- Helioviewer JavaScript -->\n";
+    
         if ($this->config["compress_js"]) {
             if (!file_exists("build/" . $this->compressedJSFile)) {
                $error = "<div style='position: absolute; width: 100%; text-align: center; top: 40%; font-size: 14px;'>
@@ -248,17 +246,17 @@ abstract class HelioviewerClient
         else {
             $js = array("Utility/Config.js", "Utility/HelperFunctions.js", 
                         "Tiling/Layer/Layer.js", "Tiling/Layer/TileLoader.js", "Tiling/Layer/TileLayer.js", 
-                        "Tiling/Layer/HelioviewerTileLayer.js", "Utility/KeyboardManager.js", "Tiling/Manager/LayerManager.js", 
-                        "Tiling/Manager/TileLayerManager.js", "Tiling/Manager/HelioviewerTileLayerManager.js", 
-                        "Image/JP2Image.js", "Viewport/Helper/MouseCoordinates.js", 
-                        "Viewport/Helper/HelioviewerMouseCoordinates.js", "Viewport/Helper/SandboxHelper.js",
-                        "Viewport/Helper/ViewportMovementHelper.js", "Viewport/HelioviewerViewport.js", 
-                        "HelioviewerClient.js", "UI/ZoomControls.js", "UI/EarthScale.js", "Utility/InputValidator.js",
-                        "Utility/SettingsLoader.js", "Utility/UserSettings.js", "Tiling/Manager/LayerManager.js", 
-                        "Events/EventManager.js", "Events/EventType.js", "Events/EventTree.js", 
-                        "Events/EventFeatureRecognitionMethod.js", "Events/EventLayerManager.js", 
-                        "Events/EventMarker.js", "Events/EventLayerManager.js", "Events/HelioviewerEventLayer.js", 
-                        "Events/HelioviewerEventLayerManager.js");
+                        "Tiling/Layer/HelioviewerTileLayer.js", "Utility/KeyboardManager.js", 
+                        "Tiling/Manager/LayerManager.js", "Tiling/Manager/TileLayerManager.js", 
+                        "Tiling/Manager/HelioviewerTileLayerManager.js", "Image/JP2Image.js", 
+                        "Viewport/Helper/MouseCoordinates.js", "Viewport/Helper/HelioviewerMouseCoordinates.js", 
+                        "Viewport/Helper/SandboxHelper.js", "Viewport/Helper/ViewportMovementHelper.js", 
+                        "Viewport/HelioviewerViewport.js", "HelioviewerClient.js", "UI/ZoomControls.js", 
+                        "UI/ImageScale.js", "Utility/InputValidator.js", "Utility/SettingsLoader.js", 
+                        "Utility/UserSettings.js", "Tiling/Manager/LayerManager.js", "Events/EventManager.js", 
+                        "Events/EventType.js", "Events/EventTree.js", "Events/EventFeatureRecognitionMethod.js", 
+                        "Events/EventLayerManager.js", "Events/EventMarker.js", "Events/EventLayerManager.js", 
+                        "Events/HelioviewerEventLayer.js", "Events/HelioviewerEventLayerManager.js");
             foreach(array_merge($js, $includes) as $file)
                 printf("<script src=\"src/js/%s?$signature\" type=\"text/javascript\"></script>\n", $file);
         }
@@ -286,25 +284,5 @@ abstract class HelioviewerClient
 
 <?php
     }
-    
-    /**
-     * Loads AddThis support
-     */
-    protected function loadAddThis()
-    {
-?>
-
-    <!-- AddThis -->
-    <script type="text/javascript">
-        var addthis_config = {
-            data_track_clickback: true,
-            pubid: "<?php echo $this->config['addthis_analytics_id'];?>",
-            data_ga_property: "<?php echo $this->config['google_analytics_id'];?>"
-        };
-    </script>
-    <script type="text/javascript" src="http://s7.addthis.com/js/250/addthis_widget.js#async=1"></script>        
-<?php
-    }
-
 
 }

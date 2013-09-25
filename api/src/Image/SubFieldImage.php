@@ -247,8 +247,14 @@ class Image_SubFieldImage
                 
                 // Convert to GD-readable format
                 $grayscale = new IMagick($input);
+                
+                if ( isset($this->options['verifyGrayscale']) && $this->options['verifyGrayscale'] && 
+                     $grayscale->getImageType() != imagick::IMGTYPE_GRAYSCALE ) {
+                
+                    $this->colorTable = false;                 
+                }
+                
                 $grayscale->setImageFormat('PNG');
-                $grayscale->setImageType(IMagick::IMGTYPE_GRAYSCALE); 
                 $grayscale->setImageDepth(8);
                 $grayscale->setImageCompressionQuality(10); // Fastest PNG compression setting
                 
@@ -518,16 +524,16 @@ class Image_SubFieldImage
         
         // Enable caching of images served by PHP
         // http://us.php.net/manual/en/function.header.php#61903
-        $lastModified = 'Last-Modified: ' . gmdate('D, d M Y H:i:s', filemtime($this->outputFile)) . ' GMT';
+        $lastModified = 'Last-Modified: ' . gmdate('D, d M Y H:i:s', @filemtime($this->outputFile)) . ' GMT';
         
-        if (isset($headers['If-Modified-Since']) && (strtotime($headers['If-Modified-Since']) == filemtime($this->outputFile))) {
+        if (isset($headers['If-Modified-Since']) && (strtotime($headers['If-Modified-Since']) == @filemtime($this->outputFile))) {
             // Cache is current (304)
-            header($lastModified, true, 304);    
+            header($lastModified, true, 304);
         } else {
             // Image not in cache or out of date (200)
             header($lastModified, true, 200);
             
-            header('Content-Length: '.filesize($this->outputFile));
+            header('Content-Length: '.@filesize($this->outputFile));
 
             // Set content-type
             $fileinfo = new finfo(FILEINFO_MIME);
@@ -544,7 +550,7 @@ class Image_SubFieldImage
             
             while ($attempts < 3) {
                 // If read is successful, we are finished
-                if (readfile($this->outputFile)) {
+                if (@readfile($this->outputFile)) {
                     return;
                 }
                 $attempts += 1;

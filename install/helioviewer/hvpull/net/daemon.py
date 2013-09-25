@@ -157,7 +157,7 @@ class ImageRetrievalDaemon:
         # Remove duplicate files, randomizing to spread load across servers
         if len(urls) > 1:
             urls = self._deduplicate(urls)
-                    
+            
         # Filter out files that are already in the database
         new_urls = []
         
@@ -218,6 +218,7 @@ class ImageRetrievalDaemon:
             
                 try:
                     matches = browser.get_files(directory, "jp2")
+
                     files.extend(matches)
                 except NetworkError:
                     if num_retries >= 100:
@@ -240,6 +241,7 @@ class ImageRetrievalDaemon:
         """Acquires all the available files."""
         # If no new files are available do nothing
         if not urls:
+            logging.info("Found no new files.")
             return
         
         n = sum(len(x) for x in urls)
@@ -305,9 +307,6 @@ class ImageRetrievalDaemon:
             try:
                 try:
                     image_params = sunpy.read_header(filepath)
-                    # JS: Temporary workaround for Hinode
-                    if (image_params["measurement"] == '' and image_params["instrument"] == 'XRT'):
-                        image_params["measurement"] = image_params['header']['EC_FW1_']+'-'+image_params['header']['EC_FW2_']
                 except:
                     raise BadImage("HEADER")
                 self._validate(image_params)
@@ -410,6 +409,7 @@ class ImageRetrievalDaemon:
         tmp = filepath + '.tmp.jp2'
         
         # Base command
+        
         command ='kdu_transcode -i %s -o %s' % (filepath, tmp)
         
         # Corder
@@ -596,6 +596,7 @@ class ImageRetrievalDaemon:
             return False
         
         # Check to see if image is in corrupt
+        #print('Remove comments characters to reactivate the code beneath when in production!!!')
         self._db.execute("SELECT COUNT(*) FROM corrupt WHERE filename='%s'" % 
                  filename)
         if self._db.fetchone()[0] != 0:
@@ -611,7 +612,8 @@ class ImageRetrievalDaemon:
             "soho": "SOHODataServer",
             "stereo": "STEREODataServer",
             "jsoc": "JSOCDataServer",
-            "rob": "ROBDataServer"
+            "rob": "ROBDataServer",
+            "uio": "UIODataServer"
         }
         
     @classmethod
@@ -626,7 +628,8 @@ class ImageRetrievalDaemon:
     def get_downloaders(cls):
         """Returns a list of valid data downloaders to interact with"""
         return {
-            "urllib": "URLLibDownloader"
+            "urllib": "URLLibDownloader",
+            "localmove": "LocalFileMove"
         }
 
 class KduTranscodeError(RuntimeError):

@@ -78,7 +78,6 @@ class HelioviewerWebClient extends HelioviewerClient
 <script src="lib/jquery.imgareaselect-0.9.8/scripts/jquery.imgareaselect.pack.js" type="text/javascript"></script>
 <script src="lib/jquery.jfeed/build/jquery.jfeed.js" type="text/javascript"></script>
 <script src="lib/jquery.xml2json/jquery.xml2json.pack.js" type="text/javascript" language="javascript"></script>
-<!-- <script src="lib/jquery.jsTree/jstree.min.js"></script> -->
 <script src="lib/jquery.jsTree-1.0rc/jquery.jstree.min.js"></script>
 <?php
         } else {
@@ -87,7 +86,6 @@ class HelioviewerWebClient extends HelioviewerClient
 <script src="lib/jquery.imgareaselect-0.9.8/scripts/jquery.imgareaselect.js" type="text/javascript"></script>
 <script src="lib/jquery.jfeed/build/jquery.jfeed.js" type="text/javascript"></script>
 <script src="lib/jquery.xml2json/jquery.xml2json.js" type="text/javascript" language="javascript"></script>
-<!-- <script src="lib/jquery.jsTree/jstree.js"></script> -->
 <script src="lib/jquery.jsTree-1.0rc/jquery.jstree.js"></script>
 <?php
         }
@@ -102,8 +100,9 @@ class HelioviewerWebClient extends HelioviewerClient
                     "Media/MediaManagerUI.js", "Media/MediaManager.js", "Media/MovieManager.js", 
                     "Media/MovieManagerUI.js", "Media/ScreenshotManager.js", "Media/ScreenshotManagerUI.js",  
                     "UI/TileLayerAccordion.js", "UI/EventLayerAccordion.js", "UI/MessageConsole.js", 
-                    "UI/TimeControls.js", "Utility/FullscreenControl.js", "HelioviewerWebClient.js", 
-                    "UI/UserVideoGallery.js", "UI/Glossary.js", "UI/jquery.ui.dynaccordion.js");
+                    "UI/TimeControls.js", "Utility/FullscreenControl.js", "Utility/MorescreenControl.js",
+                    "HelioviewerWebClient.js", "UI/UserVideoGallery.js", "UI/Glossary.js", 
+                    "UI/jquery.ui.dynaccordion.js");
         parent::loadCustomJS($signature, $js);
         
     }
@@ -287,6 +286,12 @@ class HelioviewerWebClient extends HelioviewerClient
                                     <span class="ui-icon ui-icon-image" style="float: left;"></span>
                                     <span style="line-height: 1.6em">Screenshot</span>
                                 </div>
+
+                                <!-- Science Data Download Script button -->
+                                <div id="science-data-button" class="text-btn qtip-topleft" title="Generate a script to download science data for the current view.">
+                                    <span class="ui-icon ui-icon-arrowreturnthick-1-s" style="float: left;"></span>
+                                    <span style="line-height: 1.6em">Science Data</span>
+                                </div>
                                 
                                 <!-- Settings button -->
                                 <div id="settings-button" class="text-btn qtip-topleft" title="Configure Helioviewer.org user preferences.">
@@ -303,8 +308,11 @@ class HelioviewerWebClient extends HelioviewerClient
                             </div>
 
                             <!-- Fullscreen toggle -->
-                            <div id='fullscreen-btn' class='qtip-topleft' title="Toggle fullscreen display.">
-                                <span class='ui-icon ui-icon-arrow-4-diag'></span>
+                            <div id='fullscreen-btn' class='qtip-topleft' title="Toggle fullscreen mode.">
+                            </div>
+
+                            <!-- Morescreen toggle -->
+                            <div id='morescreen-btn' class='qtip-topleft' title="Toggle right sidebar.">
                             </div>
 
                             <!-- Mouse coordinates display -->
@@ -457,8 +465,8 @@ class HelioviewerWebClient extends HelioviewerClient
                     <img src="<?php echo $this->config['main_logo'];?>" id="helioviewer-logo-main" alt="Helioviewer.org Logo">
                 </a>
             </div>
-            <br><br>
-            <div class="section-header" style="margin-left:5px; margin-top: 15px;">Time</div>
+            <br>
+            <div class="section-header" style="margin-left:5px;">Time</div>
             <div id="observation-controls" class="ui-widget ui-widget-content ui-corner-all shadow">
                 <!--  Observation Date -->
                 <div id="observation-date-container">
@@ -483,12 +491,10 @@ class HelioviewerWebClient extends HelioviewerClient
                 </div>
             </div>
 
-            <br><br>
+            <br>
             <div id="tileLayerAccordion"></div>
-            <br><br>
+            <br>
             <div id="eventLayerAccordion"></div>
-            <br><br>
-
         </div>
 
         <!-- Right Column -->
@@ -496,7 +502,7 @@ class HelioviewerWebClient extends HelioviewerClient
             <div id="right-col-header" style='height: 11px'></div>
             
             <!-- Recent Blog Entries -->
-            <div style="margin-left: 5px; margin-top: 15px;" class="section-header">News</div>
+            <div style="margin-left: 5px;" class="section-header">News</div>
             <div id="social-panel" class="ui-widget ui-widget-content ui-corner-all shadow"></div>
             
             <!-- User-Submitted Videos -->
@@ -534,7 +540,6 @@ class HelioviewerWebClient extends HelioviewerClient
                 <a id="helioviewer-about" class="light" href="dialogs/about.php">About</a>
                 <a id="helioviewer-usage" class="light" href="dialogs/usage.php">Usage Tips</a>
                 <a href="http://wiki.helioviewer.org/wiki/Main_Page" class="light" target="_blank">Wiki</a>
-                <a href="http://community.helioviewer.org/" class="light" target="_blank">Community</a>
                 <a href="http://blog.helioviewer.org/" class="light" target="_blank">Blog</a>
                 <a href="http://jhelioviewer.org" class="light" target="_blank">JHelioviewer</a>
                 <a href="api/" class="light" target="_blank">API</a>
@@ -564,6 +569,53 @@ class HelioviewerWebClient extends HelioviewerClient
 <!-- Layer choice dialog -->
 <div id='layer-choice-dialog'></div>
 
+<!-- Science Data Download dialog -->
+<div id='science-data-dialog'>
+    <form id='helioviewer-science-data-script'>
+        <!-- Science Data Download Script Language -->
+        <fieldset id='helioviewer-script-lang'>
+        <legend>Script Language:</legend>
+            <div style="padding: 2px 0 12px 0;">
+                <input id="science-data-sswidl" type="radio" name="science-data-lang" value="sswidl" checked />
+                <label for="science-data-sswidl">SolarSoft (SSW) / IDL</label><br />
+                
+                <input id="science-data-sunpy" type="radio" name="science-data-lang" value="sunpy" />
+                <label for="science-data-sunpy">SunPy / Python</label><br />
+            </div>
+        </fieldset>
+        
+        <!-- Science Data Download Script Data Sets -->
+        <fieldset id='helioviewer-script-contents'>
+        </fieldset>
+        
+        <!-- Science Data Download Script Start/End Times -->
+        <br />        
+        <fieldset id="helioviewer-script-dates">
+        <legend>Date/Time Span:</legend>
+        
+            <div id="science-data-dates-custom" style="margin-bottom: 6px; display: none;">
+                <input id="science-data-dates-checkbox" type="checkbox" name="science-data-dates-checkbox" value="dates-custom" />
+                <label for="science-data-dates-checkbox" style="font-weight: bold;">Customize Date Range:</label>
+            </div>
+        
+            <div id="dates-custom">
+                <div style="padding: 2px 0 0 5px;">
+                    <span class="dimmable" style="display:inline-block; width: 70px;">Start Time: </span>
+                    <input class="dimmable" type="text" id="startDate" name="startDate" style="width: 72px;">
+                    <input class="dimmable" type="text" id="startTime" name="startTime" style="width: 56px;">
+                    <label class="dimmable"> UTC</label>
+                </div>
+                <div style="padding: 2px 0 0 5px;">
+                    <span class="dimmable" style="display:inline-block; width: 70px;">End Time: </span>
+                    <input class="dimmable" type="text" id="endDate" name="endDate" style="width: 72px;">
+                    <input class="dimmable" type="text" id="endTime" name="endTime" style="width: 55px;">
+                    <label class="dimmable"> UTC</label>
+                </div>
+            </div>
+        </fieldset>
+    </form>
+</div>
+
 <!-- Settings dialog -->
 <div id='settings-dialog'>
     <form id='helioviewer-settings'>
@@ -571,8 +623,8 @@ class HelioviewerWebClient extends HelioviewerClient
         <fieldset id='helioviewer-settings-date'>
         <legend>When starting Helioviewer.org:</legend>
             <div style='padding: 10px;'>
-                <input id='settings-date-latest' type="radio" name="date" value="latest" /><label>Display most recent images available</label><br />
-                <input id='settings-date-previous' type="radio" name="date" value="last-used" /><label>Display images from previous visit</label><br />
+                <input id="settings-date-latest" type="radio" name="date" value="latest" /><label for="settings-date-latest">Display most recent images available</label><br />
+                <input id="settings-date-previous" type="radio" name="date" value="last-used" /><label for="settings-date-previous">Display images from previous visit</label><br />
             </div>
         </fieldset>
         
@@ -581,7 +633,7 @@ class HelioviewerWebClient extends HelioviewerClient
         <legend>When using Helioviewer.org:</legend>
         <div style='padding:10px;'>
             <input type="checkbox" name="latest-image-option" id="settings-latest-image" value="true" />
-            <label for="latest-image-option">Update viewport every 5 minutes</label><br />                                           
+            <label for="settings-latest-image">Update viewport every 5 minutes</label><br />                                           
         </div>
         </fieldset>
     </form>
@@ -600,17 +652,6 @@ class HelioviewerWebClient extends HelioviewerClient
             <input type="checkbox" id="helioviewer-url-shorten" />
             <input type="hidden" id="helioviewer-short-url" value="" />
             <input type="hidden" id="helioviewer-long-url" value="" />
-        </form>
-    </div>
-</div>
-
-<!-- BBCode -->
-<!-- URL Dialog -->
-<div id='bbcode-dialog' style="display:none;">
-    <div id="helioviewer-bbcode-box">
-        <span id="helioviewer-bbcode-box-msg">Use the following code snippet to embed this movie in the <a href='http://community.helioviewer.org'>Helioviewer Community Forums:</a></span>
-        <form style="margin-top: 5px;">
-            <input type="text" id="helioviewer-bbcode-input-box" style="width:98%;" value="" />
         </form>
     </div>
 </div>

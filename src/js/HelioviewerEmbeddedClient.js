@@ -6,7 +6,8 @@
   bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
 /*global document, window, $, HelioviewerClient, TooltipHelper, 
   HelioviewerViewport, KeyboardManager, Helioviewer, 
-  SettingsLoader, addthis, ZoomControls, assignTouchHandlers */
+  SettingsLoader, ZoomControls, assignTouchHandlers 
+ */
 "use strict";
 var HelioviewerEmbeddedClient = HelioviewerClient.extend(
     /** @lends HelioviewerWebClient.prototype */

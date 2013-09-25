@@ -60,6 +60,7 @@ function loadModule($params)
         "getNewsFeed"            => "WebClient",
         "getStatus"              => "WebClient",
         "getSSWScript"           => "WebClient",
+        "getSciDataScript"       => "WebClient",
         "getTile"                => "WebClient",
         "getUsageStatistics"     => "WebClient",
         "shortenURL"             => "WebClient",

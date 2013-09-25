@@ -4,7 +4,7 @@ if (!$config = parse_ini_file("../settings/Config.ini"))
 ?>
 <img src="<?php echo $config['about_logo']; ?>" alt="Helioviewer.org Logo"><br>
 <div style="width:100%; text-align: center;">
-    <span style="margin-left: auto; margin-right: auto; font-size:small;"><?php printf("Last Updated: %s (2.3.0)", $config["last_update"]); ?></span>
+    <span style="margin-left: auto; margin-right: auto; font-size:small;"><?php printf("Last Updated: %s (2.4.0)", $config["last_update"]); ?></span>
 </div>
 <br />
 
@@ -24,6 +24,7 @@ For more information, please visit our <a href="http://helioviewer.org/wiki/Main
         <a href='http://www.nasa.gov/centers/goddard/home/index.html' title='Goddard Space Flight Center'>GSFC</a>,
         <a href='http://www.lmsal.com' title='Lockheed Martin Solar & Astrophysics Laboratory'>LMSAL</a>, 
         <a href='http://umbra.nascom.nasa.gov/' title='Solar Data Analysis Center'>SDAC</a>,
-        <a href='http://sun.stanford.edu/'>Stanford University</a>
+        <a href='http://sun.stanford.edu/'>Stanford University</a>,
+        <a href='http://solar.physics.montana.edu/sol_phys/fft/'>MSU/SDO-FFT</a>
     </span>
 </div>

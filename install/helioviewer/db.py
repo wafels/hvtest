@@ -23,6 +23,7 @@ def setup_database_schema(adminuser, adminpass, dbname, dbuser, dbpass, mysql):
     create_detector_table(cursor)
     create_measurement_table(cursor)
     create_image_table(cursor)
+    create_corrupt_table(cursor)
     create_screenshots_table(cursor)
     create_movies_table(cursor)
     create_movie_formats_table(cursor)
@@ -117,7 +118,7 @@ def create_image_table(cursor):
       UNIQUE INDEX filename_idx(filename)
     ) DEFAULT CHARSET=ascii;"""
     cursor.execute(sql)
-    
+
 def create_corrupt_table(cursor):
     """Creates table to store corrupt image information"""
     sql = \
@@ -183,45 +184,9 @@ def create_datasource_table(cursor):
         (30, 'COR1-B', 'STEREO B COR1', 4, 6, 8, 14, 2, 0),
         (31, 'COR2-B', 'STEREO B COR2', 4, 6, 9, 14, 3, 0),
         (32, 'SWAP 174', 'PROBA-2 SWAP 174', 5, 7, 10, 15, 1, 0),
-        (33, 'SXT AlMg', 'Yohkoh SXT AlMg', 6, 8, 11, 16, 1, 1),
-        (34, 'SXT Al.1', 'Yohkoh SXT Al.1', 6, 8, 11, 17, 1, 1),
-        (35, 'SXT Open', 'Yohkoh SXT Open', 6, 8, 11, 18, 1, 1),
-        (36, 'XRT Al_med-Open', 'Hinode XRT Al_med-Open', 7, 9, 12, 19, 1, 1),
-        (37, 'XRT Al_med-Al_mesh', 'Hinode XRT Al_med-Al_mesh', 7, 9, 12, 20, 1, 1),
-        (38, 'XRT Al_med-Al_thick', 'Hinode XRT Al_med-Al_thick', 7, 9, 12, 21, 1, 1),
-        (39, 'XRT Al_med-Be_thick', 'Hinode XRT Al_med-Be_thick', 7, 9, 12, 22, 1, 1),
-        (40, 'XRT Al_med-Gband', 'Hinode XRT Al_med-Gband', 7, 9, 12, 23, 1, 1),
-        (41, 'XRT Al_med-Ti_poly', 'Hinode XRT Al_med-Ti_poly', 7, 9, 12, 24, 1, 1),
-        (42, 'XRT Al_poly-Open', 'Hinode XRT Al_poly-Open', 7, 9, 12, 25, 1, 1),
-        (43, 'XRT Al_poly-Al_mesh', 'Hinode XRT Al_poly-Al_mesh', 7, 9, 12, 26, 1, 1),
-        (44, 'XRT Al_poly-Al_thick', 'Hinode XRT Al_poly-Al_thick', 7, 9, 12, 27, 1, 1),
-        (45, 'XRT Al_poly-Be_thick', 'Hinode XRT Al_poly-Be_thick', 7, 9, 12, 28, 1, 1),
-        (46, 'XRT Al_poly-Gband', 'Hinode XRT Al_poly-Gband', 7, 9, 12, 29, 1, 1),
-        (47, 'XRT Al_poly-Ti_poly', 'Hinode XRT Al_poly-Ti_poly', 7, 9, 12, 30, 1, 1),
-        (48, 'XRT Be_med-Open', 'Hinode XRT Be_med-Open', 7, 9, 12, 31, 1, 1),
-        (49, 'XRT Be_med-Al_mesh', 'Hinode XRT Be_med-Al_mesh', 7, 9, 12, 32, 1, 1),
-        (50, 'XRT Be_med-Al_thick', 'Hinode XRT Be_med-Al_thick', 7, 9, 12, 33, 1, 1),
-        (51, 'XRT Be_med-Be_thick', 'Hinode XRT Be_med-Be_thick', 7, 9, 12, 34, 1, 1),
-        (52, 'XRT Be_med-Gband', 'Hinode XRT Be_med-Gband', 7, 9, 12, 35, 1, 1),
-        (53, 'XRT Be_med-Ti_poly', 'Hinode XRT Be_med-Ti_poly', 7, 9, 12, 36, 1, 1),
-        (54, 'XRT Be_thin-Open', 'Hinode XRT Be_thin-Open', 7, 9, 12, 37, 1, 1),
-        (55, 'XRT Be_thin-Al_mesh', 'Hinode XRT Be_thin-Al_mesh', 7, 9, 12, 38, 1, 1),
-        (56, 'XRT Be_thin-Al_thick', 'Hinode XRT Be_thin-Al_thick', 7, 9, 12, 39, 1, 1),
-        (57, 'XRT Be_thin-Be_thick', 'Hinode XRT Be_thin-Be_thick', 7, 9, 12, 40, 1, 1),
-        (58, 'XRT Be_thin-Gband', 'Hinode XRT Be_thin-Gband', 7, 9, 12, 41, 1, 1),
-        (59, 'XRT Be_thin-Ti_poly', 'Hinode XRT Be_thin-Ti_poly', 7, 9, 12, 42, 1, 1),
-        (60, 'XRT C_poly-Open', 'Hinode XRT C_poly-Open', 7, 9, 12, 43, 1, 1),
-        (61, 'XRT C_poly-Al_mesh', 'Hinode XRT C_poly-Al_mesh', 7, 9, 12, 44, 1, 1),
-        (62, 'XRT C_poly-Al_thick', 'Hinode XRT C_poly-Al_thick', 7, 9, 12, 45, 1, 1),
-        (63, 'XRT C_poly-Be_thick', 'Hinode XRT C_poly-Be_thick', 7, 9, 12, 46, 1, 1),
-        (64, 'XRT C_poly-Gband', 'Hinode XRT C_poly-Gband', 7, 9, 12, 47, 1, 1),
-        (65, 'XRT C_poly-Ti_poly', 'Hinode XRT C_poly-Ti_poly', 7, 9, 12, 48, 1, 1),
-        (66, 'XRT Open-Open', 'Hinode XRT Open-Open', 7, 9, 12, 49, 1, 1),
-        (67, 'XRT Open-Al_mesh', 'Hinode XRT Open-Al_mesh', 7, 9, 12, 50, 1, 1),
-        (68, 'XRT Open-Al_thick', 'Hinode XRT Open-Al_thick', 7, 9, 12, 51, 1, 1),
-        (69, 'XRT Open-Be_thick', 'Hinode XRT Open-Be_thick', 7, 9, 12, 52, 1, 1),
-        (70, 'XRT Open-Gband', 'Hinode XRT Open-Gband', 7, 9, 12, 53, 1, 1),
-        (71, 'XRT Open-Ti_poly', 'Hinode XRT Open-Ti_poly', 7, 9, 12, 54, 1, 1);
+        (33, 'SXT AlMgMn', 'Yohkoh SXT AlMgMn', 6, 8, 11, 16, 1, 1),
+        (34, 'SXT thin-Al', 'Yohkoh SXT thin-Al', 6, 8, 11, 17, 1, 1),
+        (35, 'SXT white-light', 'Yohkoh SXT white-light', 6, 8, 11, 18, 1, 1);
     """)
 
 def create_observatory_table(cursor):
@@ -243,8 +208,7 @@ def create_observatory_table(cursor):
         (3, 'STEREO_A', 'Solar Terrestrial Relations Observatory Ahead'),
         (4, 'STEREO_B', 'Solar Terrestrial Relations Observatory Behind'),
         (5, 'PROBA2', 'Project for OnBoard Autonomy 2'),
-        (6, 'Yohkoh', 'Yohkoh (Solar-A)'),
-        (7, 'Hinode', 'Hinode (Solar-B)');
+        (6, 'Yohkoh', 'Yohkoh (Solar-A)');
     """)
 
 def create_instrument_table(cursor):
@@ -268,8 +232,7 @@ def create_instrument_table(cursor):
         (5, 'HMI',    'Helioseismic and Magnetic Imager'),
         (6, 'SECCHI', 'Sun Earth Connection Coronal and Heliospheric Investigation'),
         (7, 'SWAP',   'Sun watcher using APS detectors and image processing'),
-        (8, 'SXT',    'Soft X-ray Telescope'),
-        (9, 'XRT',    'X-Ray Telescope');
+        (8, 'SXT',    'Soft X-ray Telescope');
     """)
 
 
@@ -298,8 +261,7 @@ def create_detector_table(cursor):
         (8,  'COR1',  'Coronograph 1'),
         (9,  'COR2',  'Coronograph 2'),
         (10, 'SWAP',  'Sun watcher using APS detectors and image processing'),
-        (11, 'SXT',   'Soft X-ray Telescope'),
-        (12, 'XRT',   'X-Ray Telescope');
+        (11, 'SXT',   'Soft X-ray Telescope');
     """)
 
 
@@ -334,45 +296,9 @@ def create_measurement_table(cursor):
         (13, 'magnetogram', 'Magnetogram', 'Mx'),
         (14, 'white-light', 'White Light', 'DN'),
         (15, '174', '174 Ångström extreme ultraviolet', 'Å'),
-        (16, 'AlMg', 'Al/Mg/Mn filter (2.4 Å - 32 Å pass band)', 'Å'),
-        (17, 'Al.1', '11.6 μm Al filter (2.4 Å - 13 Å pass band)', 'Å'),
-        (18, 'Open', 'No filter', ''),
-        (19, 'Al_med-Open', '', ''),
-        (20, 'Al_med-Al_mesh', '', ''),
-        (21, 'Al_med-Al_thick', '', ''),
-        (22, 'Al_med-Be_thick', '', ''),
-        (23, 'Al_med-Gband', '', ''),
-        (24, 'Al_med-Ti_poly', '', ''),
-        (25, 'Al_poly-Open', '', ''),
-        (26, 'Al_poly-Al_mesh', '', ''),
-        (27, 'Al_poly-Al_thick', '', ''),
-        (28, 'Al_poly-Be_thick', '', ''),
-        (29, 'Al_poly-Gband', '', ''),
-        (30, 'Al_poly-Ti_poly', '', ''),
-        (31, 'Be_med-Open', '', ''),
-        (32, 'Be_med-Al_mesh', '', ''),
-        (33, 'Be_med-Al_thick', '', ''),
-        (34, 'Be_med-Be_thick', '', ''),
-        (35, 'Be_med-Gband', '', ''),
-        (36, 'Be_med-Ti_poly', '', ''),
-        (37, 'Be_thin-Open', '', ''),
-        (38, 'Be_thin-Al_mesh', '', ''),
-        (39, 'Be_thin-Al_thick', '', ''),
-        (40, 'Be_thin-Be_thick', '', ''),
-        (41, 'Be_thin-Gband', '', ''),
-        (42, 'Be_thin-Ti_poly', '', ''),
-        (43, 'C_poly-Open', '', ''),
-        (44, 'C_poly-Al_mesh', '', ''),
-        (45, 'C_poly-Al_thick', '', ''),
-        (46, 'C_poly-Be_thick', '', ''),
-        (47, 'C_poly-Gband', '', ''),
-        (48, 'C_poly-Ti_poly', '', ''),
-        (49, 'Open-Open', '', ''),
-        (50, 'Open-Al_mesh', '', ''),
-        (51, 'Open-Al_thick', '', ''),
-        (52, 'Open-Be_thick', '', ''),
-        (53, 'Open-Gband', '', ''),
-        (54, 'Open-Ti_poly', '', '');""")
+        (16, 'AlMgMn', 'Al/Mg/Mn filter (2.4 Å - 32 Å pass band)', 'Å'),
+        (17, 'thin-Al', '11.6 μm Al filter (2.4 Å - 13 Å pass band)', 'Å'),
+        (18, 'white-light', 'No filter', '');""")
     
 def create_movies_table(cursor):
     """Creates movie table
@@ -398,7 +324,10 @@ def create_movies_table(cursor):
       `dataSourceBitMask` BIGINT UNSIGNED,
       `eventSourceString` VARCHAR(1024) DEFAULT NULL,
       `eventsLabels`      TINYINT(1) UNSIGNED NOT NULL,
-      `earthScale`        TINYINT(1) UNSIGNED NOT NULL,
+      `scale`             TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+      `scaleType`         VARCHAR(12) DEFAULT 'earth',
+      `scaleX`            FLOAT DEFAULT '0',
+      `scaleY`            FLOAT DEFAULT '0',
       `numLayers`         TINYINT UNSIGNED,
       `queueNum`          SMALLINT UNSIGNED,
       `frameRate`         FLOAT UNSIGNED,
@@ -472,6 +401,10 @@ def create_screenshots_table(cursor):
       `dataSourceBitMask` BIGINT UNSIGNED,
       `eventSourceString` VARCHAR(1024) DEFAULT NULL,
       `eventsLabels`      TINYINT(1) UNSIGNED NOT NULL,
+      `scale`             TINYINT(1) unsigned NOT NULL DEFAULT '0',
+      `scaleType`         VARCHAR(12) DEFAULT 'earth',
+      `scaleX`            FLOAT DEFAULT '0',
+      `scaleY`            FLOAT DEFAULT '0',
       `numLayers`         TINYINT UNSIGNED NOT NULL DEFAULT 1,
        PRIMARY KEY (`id`)
     ) DEFAULT CHARSET=utf8;""")

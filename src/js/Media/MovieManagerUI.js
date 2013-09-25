@@ -6,7 +6,8 @@
 eqeqeq: true, plusplus: true, bitwise: true, regexp: false, strict: true,
 newcap: true, immed: true, maxlen: 80, sub: true */
 /*global $, window, MovieManager, MediaManagerUI, Helioviewer, helioviewer,
-  layerStringToLayerArray, humanReadableNumSeconds, addthis */
+  layerStringToLayerArray, humanReadableNumSeconds
+ */
 "use strict";
 var MovieManagerUI = MediaManagerUI.extend(
     /** @lends MovieManagerUI */
@@ -31,7 +32,6 @@ var MovieManagerUI = MediaManagerUI.extend(
         this._movieLayers = null;
         this._movieEvents = null;
         this._movieEventsLabels = null;
-        this._movieEarthScale   = null;
         this._initEvents();
         this._initSettings();
     },
@@ -79,7 +79,10 @@ var MovieManagerUI = MediaManagerUI.extend(
             layers       : this._movieLayers,
             events       : this._movieEvents,
             eventsLabels : this._movieEventsLabels,
-            earthScale   : true,
+            scale        : Helioviewer.userSettings.get("state.scale"),
+            scaleType    : Helioviewer.userSettings.get("state.scaleType"),
+            scaleX       : Helioviewer.userSettings.get("state.scaleX"),
+            scaleY       : Helioviewer.userSettings.get("state.scaleY"),
             format       : this._manager.format
         };
        
@@ -201,9 +204,11 @@ var MovieManagerUI = MediaManagerUI.extend(
 
             movie = self._manager.queue(
                 response.id, response.eta, response.token, 
-                params.imageScale, params.layers, params.events, params.eventsLabels, params.earthScale, 
-                new Date().toISOString(), params.startTime, params.endTime, 
-                params.x1, params.x2, params.y1, params.y2
+                params.imageScale, params.layers, params.events, 
+                params.eventsLabels, params.scale, params.scaleType, 
+                params.scaleX, params.scaleY, new Date().toISOString(), 
+                params.startTime, params.endTime, params.x1, params.x2, 
+                params.y1, params.y2
             );
             self._addItem(movie);
             
@@ -423,7 +428,7 @@ var MovieManagerUI = MediaManagerUI.extend(
 
         html += "<table class='preview-tooltip'>" +
             "<tr><td><b>Start:</b></td><td>" + movie.startDate + "</td></tr>" +
-            "<tr><td><b>End:</b></td><td>" + movie.endDate + "</td></tr>" +
+            "<tr><td><b>End:</b></td><td>"   + movie.endDate   + "</td></tr>" +
             "<tr><td><b>Scale:</b></td><td>" + movie.imageScale.toFixed(2) + 
             " arcsec/px</td></tr>" +
             "<tr><td><b>Dimensions:</b></td><td>" + width + 
@@ -469,8 +474,8 @@ var MovieManagerUI = MediaManagerUI.extend(
         // beforehand results in the browser attempting to download it. 
         dialog.dialog({
             title     : "Movie Player: " + title,
-            width     : dimensions.width  + 34,
-            height    : dimensions.height + 104,
+            width     : ((dimensions.width < 575)?600:dimensions.width+25),
+            height    : dimensions.height + 80,
             resizable : $.support.h264 || $.support.vp8,
             close     : function () {
                             $(this).empty();
@@ -498,13 +503,25 @@ var MovieManagerUI = MediaManagerUI.extend(
             return false;
         });
         
-        // BBCode link
-        $("#bbcode-" + movie.id).click(function () {
-            // Hide flash movies to prevent blocking
-            if (!($.support.h264 || $.support.vp8)) {
-                $(".movie-player-dialog").dialog("close");
-            }
-            self._showBBCode(movie.id, dimensions.width, dimensions.height);
+        // Initialize science data download script generator button
+        $('#sci-script-' + movie.id).click(function () {
+            
+            var params = {
+                "fovType"    :'movie',
+                "startDate"  : new Date(movie.startDate.replace(' ','T')+'.000Z'),
+                "endDate"    : new Date(movie.endDate.replace(' ','T')+'.000Z'),
+                "imageLayers": movie.layers, 
+                "eventLayers": movie.events, 
+                "eventLayersVisible": (movie.events.length > 0) ? 1 : 0,
+                "imageScale" : movie.imageScale, 
+                "x1"         : movie.x1, 
+                "y1"         : movie.y1, 
+                "x2"         : movie.x2, 
+                "y2"         : movie.y2, 
+                "movieId"    : movie.id
+            };
+          
+            $('#science-data-button').trigger("click",[params]);
             return false;
         });
         
@@ -519,36 +536,6 @@ var MovieManagerUI = MediaManagerUI.extend(
                  
         screenshot = movie.thumbnail.substr(0, movie.thumbnail.length - 9) + 
                      "full.png";
-                     
-        // If AddThis is not supported, skip toolbox initialization
-        if (typeof(addthis) == "undefined") {
-            return;
-        }
-        
-        // First get a shortened version of the movie URL
-        callback = function (response) {
-            // Then initialize AddThis toolbox
-            addthis.toolbox('#add-this-' + movie.id, {}, {
-                url: response.data.url,
-                title: "Helioviewer.org",
-                description: title,
-                screenshot: screenshot,
-                swfurl: swfURL,
-                width: movie.width,
-                height: movie.height
-            });
-        };
-
-        // Initialize AddThis toolbox once a shortened URL has been requested
-        $.ajax({
-            url: Helioviewer.api,
-            dataType: Helioviewer.dataType,
-            data: {
-                "action": "shortenURL",
-                "queryString": "movieId=" + movie.id 
-            },
-            success: callback
-        });
     },
        
     /**
@@ -728,8 +715,6 @@ var MovieManagerUI = MediaManagerUI.extend(
         
         callback = function (response) {
             if (response.status === 2) {
-                // id, duration, imageScale, layers, dateRequested, startDate, 
-                //  endDate, frameRate, numFrames, x1, x2, y1, y2, width, height
                 movie = self._manager.add(
                     id,
                     response.duration,
@@ -737,7 +722,10 @@ var MovieManagerUI = MediaManagerUI.extend(
                     response.layers,
                     response.events,
                     response.eventsLabels,
-                    response.earthScale,
+                    response.scale,
+                    response.scaleType,
+                    response.scaleX,
+                    response.scaleY,
                     response.timestamp.replace(" ", "T") + ".000Z",
                     response.startDate,
                     response.endDate,
@@ -786,73 +774,56 @@ var MovieManagerUI = MediaManagerUI.extend(
      * method
      */
     getVideoPlayerHTML: function (movie, width, height) {
-        var downloadURL, downloadLink, youtubeBtn, bbcodeBtn, 
-            hekBtn, sswBtn, addthisBtn, linkBtn, linkURL;
+        var downloadURL, downloadLink, youtubeBtn, 
+            sciBtn, linkBtn, linkURL, tweetBtn, facebookBtn;
         
         // Download
         downloadURL = Helioviewer.api + "?action=downloadMovie&id=" + movie.id + 
                       "&format=mp4&hq=true";
 
-        downloadLink = "<a target='_parent' href='" + downloadURL + 
+        downloadLink = "<div style='float:left;'><a target='_parent' href='" + downloadURL + 
             "' title='Download high-quality video'>" + 
-            "<img class='video-download-icon' " + 
-            "src='resources/images/Tango/1321375855_go-bottom.png' /></a>";
+            "<img style='width:93px; height:32px;' class='video-download-icon' " + 
+            "src='resources/images/download_93x32.png' /></a></div>";
         
         // Upload to YouTube
-        youtubeBtn = "<a id='youtube-upload-" + movie.id + "' href='#' " + 
-            "target='_blank'><img class='youtube-icon' " + 
-            "title='Upload video to YouTube' " + 
-            "src='resources/images/Social.me/48 " + 
-            "by 48 pixels/youtube.png' /></a>";
+        youtubeBtn = '<div style="float:left;"><a id="youtube-upload-' + movie.id + '" href="#" ' + 
+            'target="_blank"><img class="youtube-icon" ' + 
+            'title="Upload video to YouTube" style="width:79px;height:32px;" ' + 
+            'src="resources/images/youtube_79x32.png" /></a></div>';
             
         // Link
         linkURL = helioviewer.serverSettings.rootURL + "/?movieId=" + movie.id;
             
-        linkBtn = "<a id='video-link-" + movie.id + "' href='" + linkURL + 
+        linkBtn = "<div style='float:left;'><a id='video-link-" + movie.id + "' href='" + linkURL + 
             "' title='Get a link to the movie' " + 
             "target='_blank'><img class='video-link-icon' " + 
-            "style='margin-left: 3px' " + 
-            "src='resources/images/berlin/32x32/link.png' /></a>";
-            
-        // BBcode
-        bbcodeBtn = "<img class='bbcode-btn' id='bbcode-" + movie.id + 
-                    "' src='resources/images/codefisher/bbcode_32.png' " + 
-                    "alt='Helioviewer.org Community Forums BBCode " + 
-                    "link string' />";
-                    
-        // SDO Cut-out service (AIA only)
-        if (movie.layers.search("SDO,AIA") !== -1) {
-            hekBtn = this._generateHEKLink(movie);
-        } else {
-            hekBtn = "";
-        }
-        
-        // SSW Download Script
-        sswBtn = "<img style='margin:0 4px;' src='resources/images/iPhone/ssw_idl_32x32.png' " + 
-                 "alt='SolarSoft (SSW) download script />"
+            "style='width:79px; height:32px;' " + 
+            "src='resources/images/link_79x32.png' /></a></div>";     
 
-        // AddThis
-        addthisBtn = "<div style='display:inline; " + 
-            "float: right;' id='add-this-" + movie.id + 
-            "' class='addthis_default_style addthis_32x32_style'>" +
-            "<a class='addthis_button_facebook addthis_32x32_style'></a>" +
-            "<a class='addthis_button_twitter addthis_32x32_style'></a>" +
-            "<a class='addthis_button_email addthis_32x32_style'></a>" +
-            "<a class='addthis_button_google addthis_32x32_style'></a>" +
-            "<a class='addthis_button_compact addthis_32x32_style'></a>" +
-            "</div>";
+        // Science Download Script
+        sciBtn = "<div style='float:left;'><a id='sci-script-" + movie.id + "' href='javascript:return null;'><img style='width:88px; height:32px;' src='resources/images/science_88x32.png' " + 
+                 "title='Science Data Download Script Generator' /></a></div>";
+                
+        // Tweet Movie Button
+        tweetBtn = '<div style="float:right;"><a href="https://twitter.com/share" class="twitter-share-button" data-related="helioviewer" data-lang="en" data-size="medium" data-count="horizontal" data-url="http://'+document.domain+'/?movieId='+movie.id+'" data-text="Movie of the Sun created on Helioviewer.org:" data-hashtags="helioviewer" data-related="helioviewer">Tweet</a><script>!function(d,s,id){var js,fjs=d.getElementsByTagName(s)[0];if(!d.getElementById(id)){js=d.createElement(s);js.id=id;js.src="https://platform.twitter.com/widgets.js";fjs.parentNode.insertBefore(js,fjs);}}(document,"script","twitter-wjs");</script></div>';
         
+        // Like Movie on Facebook Button
+        facebookBtn = '<div style="float:right;"><iframe src="//www.facebook.com/plugins/like.php?href='+encodeURIComponent('http://'+document.domain+'/?movieId='+movie.id)+'&amp;width=90&amp;height=21&amp;colorscheme=dark&amp;layout=button_count&amp;action=like&amp;show_faces=false&amp;send=false&amp;appId=6899099925" scrolling="no" frameborder="0" style="border:none; overflow:hidden; height:21px; width:90px;" allowTransparency="false"></iframe></div>';
+
         // HTML5 Video (H.264 or WebM)
         if ($.support.vp8 || $.support.h264) {
             // Work-around: use relative paths to simplify debugging
             url = movie.url.substr(movie.url.search("cache"));
             
             // IE9 only supports relative dimensions specified using CSS
-            return "<video id='movie-player-" + movie.id + "' src='" + url +
-                   "' controls preload autoplay" + 
-                   " style='width:100%; height: 90%;'></video>" + 
-                   "<span class='video-links'>" + downloadLink + youtubeBtn +
-                   linkBtn + addthisBtn + "</span>";
+            return '<div><video id="movie-player-' + movie.id + '" src="' + url +
+                   '" controls preload autoplay' + 
+                   ' style="width:100%; height: 90%;"></video></div>' + 
+                   '<div style="width:100%"><div style="float:left;" class="video-links">' + 
+                   youtubeBtn + linkBtn + downloadLink + sciBtn + 
+                   '</div> <div style="float:right;">' + facebookBtn +
+                   tweetBtn + '</div></div>';
         }
 
         // Fallback (flash player)
@@ -861,70 +832,18 @@ var MovieManagerUI = MediaManagerUI.extend(
                   '&width=' + width + "&height=" + height + 
                   '&format=flv';
             
-            return "<div id='movie-player-" + movie.id + "'>" + 
-                   "<iframe src=" + url + " width='" + width +  
-                   "' height='" + height + "' marginheight=0 marginwidth=0 " +
-                   "scrolling=no frameborder=0 style='margin-bottom: 2px;' />" +
-                   "<br />" + 
-                   "<span class='video-links'>" + downloadLink + youtubeBtn +
-                   linkBtn + bbcodeBtn + /*hekBtn + sswBtn + */ addthisBtn + "</span></div>";
+            return '<div id="movie-player-' + movie.id + '">' + 
+                       '<iframe src="' + url + '" width="' + width +  
+                       '" height="' + height + '" marginheight="0" marginwidth="0" ' +
+                       'scrolling="no" frameborder="0" style="margin-bottom: 2px;" />' +
+                   '</div>' +
+                   '<div style="width:100%;">' + 
+                       '<div style="float:left;" class="video-links">' + 
+                        youtubeBtn + linkBtn + downloadLink + sciBtn + 
+                   '</div>' + 
+                   '<div style="float:right;">' + facebookBtn + tweetBtn +
+                   '</div>';
         }
-    },
-    
-    /**
-     * Generates a link to the HEK cutout service
-     * 
-     * @todo: Add HMI support
-     */
-    _generateHEKLink: function (movie) {
-        // wavelengths
-        var regex, indices = [], wavelengths = [], hekParams,
-            baseURL = "http://www.lmsal.com/get_aia_data/?";
-        
-        regex = new RegExp('SDO,AIA,AIA,', 'g');
-
-        while (regex.exec(movie.layers)){
-          indices.push(regex.lastIndex);
-        }
-        $.each(indices, function(i, index) {
-            wavelengths.push(movie.layers.substr(index, 3));
-        });
-
-        // query parameters
-        hekParams = {
-            "startDate" : movie.startDate.substr(0,10),
-            "startTime" : movie.startDate.substring(11,16),
-            "stopDate"  : movie.endDate.substr(0,10),
-            "stopTime"  : movie.endDate.substring(11,16),
-            "wavelengths": wavelengths.join(","),
-            "width": parseInt(movie.width * movie.imageScale, 10),
-            "height": parseInt(movie.height * movie.imageScale, 10),
-            "xCen": parseInt((movie.x1 + movie.x2) / 2, 10),
-            "yCen": -parseInt((movie.y1 + movie.y2) / 2, 10)
-        };
-        
-        return "<a href='" + baseURL + $.param(hekParams) + 
-               "' alt='Download original data from the HEK'>" + 
-               "<img style='margin:0 4px;' src='resources/images/iPhone/sdo_cutout_32x32.png' title='HEK Cutout Service' /></a>";
-    },
-    
-    _showBBCode: function(id, width, height) {
-            var bbcode = "[hvmovie width=" + width + " height=" + height + 
-                         "]" + id + "[/hvmovie]";             
-            
-            // Display BBCode
-            $("#bbcode-dialog").dialog({
-                //dialogClass: 'helioviewer-modal-dialog',
-                height    : 100,
-                width     : $('html').width() * 0.5,
-                modal     : true,
-                resizable : false,
-                title     : "Helioviewer.org Movie BBCode",
-                open      : function (e) {
-                    //$('.ui-widget-overlay').hide().fadeIn();
-                    $(this).find('input').attr('value', bbcode).select();
-                }
-            });
     },
     
     /**

@@ -42,12 +42,12 @@ class Database_ImgIndex
      * 
      * @return int identifier for the screenshot
      */
-    public function insertScreenshot($date, $scale, $roi, $watermark, $layers, $bitmask, $events, $eventsLabels, $numLayers)
+    public function insertScreenshot($date, $scale, $roi, $watermark, $layers, $bitmask, $events, $eventsLabels, $scale, $scaleType, $scaleX, $scaleY, $numLayers)
     {
     	include_once 'src/Helper/DateTimeConversions.php';
     	
         // Add to screenshots table and get an id
-        $sql = sprintf("INSERT INTO screenshots VALUES(NULL, NULL, '%s', %f, PolygonFromText('%s'), %b, '%s', %d, '%s', %b, %d);", 
+        $sql = sprintf("INSERT INTO screenshots VALUES(NULL, NULL, '%s', %f, PolygonFromText('%s'), %b, '%s', %d, '%s', %b, %b, '%s', %f, %f, %d);", 
             isoDateToMySQL($date),
             $scale,
             $roi,
@@ -56,6 +56,10 @@ class Database_ImgIndex
             bindec($bitmask),
             $events, 
             $eventsLabels,
+            $scale,
+            $scaleType,
+            $scaleX,
+            $scaleY,
             $numLayers
         );
         

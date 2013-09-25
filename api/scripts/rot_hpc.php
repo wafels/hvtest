@@ -836,12 +836,4 @@
 
       return (julian_day($t) - JULIAN_DAY_ON_NOON01JAN1900) / $DAYS_IN_YEAR;
    }
-   
-
-if ( array_key_exists('USER',$_SERVER) && $_SERVER['USER'] == 'jstys' ) {
-    phpinfo();
-    var_dump(sunearth_distance('2011-12-29T01:13:55.000Z'));
-    var_dump(PHP_VERSION_ID);
-    //echo "bye\n";
-}
 ?>

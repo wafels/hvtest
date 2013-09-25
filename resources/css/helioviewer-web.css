@@ -11,7 +11,7 @@ html, body {
     -webkit-background-size: 40px 100%;*/
 }
 #col2 input, #col2 select {background-color:#F4F4F4;}
-#left-col-header, #right-col-header {height: 50px; margin-top: -24px;}
+#left-col-header, #right-col-header {height: 50px; margin-top: -12px;}
 
 /* Viewport */
 #helioviewer-viewport-container-inner {
@@ -34,7 +34,7 @@ html, body {
 
 #helioviewer-viewport-container-shadow {
     position: absolute;
-    top: 24px;
+    top: 12px;
     left: 284px;
     display: none;
     border-radius: 25px;
@@ -57,7 +57,7 @@ box-shadow: 0 0 5px rgba(0, 0, 0, 1);
 
 /* Logo */
 #helioviewer-logo-main {
-    margin-top:24px;
+    margin-top:12px;
     margin-left: 9px;
 }
 
@@ -206,6 +206,10 @@ span.ui-icon-hover, div.ui-icon-hover {
     cursor: pointer;
 }
 
+#morescreen-btn {
+    float: right;
+}
+
 /* Blog entries */
 #social-panel {
     height: 100%;
@@ -271,6 +275,37 @@ span.ui-icon-hover, div.ui-icon-hover {
 
 #image-area-select-buttons .ui-icon {
     float: left;
+}
+
+/** Science Data Download Script dialog */
+    
+#science-data-dialog {
+    display: none;
+    margin: 15px 15px 0 15px;
+    font-size: 1em;
+}
+
+#science-data-dialog label {
+    display: inline-block;
+    margin: 5px 2px 0 0;
+}
+
+#science-data-dialog fieldset {
+    padding: 2px 10px;
+}
+
+#science-data-dialog legend {
+    margin-left: -10px;
+    font-weight: bold;
+    color: white;
+}
+
+#science-data-dialog input {
+    margin: 1px 4px;
+}
+
+#science-data-dialog .form-disabled {
+    opacity: 0.5;
 }
 
 /** Settings dialog */

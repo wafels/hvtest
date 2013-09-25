@@ -183,7 +183,7 @@ class Event_HEKAdapter
 
     /**
      * Return a JSON string containing an object of event type parameters
-	 *    containing an array of FRMs
+     *    containing an array of FRMs
      * 
      * @param string $startTime Query start date
      * 
@@ -198,33 +198,35 @@ class Event_HEKAdapter
         // that should not be passed through, they will need to be weeded out
         $events = $this->getEvents($startTime, $options);
         
-        foreach ($events as $i => $event) {
+        if ( $events !== false ) {
         
-            // If an unexpected F/E type shows up in the HEK data, append it to
-            // the default set.  (It will get a generic marker icon and color).
-            $property = trim($event['concept']).'/'.$event['event_type'];
-            if ( !property_exists($defaultEventTypes, $property) ) {
-                $defaultEventTypes->{$property} = new stdClass;
-            }
+            foreach ($events as $i => $event) {
+                // If an unexpected F/E type shows up in the HEK data, append it to
+                // the default set.  (It will get a generic marker icon and color).
+                $property = trim($event['concept']).'/'.$event['event_type'];
+                if ( !property_exists($defaultEventTypes, $property) ) {
+                    $defaultEventTypes->{$property} = new stdClass;
+                }
             
-            if ( gettype($defaultEventTypes->{$property}->{$event['frm_name']}) == 'NULL' ) {
-                $newFRM = new stdClass;
-	    		$newFRM->frm_name    = urlencode($event['frm_name']);
-	    		$newFRM->frm_url     = $event['frm_url'];
-	    		$newFRM->frm_contact = $event['frm_contact'];
-	    		$newFRM->concept     = $event['concept'];
-	    		$newFRM->count       = 1;
-	    		$defaultEventTypes->{$property}->{$event['frm_name']} = $newFRM;
-            }
-            else {
-                $defaultEventTypes->{$property}->{$event['frm_name']}->count++;
+                if ( !property_exists($defaultEventTypes->{$property}, $event['frm_name']) ) {
+                    $newFRM = new stdClass;
+                    $newFRM->frm_name    = urlencode($event['frm_name']);
+                    $newFRM->frm_url     = $event['frm_url'];
+                    $newFRM->frm_contact = $event['frm_contact'];
+                    $newFRM->concept     = $event['concept'];
+                    $newFRM->count       = 1;
+                    $defaultEventTypes->{$property}->{$event['frm_name']} = $newFRM;
+                }
+                else {
+                    $defaultEventTypes->{$property}->{$event['frm_name']}->count++;
+                }   
             }
         }
     
-		return json_encode($defaultEventTypes);
+        return json_encode($defaultEventTypes);
     }
     
-
+    
     
     /**
      * Returns an array of event objects as a JSON string
@@ -237,7 +239,7 @@ class Event_HEKAdapter
     public function getEvents($startTime, $options)
     {
         include_once $this->_docroot."/api/src/Helper/DateTimeConversions.php";
-		$events = Array();
+        $events = Array();
          
         // Default options
         $defaults = array(
@@ -247,39 +249,34 @@ class Event_HEKAdapter
             'ar_filter' => true
         );
         $options = array_replace($defaults, $options);
-        /*
-        if ( $options['eventType'] == '' ) {
-        	$options['eventType'] = '**';
-        }
-        */
-		
-		$dateArray = date_parse($startTime);
+        
+        $dateArray = date_parse($startTime);
 
-		
-		// Determine JSON cache filename
-		
-		$hourOffset = floor($dateArray['hour']/HEK_CACHE_WINDOW_HOURS)*HEK_CACHE_WINDOW_HOURS;
-		
-		$externalAPIStartTime = implode('-', Array($dateArray['year'],
-		                                           str_pad($dateArray['month'],2,'0',STR_PAD_LEFT),
-		                                           str_pad($dateArray['day'],  2,'0',STR_PAD_LEFT)))
-		                      . 'T' 
-		                      . implode(':', Array($hourOffset,'00:00.000Z'));
+        
+        // Determine JSON cache filename
+        
+        $hourOffset = floor($dateArray['hour']/HEK_CACHE_WINDOW_HOURS)*HEK_CACHE_WINDOW_HOURS;
+        
+        $externalAPIStartTime = implode('-', Array($dateArray['year'],
+                                                   str_pad($dateArray['month'],2,'0',STR_PAD_LEFT),
+                                                   str_pad($dateArray['day'],  2,'0',STR_PAD_LEFT)))
+                              . 'T' 
+                              . implode(':', Array($hourOffset,'00:00.000Z'));
 
-		$externalAPIEndTime   = implode('-', Array($dateArray['year'],
-		                                           str_pad($dateArray['month'],2,'0',STR_PAD_LEFT),
-		                                           str_pad($dateArray['day'],  2,'0',STR_PAD_LEFT)))
-		                      . 'T' 
-		                      . str_pad($hourOffset+HEK_CACHE_WINDOW_HOURS-1,  2,'0',STR_PAD_LEFT)
-		                      . ':59:59.999Z';
-		
-		$cache_base_dir = HV_CACHE_DIR.'/events/'.$dateArray['year'] 
+        $externalAPIEndTime   = implode('-', Array($dateArray['year'],
+                                                   str_pad($dateArray['month'],2,'0',STR_PAD_LEFT),
+                                                   str_pad($dateArray['day'],  2,'0',STR_PAD_LEFT)))
+                              . 'T' 
+                              . str_pad($hourOffset+HEK_CACHE_WINDOW_HOURS-1,  2,'0',STR_PAD_LEFT)
+                              . ':59:59.999Z';
+        
+        $cache_base_dir = HV_CACHE_DIR.'/events/'.$dateArray['year'] 
                         . '/' . str_pad($dateArray['month'],2,'0',STR_PAD_LEFT)
                         . '/' . str_pad($dateArray['day'],  2,'0',STR_PAD_LEFT);
-		$cache_filename = $cache_base_dir
+        $cache_filename = $cache_base_dir
                         . '/' . str_pad($hourOffset,2,'0',STR_PAD_LEFT).':00:00.000Z-'
-		                      . str_pad($hourOffset+HEK_CACHE_WINDOW_HOURS-1,2,'0',STR_PAD_LEFT)
-		                      . ':59:59.999Z.json';
+                              . str_pad($hourOffset+HEK_CACHE_WINDOW_HOURS-1,2,'0',STR_PAD_LEFT)
+                              . ':59:59.999Z.json';
 
 
         include_once $this->_docroot."/api/scripts/rot_hpc.php";
@@ -290,29 +287,31 @@ class Event_HEKAdapter
         // spacecraft's position at the timestamp of the image(s) used for F/E 
         // detection. 
         $au_scalar = sunearth_distance($startTime);
-        //$au_scalar = 1;
             
 
-		// Fetch data from cache or live external API query
+        // Fetch data from cache or live external API query
 
-		$handle = @fopen($cache_filename, 'r');
-		if ( $handle !== false && $options['force'] === false) {
-			$data = json_decode(fread($handle, @filesize($cache_filename)));
-			fclose($handle);
-		}
-		else {
-			// Fetch data from live external API and write to local JSON cache
- 			// HEK query parameters
-			$params = array(
-				"event_starttime" => $externalAPIStartTime, 
-				"event_endtime"   => $externalAPIEndTime, 
-				"event_type"      => '**',  // Fetch all event types always, 
-				                            // filter by $options['event_type'] later
+        $handle = @fopen($cache_filename, 'r');
+        if ( $handle !== false && $options['force'] === false) {
+            $data = json_decode(fread($handle, @filesize($cache_filename)));
+            fclose($handle);
+        }
+        else {
+            // Fetch data from live external API and write to local JSON cache
+            // HEK query parameters
+            $params = array(
+                "event_starttime" => $externalAPIStartTime, 
+                "event_endtime"   => $externalAPIEndTime, 
+                "event_type"      => '**',  // Fetch all event types always, 
+                                            // filter by $options['event_type'] later
                 "showtests"       => "hide",
-				"result_limit"    => 1000
-			);
-			$response = JSON_decode($this->_proxy->query($params, true), true);
-			
+                "result_limit"    => 1000
+            );
+            $response = JSON_decode($this->_proxy->query($params, true), true);
+            if ( count($response['result']) == 0 ) {
+                return false;
+            }
+            
             // Sort HEK results by parameter name for each event
             $data = Array();
             foreach ($response['result'] as $index => $event) {
@@ -330,28 +329,29 @@ class Event_HEKAdapter
                 $data[$index] = $event;
             }
 
-			if ( $response['overmax'] === true ) {
-				// TODO handle case where there are more results to fetch
-				// ...
-				$error = new stdClass;
-				$error->overmax = $response['overmax'];
-				return($error);
-			}
-			
+            if ( $response['overmax'] === true ) {
+                // TODO handle case where there are more results to fetch
+                // ...
+                $error = new stdClass;
+                $error->overmax = $response['overmax'];
+                return($error);
+            }
+            
             // Only cache if results exist
-            if ( count($data) > 0 ) {		
+            if ( count($data) > 0 ) {
                 // Check existence of cache directory
-			    if ( !file_exists($cache_base_dir) ) {
-       		        mkdir($cache_base_dir, 0777, true);
-    	   	        chmod($cache_base_dir, 0777);      
-				}
-				
+                if ( !file_exists($cache_base_dir) ) {
+                       mkdir($cache_base_dir, 0777, true);
+                       chmod($cache_base_dir, 0777);      
+                }
+                
                 $count = count($data);
                 for ( $i=0; $i<$count; $i++ ) {
                 
                     // Generate polygon PNG for events that have a chain code
                     if ( $data[$i]['hpc_boundcc'] != '' ) {
-                        $this->drawPolygon($data[$i], $au_scalar, $polyOffsetX, $polyOffsetY, $polyURL, $polyWidth, $polyHeight);
+                        $this->drawPolygon($data[$i], $au_scalar, $polyOffsetX, $polyOffsetY, $polyURL, 
+                                           $polyWidth, $polyHeight);
                         
                         // Save polygon info into $data to be cached
                         $data[$i]['hv_poly_hpc_x_ul_scaled_norot']  = $polyOffsetX;
@@ -361,52 +361,52 @@ class Event_HEKAdapter
                         $data[$i]['hv_poly_height_max_zoom_pixels'] = $polyHeight;
                     }
                 }
-				
-				// Write cache file
-				$handle = @fopen($cache_filename, 'w');
-				if ( $handle !== false ) {
-					@fwrite($handle, json_encode($data));
-				}
-			}
-		}
+                
+                // Write cache file
+                $handle = @fopen($cache_filename, 'w');
+                if ( $handle !== false ) {
+                    @fwrite($handle, json_encode($data));
+                }
+            }
+        }
 
-		// No output is desired for cacheOnly requests.  
-		// Also no need to calculate differential rotation or to filter results.
-		if ( $options['cacheOnly'] == true ) {
-			return true;
-		}
-		
-		// Only retain and output data that is relevent to this request
-		$obs_time = new DateTime($startTime);
-		
-		if ( $options['ar_filter'] === true ) {
+        // No output is desired for cacheOnly requests.  
+        // Also no need to calculate differential rotation or to filter results.
+        if ( $options['cacheOnly'] == true ) {
+            return true;
+        }
+        
+        // Only retain and output data that is relevent to this request
+        $obs_time = new DateTime($startTime);
+        
+        if ( $options['ar_filter'] === true ) {
             $ar_swpc = Array();
         }
 
-		foreach( (array)$data as $index => $event ) {
-			if ( gettype($event) == 'object') {
-				$event = (array) $event;
-			}
-			
-			$event_starttime = new DateTime($event['event_starttime'].'Z');
-			$event_endtime   = new DateTime($event['event_endtime']  .'Z');
-			
-			// Skip over any undesired or non-requested event types
-			$eventTypesToIgnore  = Array('OT','NR');
-			$eventTypesToAllow   = explode(',',$options['eventType']);
-			if ( ($options['eventType']!='**' && !in_array($event['event_type'],$eventTypesToAllow)) 
-			     || in_array($event['event_type'],$eventTypesToIgnore) 
-			     || $event['event_testflag']===true) {
+        foreach( (array)$data as $index => $event ) {
+            if ( gettype($event) == 'object') {
+                $event = (array) $event;
+            }
+            
+            $event_starttime = new DateTime($event['event_starttime'].'Z');
+            $event_endtime   = new DateTime($event['event_endtime']  .'Z');
+            
+            // Skip over any undesired or non-requested event types
+            $eventTypesToIgnore  = Array('OT','NR');
+            $eventTypesToAllow   = explode(',',$options['eventType']);
+            if ( ($options['eventType']!='**' && !in_array($event['event_type'],$eventTypesToAllow)) 
+                 || in_array($event['event_type'],$eventTypesToIgnore) 
+                 || $event['event_testflag']===true) {
 
-				continue;
-			}
+                continue;
+            }
             
             // Remove problematic characters from frm_name (used as selectors)
             $event['frm_name'] = str_replace(Array('(',')'), Array('',''), $event['frm_name']);
-			
-			// Retain any remaining events whose duration spans (or matches) obs_time
-			if ($event_endtime >= $obs_time && $event_starttime <= $obs_time) {
-			
+            
+            // Retain any remaining events whose duration spans (or matches) obs_time
+            if ($event_endtime >= $obs_time && $event_starttime <= $obs_time) {
+            
                 // Some events may be represented by multiple HEK records, 
                 // will be combined later
                 if ( $options['ar_filter'] === true && $event['frm_name'] == 'NOAA SWPC Observer' ) {
@@ -427,8 +427,13 @@ class Event_HEKAdapter
                     if ( $event['frm_name'] == 'SPoCA' ) {
                         $rotateFromTime = $event['event_endtime'].'.000Z';
                     }
+                    else if ( $event['frm_name'] == 'Emerging flux region module' && 
+                              floatval($event['frm_versionnumber']) < 0.55 ) {
+                    
+                        $rotateFromTime = $event['event_peaktime'].'.000Z';      
+                    }
 
-					list($event['hv_hpc_x_notscaled_rot'],$event['hv_hpc_y_notscaled_rot']) 
+                    list($event['hv_hpc_x_notscaled_rot'],$event['hv_hpc_y_notscaled_rot']) 
                         = rot_hpc( $event['hpc_x'], $event['hpc_y'], $rotateFromTime, 
                                    $rotateToTime, $spacecraft=null, $vstart=null, $vend=null);
                         
@@ -491,10 +496,10 @@ class Event_HEKAdapter
                 }       
                 
                 # Save the event for output
-				$events[] = $event;
-			}
-		}
-		unset($data);
+                $events[] = $event;
+            }
+        }
+        unset($data);
         
         # Sort the remaining events by their Y coordinate so that 
         # they overlap correctly in the viewport.
@@ -568,8 +573,8 @@ class Event_HEKAdapter
             }
         }
         
-		return $events;
-	}
+        return $events;
+    }
     
     
     /**

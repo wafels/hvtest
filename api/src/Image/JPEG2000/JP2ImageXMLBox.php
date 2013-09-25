@@ -242,7 +242,13 @@ class Image_JPEG2000_JP2ImageXMLBox
             switch ($this->_getElementValue('TELESCOP')) {
                 case 'SOHO':
                     $layeringOrder = 2;     // SOHO LASCO C2
-                    if ( $this->_getElementValue('DETECTOR') == 'C3' ) {
+                    if ( $this->_getElementValue('INSTRUME') == 'EIT' ) {
+                        $layeringOrder = 1;  // SOHO EIT
+                    }
+                    elseif ( $this->_getElementValue('INSTRUME') == 'MDI' ) {
+                        $layeringOrder = 1;  // SOHO MDI
+                    }
+                    elseif ( $this->_getElementValue('DETECTOR') == 'C3' ) {
                         $layeringOrder = 3; // SOHO LASCO C3
                     }
                     break;

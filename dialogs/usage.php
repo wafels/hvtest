@@ -66,11 +66,11 @@
 		<td>Zoom out.</td>
 	</tr>
 	<tr>
-		<td>Mouse-wheel up</td>
+		<td>Mouse-wheel forwards</td>
 		<td>Zoom in.</td>
 	</tr>
 	<tr>
-		<td>Mouse-wheel down</td>
+		<td>Mouse-wheel backwards</td>
 		<td>Zoom out.</td>
 	</tr>
 </table>

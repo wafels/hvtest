@@ -406,6 +406,7 @@ var HelioviewerViewport = Class.extend(
             coordinates : this.movementHelper.getViewportCoords(),
             imageScale  : this.imageScale,
             layers      : this.serialize(),
+            events      : this.serializeEvents(),
             time        : this._tileLayerManager.getRequestDateAsISOString()
         };
     },

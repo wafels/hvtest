@@ -31,9 +31,9 @@ class Image_Composite_HelioviewerScreenshot extends Image_Composite_HelioviewerC
 	/**
 	 * Creates a new screenshot
 	 */
-    public function __construct($layers, $events, $eventLabels, $earthScale, $obsDate, $roi, $options)
+    public function __construct($layers, $events, $eventLabels, $scale, $scaleType, $scaleX, $scaleY, $obsDate, $roi, $options)
     {
-    	parent::__construct($layers, $events, $eventLabels, $earthScale, $obsDate, $roi, $options);
+    	parent::__construct($layers, $events, $eventLabels, $scale, $scaleType, $scaleX, $scaleY, $obsDate, $roi, $options);
     	
         $this->id = $this->_getScreenshotId();
     	$this->build($this->_buildFilepath());
@@ -73,8 +73,11 @@ class Image_Composite_HelioviewerScreenshot extends Image_Composite_HelioviewerC
             $this->layers->getBitMask(),
             $this->events->serialize(),
             $this->eventsLabels,
+            $this->scale,
+            $this->scaleType,
+            $this->scaleX,
+            $this->scaleY,
             $this->layers->length()
-            // NEED ALSO events DATA, with database table support
         );
     }
 }

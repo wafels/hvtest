@@ -31,26 +31,38 @@ class Database_MovieDatabase
      */
     public function __construct()
     {
-        include_once 'DbConnection.php';
-        $this->_dbConnection = new Database_DbConnection();
+        $this->_dbConnection = false;
+    }
+    
+    private function _dbConnect() {
+        if ( $this->_dbConnection === false ) {
+            include_once 'DbConnection.php';
+            $this->_dbConnection = new Database_DbConnection();
+        }
     }
     
     /**
      * Inserts a new movie entry into the database and returns it's id
      */
-    public function insertMovie($startTime, $endTime, $imageScale, $roi, $maxFrames, $watermark, $layerString, 
-                                $layerBitMask, $eventString, $eventsLabels, $earthScale, $numLayers, $queueNum, $frameRate, $movieLength)
-    {
-        $sql = "INSERT INTO movies VALUES(NULL, NULL, ?, ?, ?, PolygonFromText(?), " .
-               "?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, NULL, NULL, NULL, NULL);";
+    public function insertMovie($startTime, $endTime, $imageScale, $roi, 
+        $maxFrames, $watermark, $layerString, $layerBitMask, $eventString, 
+        $eventsLabels, $scale, $scaleType, $scaleX, $scaleY, $numLayers, 
+        $queueNum, $frameRate, $movieLength) {
+        
+        $sql = "INSERT INTO movies VALUES(NULL, NULL, ?, ?, ?, " 
+             . "PolygonFromText(?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, "
+             . "?, NULL, NULL, NULL, NULL, NULL, NULL, NULL);";
                
         $startTime = isoDateToMySQL($startTime);
         $endTime   = isoDateToMySQL($endTime);
                  
+        $this->_dbConnect();
+        
         $stmt = $this->_dbConnection->link->prepare($sql);
-        $stmt->bind_param('ssdsissssssiiss', $startTime, $endTime, $imageScale, $roi, $maxFrames, $watermark,
-                                          $layerString, $layerBitMask, $eventString, $eventsLabels, $earthScale, 
-                                          $numLayers, $queueNum, $frameRate, $movieLength);
+        $stmt->bind_param('ssdsiisssiisddiiss', $startTime, $endTime, $imageScale, 
+            $roi, $maxFrames, $watermark, $layerString, $layerBitMask, 
+            $eventString, $eventsLabels, $scale, $scaleType, $scaleX, $scaleY, 
+            $numLayers, $queueNum, $frameRate, $movieLength);
 
         $result = $stmt->execute();
         $id = $stmt->insert_id;
@@ -63,7 +75,9 @@ class Database_MovieDatabase
      * Creates a video entry in the movieFormats table
      */
     public function insertMovieFormat($id, $format)
-    {
+    {         
+        $this->_dbConnect();
+        
         $sql = "INSERT INTO movieFormats VALUES(NULL, ?, ?, 0, NULL);";
 
         $stmt = $this->_dbConnection->link->prepare($sql);
@@ -84,6 +98,8 @@ class Database_MovieDatabase
      */
     public function insertYouTubeMovie($movieId, $title, $desc, $keywords, $share)
     {
+        $this->_dbConnect();
+    
         // Create the prepared statement
         $sql = "INSERT INTO youtube values (NULL, ?, NULL, NULL, ?, ?, ?, ?)";
         if ($stmt = $this->_dbConnection->link->prepare($sql)) {
@@ -104,6 +120,7 @@ class Database_MovieDatabase
      */
     public function updateYouTubeMovie($movieId, $youtubeId)
     {
+        $this->_dbConnect();
         
         $sql = "UPDATE youtube SET youtubeId='$youtubeId' WHERE movieId=$movieId;";
         $this->_dbConnection->query($sql);
@@ -113,7 +130,9 @@ class Database_MovieDatabase
      * Gets statistics for the n most recently completed movies
      */
     public function getMovieStatistics($n=100)
-    {    
+    {
+        $this->_dbConnect();
+        
         $sql = "SELECT numFrames, width * height as numPixels, queueNum, " .
                "TIMESTAMPDIFF(SECOND, buildTimeStart, buildTimeEnd) as time " .
                "FROM movies " .
@@ -142,20 +161,87 @@ class Database_MovieDatabase
     /**
      * Gets a list of videos recently shared on YouTube
      */
-    public function getSharedVideos($num, $since)
+    public function getSharedVideos($num, $since, $force=false)
     {
         include_once 'src/Helper/DateTimeConversions.php';
-
-        $date = isoDateToMySQL($since);
         
-        $sql = "SELECT movieId, youtubeId, timestamp FROM youtube WHERE " .
-               "shared=1 AND youtubeId IS NOT NULL AND timestamp > '$date' ORDER BY id DESC LIMIT $num;";
+        $cached = false;
+        
+        $cachedir = HV_CACHE_DIR.'/api/MovieDatabse/getSharedvideos';
 
-        $videos = array();
+        $filename = urlencode($since.'_'.$num.'.json');
+        $filepath = $cachedir.'/'.$filename;
 
-        $result = $this->_dbConnection->query($sql);
-        while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
-            array_push($videos, $row);
+        if ( $force===false && @file_exists($filepath) ) {
+
+            $fh = @fopen($filepath,'r');
+
+            $contents = '';
+            while (!@feof($fh)) {
+                $contents .= @fread($fh, 8192);
+            }
+            @fclose($fh);
+
+            $videos = json_decode($contents, true);
+
+            if ( $videos === null ) {
+                $cached = false;
+                break;
+            }
+
+            $cached = true;
+            
+            $filemtime = @filemtime($filepath);
+
+            if ( $filemtime !== false && time()-$filemtime > 90 ) {
+                @unlink($filepath);
+            } 
+        }
+
+        if ( $cached===false || $force===true ) {
+            $this->_dbConnect();
+
+            $date = isoDateToMySQL($since);
+
+            $sql = "SELECT movieId, youtubeId, timestamp FROM youtube WHERE " .
+                   "shared=1 AND youtubeId IS NOT NULL AND timestamp > '$date' ORDER BY id DESC LIMIT $num;";
+
+            $videos = array();
+
+            $result = $this->_dbConnection->query($sql);
+
+            while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
+                array_push($videos, $row);
+            }
+            
+            $temppath = HV_CACHE_DIR.'/api/getSharedVideos_'.time().'.json';
+            
+            
+            if ( !@file_exists($cachedir) ) {
+                @mkdir($cachedir, 0777, true);
+            }
+            
+            $fh = @fopen($filepath,'w');
+
+            if ( $fh !== false ) {
+                @fwrite($fh, json_encode($videos));
+
+                @fclose($fh);
+
+                clearstatcache();
+
+                if ( @rename($temppath, $filepath) === false ) {
+
+                    if ( @copy($temppath, $filepath) ) {
+                        @unlink($temppath);
+                    }
+                }
+            }
+            else {
+                //error_log(__FILE__.':'.__LINE__
+                //    .' -- Failed to write JSON cache for getSharedVideos API: '
+                //    .$filepath);
+            }
         }
         
         return $videos;

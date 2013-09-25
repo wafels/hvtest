@@ -1,25 +1,24 @@
 /**
  * @author <a href="mailto:jeff.stys@nasa.gov">Jeff Stys</a> 
- * @author <a href="mailto:keith.hughitt@nasa.gov">Keith Hughitt</a> 
- * @fileOverview Handles the creation of a button which allows toggling between normal and fullscreen mode.
+ * @fileOverview Handles the creation of a button which allows toggling between normal and morescreen mode.
  */
 /*jslint browser: true, white: true, onevar: true, undef: true, nomen: false, eqeqeq: true, plusplus: true, 
 bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 120, sub: true */
 /*global Class, $, window */
 "use strict";
-var FullscreenControl = Class.extend(
-    /** @lends FullscreenControl.prototype */
+var MorescreenControl = Class.extend(
+    /** @lends MorescreenControl.prototype */
     {
     /**
-     * @description Creates a new FullscreenControl. 
+     * @description Creates a new MorescreenControl. 
      * @constructs 
      */ 
     init: function (btnId, speed) {
         
         // Create icon and apply title attribute
         this.btn      = $(btnId);
-        this.btn.append('<span class="ui-icon ui-icon-arrow-4-diag"></span>');
-        this.btn.attr('title', 'Enable fullscreen mode.');
+        this.btn.append('<span class="ui-icon ui-icon-arrowstop-1-e"></span>');
+        this.btn.attr('title', 'Hide right sidebar.');
         this.icon     = $(btnId).find('span.ui-icon');
             
         // Sections to be resized or hidden
@@ -28,13 +27,14 @@ var FullscreenControl = Class.extend(
         this.colright = $('#colright');
         this.col1pad  = $('#col1pad');
         this.col2     = $('#col2');
+        this.col3     = $('#col3');
         this.viewport = $('#helioviewer-viewport-container-outer');
         this.shadow   = $('#helioviewer-viewport-container-shadow');
         this.sandbox  = $('#sandbox');
         this.header   = $('#header');
         this.footer   = $('#footer');
         this.meta     = $('#footer-container-outer');
-        this.panels   = $("#col2, #col3, #header, #footer");
+        this.panels   = $("#col2, #header, #footer");
         
         // Layout assumptions
         this.sidebarWidth = 280;  // px
@@ -42,21 +42,19 @@ var FullscreenControl = Class.extend(
         
         // Positions when Morescreen mode is DISABLED
         //   (both sidebars on)
-        this.disabled_col1padMarginLeft   =  2*(this.sidebarWidth + this.marginSize);
-        this.disabled_col1padMarginRight  =  0;
-        this.disabled_col1padMarginTop    =  0;
-        this.disabled_colRightMarginLeft  = -2*(this.sidebarWidth + this.marginSize);
-        this.disabled_col2Left   = this.sidebarWidth + this.marginSize + 2;
-        this.disabled_colMidLeft = this.sidebarWidth + this.marginSize;
+        this.disabled_col1padMarginLeft   = 2*(this.sidebarWidth + this.marginSize);
+        this.disabled_colRightMarginLeft  = -this.disabled_col1padMarginLeft;
+        this.disabled_col2Left = this.sidebarWidth + this.marginSize + 2;
         
         // Positions when Morescreen mode is ENABLED
         //   (left sidebar on, right sidebar off)
-        this.enabled_colMidLeft  = 0;
-        this.enabled_colMidRight = 0;
-        this.enabled_col2Left = -(this.sidebarWidth + this.marginSize + 2) - this.sidebarWidth;
-        this.enabled_colrightMarginLeft = 0;
+        this.enabled_col1padMarginLeft  =  2*(this.sidebarWidth + this.marginSize);
+        this.enabled_col1padMarginRight = -this.sidebarWidth;
+        this.enabled_col2Left           = this.sidebarWidth + this.marginSize + 2;
+        this.enabled_colrightMarginLeft = -2*(this.sidebarWidth + this.marginSize);
         
         // Static positions (used to override any Fullscreen mode settings)
+        this.static_colMidLeft   = this.sidebarWidth+this.marginSize;
         this.static_headerHeight = this.header.height();
         this.static_footerHeight = this.footer.height();
         
@@ -66,26 +64,24 @@ var FullscreenControl = Class.extend(
     },
     
     /**
-     * Returns true if Helioviewer is currently in fullscreen mode
+     * Returns true if Helioviewer is currently in morescreen mode
      */
     isEnabled: function () {
-        if ( $('#morescreen-btn > span.ui-icon').hasClass('ui-icon-arrowstop-1-w') ) { 
-            this._fullscreenMode = false;
+        if ( this.icon.hasClass('ui-icon-arrowstop-1-w') ) {
+            return true;
         }
-        return this._fullscreenMode;
+        return false;
     },
     
     /**
-     * Enable fullscreen mode
+     * Enable morescreen mode
      */
-    enableFullscreenMode: function (animated) {
+    enableMorescreenMode: function (animated) {
         // hide overflow and reduce min-width
         this.body.css({
             'overflow' :'hidden',
             'min-width': 450
         });
-        
-        this.meta.hide();
         
         // Expand viewport
         if (animated) {
@@ -101,44 +97,40 @@ var FullscreenControl = Class.extend(
      */
     _expandAnimated: function () {
         var self = this,
-            moreScreenBtn;
+            fullScreenBtn;
+        
+        this.col3.hide();
+        this.shadow.hide();
         
         this.colmid.animate({
-            left : this.enabled_colMidLeft  + 'px',
-            right: this.enabled_colMidRight + 'px'
+            left : this.static_colMidLeft + 'px',
+            right: 0
         }, this.speed,
         function () {
+            var offset;
             $(document).trigger('update-viewport');
+            self.col2.show();
+            self.col2.animate({
+                "left" : self.enabled_col2Left + 'px'
+            });
+            offset = self.viewport.offset();
             self.shadow.css({
                 "width" : self.viewport.width(),
                 "height": self.viewport.height(),
-                "top"   : self.marginSize,
-                "left"  : self.marginSize
-            });
-            self.panels.hide();
-            self.body.removeClass('disable-fullscreen-mode');
+                "top"   : offset.top,
+                "left"  : offset.left
+            }).show();
+            
+            self.body.removeClass('disable-morescreen-mode');
         });
+      
+        this.col1pad.animate({
+            "margin-left" : this.enabled_col1padMarginLeft  + "px",
+            "margin-right": this.enabled_col1padMarginRight + "px"
+        }, this.speed);
         
         this.colright.animate({
-            "margin-left": this.enabled_colrightMarginLeft + 'px'
-        }, this.speed);
-        
-        this.col1pad.animate({
-            "margin-left" : this.marginSize,
-            "margin-right": this.marginSize,
-            "margin-top"  : this.marginSize
-        }, this.speed);
-        
-        this.col2.animate({
-            "left": this.enabled_col2Left + 'px'
-        }, this.speed);
-        
-        this.header.animate({
-            "height": 0
-        }, this.speed);
-        
-        this.viewport.animate({
-            "height": $(window).height() - 3*this.marginSize
+            "margin-left" : this.enabled_colrightMarginLeft + "px"
         }, this.speed);
         
         // Keep sandbox up to date
@@ -146,14 +138,13 @@ var FullscreenControl = Class.extend(
             "right": 0.1 // Trash
         }, this.speed);   
         
-        this.btn.attr('title', 'Disable fullscreen mode.');
+        this.icon.removeClass('ui-icon-arrowstop-1-e').addClass('ui-icon-arrowstop-1-w');
+        this.btn.attr('title', 'Show right sidebar.');
         
-        moreScreenBtn = $('#morescreen-btn > span.ui-icon');
-        if ( moreScreenBtn.length == 1 ) {
-            $('#morescreen-btn > span.ui-icon').removeClass('ui-icon-arrowstop-1-w').addClass('ui-icon-arrowstop-1-e');
-            $('#morescreen-btn').attr('title','Show left sidebar.');
+        fullScreenBtn = $('#fullscreen-btn > span.ui-icon');
+        if ( fullScreenBtn.length == 1 ) {
+            $('#fullscreen-btn').attr('title','Enable fullscreen mode.');
         }
-
     },
     
     /**
@@ -161,26 +152,28 @@ var FullscreenControl = Class.extend(
      * transition
      */
     _expand: function () {
-        var moreScreenBtn;
+        var offset,
+            fullScreenBtn;
         
+        this.col2.css({
+            "left" : this.enabled_col2Left + 'px'
+        });
+        this.col2.show();
+        this.col3.hide();
+        this.shadow.hide();
+    
         this.colmid.css({
-            "left" : this.enabled_colMidLeft  + 'px',
-            "right": this.enabled_colMidRight + 'px'
+            "left" : this.static_colMidLeft + 'px',
+            "right": 0
         });        
         
         this.col1pad.css({
-            "margin-left" : this.marginSize,
-            "margin-right": this.marginSize,
-            "margin-top"  : this.marginSize
+            "margin-left" : this.enabled_col1padMarginLeft  + "px",
+            "margin-right": this.enabled_col1padMarginRight + "px"
         });
         
-        this.col2.css({
-            "left": this.enabled_col2Left + 'px'
-        });
-        
-        this.header.height(0);
-        this.viewport.css({
-            "height": $(window).height() - 3*this.marginSize
+        this.colright.css({
+            "margin-left" : this.enabled_colrightMarginLeft + "px"
         });
         
         this.sandbox.css({
@@ -188,54 +181,55 @@ var FullscreenControl = Class.extend(
         });
         
         $(document).trigger('update-viewport');
+        offset = this.viewport.offset();
         this.shadow.css({
-            "width" : this.viewport.width(),
-            "height": this.viewport.height(),
-            "top"   : this.marginSize,
-            "left"  : this.marginSize
-        });
-        this.panels.hide();
-        this.body.removeClass('disable-fullscreen-mode');
+                "width" : this.viewport.width(),
+                "height": this.viewport.height(),
+                "top"   : offset.top,
+                "left"  : offset.left
+        }).show();
         
-        this.btn.attr('title', 'Disable fullscreen mode.');
+        this.body.removeClass('disable-morescreen-mode');
         
-        moreScreenBtn = $('#morescreen-btn > span.ui-icon');
-        if ( moreScreenBtn.length == 1 ) {
-            $('#morescreen-btn > span.ui-icon').removeClass('ui-icon-arrowstop-1-w').addClass('ui-icon-arrowstop-1-e');
-            $('#morescreen-btn').attr('title','Show left sidebar.');
+        this.icon.removeClass('ui-icon-arrowstop-1-e').addClass('ui-icon-arrowstop-1-w');
+        this.btn.attr('title', 'Show right sidebar.');
+        
+        fullScreenBtn = $('#fullscreen-btn > span.ui-icon');
+        if ( fullScreenBtn.length == 1 ) {
+            $('#fullscreen-btn').attr('title','Enable fullscreen mode.');
         }
     },
     
     /**
-     * Disable fullscreen mode
+     * Disable morescreen mode
      */
-    disableFullscreenMode: function () {
+    disableMorescreenMode: function () {
         var offset, 
             self = this,
             viewportHeight = $(window).height() - this.static_headerHeight - this.static_footerHeight - 2,
-            moreScreenBtn;
+            fullScreenBtn;
         
-        this.shadow.hide();
-        this.panels.show();
-        
+        this.shadow.hide();   
         this.colmid.animate({ 
-            "left": this.disabled_colMidLeft + 'px'
+            "left":  this.static_colMidLeft + 'px'
         }, this.speed,
         function () {
+            self.panels.show();
             self.meta.show();
+            self.col3.show();
             self.body.css({
                 "overflow": "visible",
-            }).removeClass("disable-fullscreen-mode");
+            }).removeClass('disable-morescreen-mode');
         });
         
         this.colright.animate({
-            "margin-left": this.disabled_colRightMarginLeft + 'px'
+            "margin-left" : this.disabled_colRightMarginLeft + 'px'
         }, this.speed);
         
         this.col1pad.animate({
-            "margin-left" : this.disabled_col1padMarginLeft  + 'px',
-            "margin-right": this.disabled_col1padMarginRight + 'px',
-            "margin-top"  : this.disabled_col1padMarginTop   + 'px'
+            "margin-left" : this.disabled_col1padMarginLeft + 'px',
+            "margin-right": 0,
+            "margin-top"  : 0
         }, this.speed);
         
         this.col2.animate({
@@ -247,7 +241,7 @@ var FullscreenControl = Class.extend(
         }, this.speed);
         
         this.viewport.animate({
-            "height": viewportHeight + 'px'
+            "height": viewportHeight
         }, this.speed);
         this.sandbox.animate({
             "right": 0
@@ -265,31 +259,31 @@ var FullscreenControl = Class.extend(
             "min-width": "972px"
         }, this.speed);
         
-        this.btn.attr('title', 'Enable fullscreen mode.');
+        this.icon.removeClass('ui-icon-arrowstop-1-w').addClass('ui-icon-arrowstop-1-e');
+        this.btn.attr('title', 'Hide right sidebar.');
         
-        moreScreenBtn = $('#morescreen-btn > span.ui-icon');
-        if ( moreScreenBtn.length == 1 ) {
-            $('#morescreen-btn > span.ui-icon').removeClass('ui-icon-arrowstop-1-w').addClass('ui-icon-arrowstop-1-e');
-            $('#morescreen-btn').attr('title','Hide right sidebar.');
+        fullScreenBtn = $('#fullscreen-btn > span.ui-icon');
+        if ( fullScreenBtn.length == 1 ) {
+            $('#fullscreen-btn').attr('title','Enable fullscreen mode.');
         }
     },
     
     /**
-     * Sets up event handlers related to fullscreen control
+     * Sets up event handlers related to morescreen control
      */
     _setupEventHandlers: function () {
         this.btn.click($.proxy(this._toggle, this));
         
         // Used by KeyboardManager:
-        $(document).bind('toggle-fullscreen', $.proxy(this._toggle, this));
+        $(document).bind('toggle-morescreen', $.proxy(this._toggle, this));
     },
     
     /**
-     * Toggles fullscreen mode on or off
+     * Toggles morescreen mode on or off
      */
     _toggle: function (animated) {
         
-        if (this.body.hasClass('disable-fullscreen-mode')) {
+        if (this.body.hasClass('disable-morescreen-mode')) {
             return;
         }
         
@@ -298,21 +292,15 @@ var FullscreenControl = Class.extend(
         }
         
         // make sure action finishes before starting a new one
-        this.body.addClass('disable-fullscreen-mode');
+        this.body.addClass('disable-morescreen-mode');
         
         if ( this.isEnabled() ) {
-            this.disableFullscreenMode();
-            this.viewport.removeClass("fullscreen-mode");
+            this.disableMorescreenMode();
+            this.viewport.removeClass("morescreen-mode");
         } else {
-            this.enableFullscreenMode(animated);
-            this.viewport.addClass("fullscreen-mode");
+            this.enableMorescreenMode(animated);
+            this.viewport.addClass("morescreen-mode");
         }
-        
-        // toggle fullscreen class
-        this._fullscreenMode = !this._fullscreenMode;
-        
-        // Update viewport shadow
-        $(document).trigger('viewport-resized');
     },
     
     /**

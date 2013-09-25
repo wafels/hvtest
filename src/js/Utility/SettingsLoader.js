@@ -63,13 +63,17 @@ var SettingsLoader = (
             },
             // Application state
             state: {
-                centerX: 0,
-                centerY: 0,
-                date: date.getTime(),
+                centerX    : 0,
+                centerY    : 0,
+                date       : date.getTime(),
                 eventLayers: [],
                 eventLabels: true,
-                imageScale: serverSettings.defaultImageScale,
-                tileLayers: [{
+                scale      : true,
+                scaleType  :'earth',
+                scaleX     : 0,
+                scaleY     : 0,
+                imageScale : serverSettings.defaultImageScale,
+                tileLayers : [{
                     observatory: 'SDO',
                     instrument : 'AIA',
                     detector   : 'AIA',
@@ -77,7 +81,7 @@ var SettingsLoader = (
                     visible    : true,
                     opacity    : 100
                 }],
-                timeStep: 86400
+                timeStep   : 86400
             },
             version: serverSettings.version
         };

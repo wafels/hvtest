@@ -8,11 +8,10 @@ esac
 
 ## Activate the semaphore
 LCK="/tmp/event_cache.LCK";
-#LCK="/tmp/event_cache_rebuild.LCK";
 exec 8>$LCK;
 
 #host=`hostname`
-host='hekbeta.helioviewer.org'
+host='helioviewer.org'
 
 echo ""
 echo "### "`date`" ###"
@@ -24,14 +23,13 @@ if flock -n -x 8; then
    do
       startTime=`date --date="$i days ago" +"%Y-%m-%dT00:00:00.000Z"`
       date_path=`date --date="$i days ago" +"%Y/%m/%d/"`
-      cache_pat="/mnt/data/cache-hek.delphi/events/"${date_path}
+      cache_pat="/mnt/data/cache/events/"${date_path}
       timestamp=`date +"%s"`
       
       max_age_s=$(((${i}*60*60)+(60*60*24*90)))
       if [ ${i} -lt 12 ]; then
          max_age_s=`echo $i | awk '{print 3600*2^$1}'`
       fi
-#      max_age_s=1
       
       count=`expr 0`
       for file in `find $cache_pat -iname "*.json" -exec ls -1 {} \;`

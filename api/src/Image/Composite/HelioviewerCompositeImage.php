@@ -43,10 +43,13 @@ class Image_Composite_HelioviewerCompositeImage
     protected $layers;
     protected $events;
     protected $eventsLabels;
-    protected $earthScale;
+    protected $scale;
+    protected $scaleType;
+    protected $scaleX;
+    protected $scaleY;
     protected $maxPixelScale;
     protected $roi;
-    protected $scale;
+    protected $imageScale;
     protected $watermark;
     protected $width;
     
@@ -60,7 +63,7 @@ class Image_Composite_HelioviewerCompositeImage
      *                              
      * @return void
      */
-    public function __construct($layers, $events, $eventLabels, $earthScale, $obsDate, $roi, $options)
+    public function __construct($layers, $events, $eventLabels, $scale, $scaleType, $scaleX, $scaleY, $obsDate, $roi, $options)
     {
         set_time_limit(90); // Extend time limit to avoid timeouts
         
@@ -76,13 +79,16 @@ class Image_Composite_HelioviewerCompositeImage
 
         $this->width  = $roi->getPixelWidth();
         $this->height = $roi->getPixelHeight();
-        $this->scale  = $roi->imageScale();     
+        $this->imageScale = $roi->imageScale();     
 
         $this->db     = $options['database'] ? $options['database'] : new Database_ImgIndex();
         $this->layers = $layers;
         $this->events = $events;
         $this->eventsLabels = $eventLabels;
-        $this->earthScale   = $earthScale;
+        $this->scale  = $scale;
+        $this->scaleType = $scaleType;
+        $this->scaleX = $scaleX;
+        $this->scaleY = $scaleY;
         $this->date   = $obsDate;
         $this->roi    = $roi;
         
@@ -207,7 +213,7 @@ class Image_Composite_HelioviewerCompositeImage
             $this->_addEventLayer($image);
         }
         
-        if ($this->earthScale) {
+        if ($this->scale && $this->scaleType == 'earth') {
             $this->_addEarthScale($image);
         }
         
@@ -232,7 +238,7 @@ class Image_Composite_HelioviewerCompositeImage
     private function _finalizeImage($imagickImage, $output)
     {
         //set_time_limit(60); // Need to up the time limit that imagick is allowed to use to execute commands. 
-
+        
         // Compress image
         $this->_compressImage($imagickImage);
         
@@ -247,6 +253,7 @@ class Image_Composite_HelioviewerCompositeImage
         // Flatten image and write to disk
         $imagickImage->setImageAlphaChannel(IMagick::ALPHACHANNEL_OPAQUE);
         $imagickImage->setImageBackgroundColor('black');
+        $imagickImage->setImageType(imagick::IMGTYPE_TRUECOLOR);
         $imagickImage = $imagickImage->flattenImages();
         $imagickImage->writeImage($output);
     }
@@ -324,6 +331,9 @@ class Image_Composite_HelioviewerCompositeImage
 
         // Query the HEK
         $events = $hek->getEvents($this->date, Array());
+        if ( $events === false ) {
+            return false;
+        }
         
         
         // Lay down all relevant event REGIONS first
@@ -347,19 +357,22 @@ class Image_Composite_HelioviewerCompositeImage
             }
             
             if ( array_key_exists('hv_poly_width_max_zoom_pixels',$event) ) { 
-                $region_polygon = new IMagick(HV_ROOT_DIR.'/'.urldecode($event['hv_poly_url']));
-                $width  = $event['hv_poly_width_max_zoom_pixels']  
-                        * ($this->maxPixelScale/$this->roi->imageScale());
-                $height = $event['hv_poly_height_max_zoom_pixels'] 
-                        * ($this->maxPixelScale/$this->roi->imageScale());
-                $x = 0;
-                $y = 0;
                 
-                $x = (( $event['hv_poly_hpc_x_final'] - $this->roi->left()) / $this->roi->imageScale());
-                $y = (( $event['hv_poly_hpc_y_final'] - $this->roi->top() ) / $this->roi->imageScale());
+                $width  = round($event['hv_poly_width_max_zoom_pixels']  
+                        * ($this->maxPixelScale/$this->roi->imageScale()));
+                $height = round($event['hv_poly_height_max_zoom_pixels'] 
+                        * ($this->maxPixelScale/$this->roi->imageScale()));
+                        
+                if ( $width >= 1 && $height >= 1 ) {
+                        
+                    $region_polygon = new IMagick(HV_ROOT_DIR.'/'.urldecode($event['hv_poly_url']));
                 
-                $region_polygon->resizeImage($width,$height,Imagick::FILTER_LANCZOS,1);
-                $imagickImage->compositeImage($region_polygon, IMagick::COMPOSITE_DISSOLVE, $x, $y);
+                    $x = (( $event['hv_poly_hpc_x_final'] - $this->roi->left()) / $this->roi->imageScale());
+                    $y = (( $event['hv_poly_hpc_y_final'] - $this->roi->top() ) / $this->roi->imageScale());
+                                 
+                    $region_polygon->resizeImage($width,$height,Imagick::FILTER_LANCZOS,1);
+                    $imagickImage->compositeImage($region_polygon, IMagick::COMPOSITE_DISSOLVE, $x, $y);
+                }
             }
         }
         if ( isset($region_polygon) ) {
@@ -438,32 +451,56 @@ class Image_Composite_HelioviewerCompositeImage
     
     
     /**
-     * Composites an Earth-scale indicator onto the lower left corner.
+     * Composites an Earth-scale indicator
      *
      * @param object $imagickImage An Imagick object
      *
      * @return void
      */
     private function _addEarthScale($imagickImage) {
-        $rect_width  = 62;
-        $rect_height = 62;
+        $rect_width  = 73;
+        $rect_height = 56;
+        
+        // Calculate earth scale in piexls
+        $rsunInArcseconds = 959.705;
+        $earthFractionOfSun = 1/109.1;
+        $earthScaleInPixels = round(2* $earthFractionOfSun * ($rsunInArcseconds / $this->roi->imageScale()));
+        
+        
+        // Convert x,y position of top left of EarthScale rectangle
+        // from arcseconds to pixels
+        if ( $this->scaleX != 0 && $this->scaleY != 0 ) {
+            $topLeftX = (( $this->scaleX - $this->roi->left()) / $this->roi->imageScale());
+            $topLeftY = ((-$this->scaleY - $this->roi->top() ) / $this->roi->imageScale());
+        }
+        else {
+            $topLeftX = -1;
+            $topLeftY = $imagickImage->getImageHeight() - $rect_height;
+        }
           
         // Draw black rectangle background for indicator and label
         $draw = new ImagickDraw();
-        $draw->setFillColor('#000000FF');
-        $draw->rectangle( 0, $imagickImage->getImageHeight(), $rect_width, 
-                             $imagickImage->getImageHeight()-$rect_width );
+        $draw->setFillColor('#00000066');
+        $draw->setStrokeColor('#888888FF');
+        $draw->rectangle( $topLeftX, $topLeftY, $topLeftX+$rect_width, 
+                          $topLeftY+$rect_height );
         $imagickImage->drawImage($draw);
             
         // Draw Earth to scale
-        $earth = new IMagick(HV_ROOT_DIR .'/resources/images/earth.png');
-        $rsunInArcseconds = 959.705;
-        $earthFractionOfSun = 1/109.1;
-        $earthScaleInPixels = 2* $earthFractionOfSun * ($rsunInArcseconds / $this->roi->imageScale());
-        $x = $rect_width/2 - $earthScaleInPixels/2;
-        $y = $imagickImage->getImageHeight() - ($rect_height/2 + $earthScaleInPixels/2);
-        $earth->resizeImage($earthScaleInPixels,$earthScaleInPixels,Imagick::FILTER_LANCZOS,1);
-        $imagickImage->compositeImage($earth, IMagick::COMPOSITE_DISSOLVE, $x, $y);
+        if ( $earthScaleInPixels >= 1 ) {
+            $earth = new IMagick(HV_ROOT_DIR .'/resources/images/earth.png');
+            $x = 1 + $topLeftX + $rect_width/2  - $earthScaleInPixels/2;
+            $y = 8 + $topLeftY + $rect_height/2 - $earthScaleInPixels/2;
+            $earth->resizeImage($earthScaleInPixels,$earthScaleInPixels,Imagick::FILTER_LANCZOS,1);
+            $imagickImage->compositeImage($earth, IMagick::COMPOSITE_DISSOLVE, $x, $y);
+        }
+          
+        // Draw grey rectangle background for text label
+        $draw = new ImagickDraw();
+        $draw->setFillColor('#333333FF');
+        $draw->rectangle( $topLeftX+1, $topLeftY+1, $topLeftX+$rect_width-1, 
+                          $topLeftY+16 );
+        $imagickImage->drawImage($draw);
             
         // Write 'Earth Scale' label in white
         $text = new IMagickDraw();
@@ -473,14 +510,20 @@ class Image_Composite_HelioviewerCompositeImage
         $text->setFillColor('#ffff');
         $text->setTextAntialias(true);
         $text->setStrokeWidth(0);
-        $x = 3;
-        $y = $imagickImage->getImageHeight() - ($rect_height - 12);
+        $x = $topLeftX + 9;
+        $y = $topLeftY + 13;
         $imagickImage->annotateImage($text, $x, $y, 0,'Earth Scale');
       
         // Cleanup
-        $draw->destroy();
-        $earth->destroy();
-        $text->destroy();
+        if ( isset($draw) ) {
+            $draw->destroy();
+        }
+        if ( isset($earth) ) {
+            $earth->destroy();
+        }
+        if ( isset($text) ) {
+            $text->destroy();
+        }
     }
     
     
@@ -488,7 +531,7 @@ class Image_Composite_HelioviewerCompositeImage
      * Composites a watermark (the date strings of the image) onto the lower left corner and the HV logo in the
      * lower right corner.
      *
-     * Layer names are added togeter as one string, and date strings are added as a separate string,
+     * Layer names are added together as one string, and date strings are added as a separate string,
      * to line them up nicely. An example string would  be:
      *
      *      -annotate +20+0 'EIT 304\nLASCO C2\n'
@@ -545,13 +588,18 @@ class Image_Composite_HelioviewerCompositeImage
         $timeCmd = "";
         $height  = $imagickImage->getImageHeight();
         
-        $lowerPad = $height - 8; 
+        $lowerPad = $height - 15; 
 
         // Put the names on first, then put the times on as a separate layer so the times are nicely aligned.
         foreach ($this->_imageLayers as $layer) {
-            $lowerPad -= 18;
+            $lowerPad -= 10;
             $nameCmd  .= $layer->getWaterMarkName();
             $timeCmd  .= $layer->getWaterMarkDateString();
+        }
+        
+        $leftPad = 85;
+        if ( $this->scale == false || $this->scaleX != 0 || $this->scaleY != 0 ) {
+            $leftPad = 12;
         }
         
         $black = new IMagickPixel("#000C");
@@ -562,16 +610,16 @@ class Image_Composite_HelioviewerCompositeImage
         $underText->setStrokeColor($black);
         $underText->setStrokeAntialias(true);
         $underText->setStrokeWidth(2);
-        $imagickImage->annotateImage($underText,  80, $lowerPad, 0, $nameCmd);
-        $imagickImage->annotateImage($underText, 185, $lowerPad, 0, $timeCmd);
+        $imagickImage->annotateImage($underText,     $leftPad, $lowerPad, 0, $nameCmd);
+        $imagickImage->annotateImage($underText, 100+$leftPad, $lowerPad, 0, $timeCmd);
         
         // Write words in white over outline
         $text = new IMagickDraw();
         $text->setFillColor($white);
         $text->setTextAntialias(true);
         $text->setStrokeWidth(0);
-        $imagickImage->annotateImage($text,  80, $lowerPad, 0, $nameCmd);
-        $imagickImage->annotateImage($text, 185, $lowerPad, 0, $timeCmd);
+        $imagickImage->annotateImage($text,     $leftPad, $lowerPad, 0, $nameCmd);
+        $imagickImage->annotateImage($text, 100+$leftPad, $lowerPad, 0, $timeCmd);
         
         // Cleanup
         $black->destroy();
@@ -666,6 +714,7 @@ class Image_Composite_HelioviewerCompositeImage
         $mimetype = $fileinfo->file($this->_filepath);
         header("Content-Disposition: inline; filename=\"" . $this->_filename . "\"");
         header("Content-type: " . $mimetype);
+        $this->_composite->setImageFormat('png32');
         echo $this->_composite;
     }
 

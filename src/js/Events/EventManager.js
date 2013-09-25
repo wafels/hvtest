@@ -12,7 +12,6 @@ bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 12
 
 "use strict";
 
-//var EventManager = LayerManager.extend({
 var EventManager = Class.extend({
     /**
      * Class to manage event queries and data storage.<br><br>
@@ -26,7 +25,7 @@ var EventManager = Class.extend({
      * @constructs
      */
     init: function (eventGlossary, date) {
-        var visState;
+        var visState, scale;
     
         this._eventLayers    = [];
         this._events         = [];
@@ -38,7 +37,7 @@ var EventManager = Class.extend({
         this._eventLabelsVis = Helioviewer.userSettings.get("state.eventLabels");
         this._eventGlossary  = eventGlossary;
         
-        this.earth();
+        scale = new ImageScale();
         
         $('<div id="event-container"></div>').appendTo("#moving-container");
         
@@ -281,7 +280,10 @@ var EventManager = Class.extend({
             self._eventTree = new EventTree(this._jsTreeData, this._treeContainer);
         }
         
-        self._eventTree.reload(this._jsTreeData);      
+        self._eventTree.reload(this._jsTreeData);
+        
+        // Update viewport shadow
+        $(document).trigger('viewport-resized');
     },
     
     /**
@@ -420,54 +422,6 @@ var EventManager = Class.extend({
         }
         
         return true;
-    },
-    
-    earth: function() {
-        
-        if ( $('#earth-container').length > 0 ) {
-           return;
-        }
-        
-        $('<div id="earth-container"></div>').appendTo("#helioviewer-viewport-container-inner");
-
-        var rsunInArcseconds = 959.705;
-        var imageScale = Helioviewer.userSettings.get("state.imageScale");
-        var earthFractionOfSun = 1/109.1;
-        
-        var earthScaleInPixels = 2* earthFractionOfSun * (rsunInArcseconds / imageScale);
-        
-        var domNode = $('#earth-container');
-                var earthURL = 'resources/images/earth.png';
-        domNode.css({
-                'position': 'absolute', 
-                'bottom':'0',
-                      'z-index' :  999,
-                      'width' : '60px',
-                      'height': '60px',
-                      'background-color':'black',
-                      'border-top': '1px solid #333',
-                      'border-right': '1px solid #333',
-                      'border-top-right-radius' : '6px',
-                      'box-shadow':'0px 0px 5px black'
-        });
-        $('<img id="earthScale" src="resources/images/earth.png" style="width: '+earthScaleInPixels+'px;height: '+earthScaleInPixels+'px;position: absolute;left: 50%;   top: 50%;margin-left: -'+earthScaleInPixels/2+'px;   margin-top: -'+earthScaleInPixels/2+'px;" />').appendTo("#earth-container");
-        $('<div style="color: white; text-align: center; font-size: 10px; padding: 3px 0 0 0;">Earth Scale</div>').appendTo("#earth-container");
-        $(document).bind("earth-scale",   $.proxy(this.earthRescale, this));
-    },
-    
-    earthRescale: function() {
-        var rsunInArcseconds = 959.705;
-        var imageScale = Helioviewer.userSettings.get("state.imageScale");
-        var earthFractionOfSun = 1/109.1;
-        
-        var earthScaleInPixels = 2* earthFractionOfSun * (rsunInArcseconds / imageScale);
-        
-        $('#earthScale').css({
-            'width' : earthScaleInPixels+'px',
-            'height': earthScaleInPixels+'px',
-            'margin-left': -earthScaleInPixels/2+'px',
-            'margin-top' : -earthScaleInPixels/2+'px'
-        });
     }
     
 });

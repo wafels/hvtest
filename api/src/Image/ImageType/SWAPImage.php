@@ -44,9 +44,33 @@ class Image_ImageType_SWAPImage extends Image_HelioviewerImage
      */     
     public function __construct($jp2, $filepath, $roi, $obs, $inst, $det, $meas, $offsetX, $offsetY, $options)
     {
-        // SWAP JP2s include their own color table
-        $this->setColorTable(false);
-        $options['palettedJP2'] = true;
+        $colorTable = HV_ROOT_DIR . "/api/resources/images/color-tables/PROBA2_SWAP_$meas.png";
+
+        $imgDate = strtotime($options['date']);
+        
+        // Handle SWAP 174's change from built-in color palette to grayscale
+        if ( $imgDate < strtotime('2013-06-27 00:00:00') ) {
+            $options['palettedJP2'] = true;
+        }
+        else if ($imgDate < strtotime('2013-06-27 23:59:59') )  {
+            // Assume the image is grayscale, but
+            // flag it for verification once the image is loaded into an 
+            // imagemagick object within SubFieldImage.php
+            $options['palettedJP2'] = false;
+            $options['verifyGrayscale'] = true;
+        }
+        else {
+            $options['palettedJP2'] = false;
+        }
+        
+        
+        if ( $options['palettedJP2'] === false && @file_exists($colorTable) ) {
+            $this->setColorTable($colorTable);
+        }
+        else {
+            $this->setColorTable(false);
+            $options['palettedJP2'] = true;
+        }
 
         parent::__construct($jp2, $filepath, $roi, $obs, $inst, $det, $meas, $offsetX, $offsetY, $options);
     }

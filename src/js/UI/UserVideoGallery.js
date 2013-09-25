@@ -121,7 +121,7 @@ var UserVideoGallery = Class.extend(
             // Local feed
             videos = response;
         }
-        
+                
         this._videos = videos.concat(this._videos);
         this._updateGallery();
     },

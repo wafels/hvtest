@@ -54,7 +54,7 @@ var EventMarker = Class.extend(
             x: ( this.hv_hpc_x_final / Helioviewer.userSettings.settings.state.imageScale) -12,
             y: (-this.hv_hpc_y_final / Helioviewer.userSettings.settings.state.imageScale) -38
         };
-        markerURL = 'resources/images/eventMarkers/'+this.event_type.toUpperCase()+'@2x.png';
+        markerURL = 'http://static2.helioviewer.org/resources/images/eventMarkers/'+this.event_type.toUpperCase()+'@2x'+'.png';
         this.eventMarkerDomNode.css({
                          'left' :  this.pos.x + 'px',
                           'top' :  this.pos.y + 'px',
@@ -94,12 +94,8 @@ var EventMarker = Class.extend(
                 'class' : "event-region"
             });
             this.region_scaled = {
-                width:  this.hv_poly_width_max_zoom_pixels  
-                    * ( Helioviewer.userSettings._constraints.minImageScale 
-                    / Helioviewer.userSettings.settings.state.imageScale ),
-                height: this.hv_poly_height_max_zoom_pixels 
-                    * ( Helioviewer.userSettings._constraints.minImageScale 
-                    / Helioviewer.userSettings.settings.state.imageScale )
+                width:  this.hv_poly_width_max_zoom_pixels * ( Helioviewer.userSettings._constraints.minImageScale / Helioviewer.userSettings.settings.state.imageScale ),
+                height: this.hv_poly_height_max_zoom_pixels * ( Helioviewer.userSettings._constraints.minImageScale / Helioviewer.userSettings.settings.state.imageScale )
             }
             this.region_pos = {
                 x: ( this.hv_poly_hpc_x_final / Helioviewer.userSettings.settings.state.imageScale),
@@ -109,7 +105,7 @@ var EventMarker = Class.extend(
                              'left' :  this.region_pos.x + 'px',
                               'top' :  this.region_pos.y + 'px',
                           'z-index' :  zIndex,
-                 'background-image' : "url('" + this.hv_poly_url + "')",
+                 'background-image' : "url('http://static1.helioviewer.org/" + this.hv_poly_url + "')",
                   'background-size' :  this.region_scaled.width  + 'px ' + this.region_scaled.height + 'px',
                             'width' :  this.region_scaled.width  + 'px',
                            'height' :  this.region_scaled.height + 'px'
@@ -178,12 +174,8 @@ var EventMarker = Class.extend(
         // Re-position and re-scale Event Region polygon
         if ( this.hpc_boundcc != '' ) {
             this.region_scaled = {
-                 width: this.hv_poly_width_max_zoom_pixels  
-                    * ( Helioviewer.userSettings._constraints.minImageScale 
-                    /   Helioviewer.userSettings.settings.state.imageScale ),
-                height: this.hv_poly_height_max_zoom_pixels 
-                    * ( Helioviewer.userSettings._constraints.minImageScale 
-                    /   Helioviewer.userSettings.settings.state.imageScale )
+                width: this.hv_poly_width_max_zoom_pixels * ( Helioviewer.userSettings._constraints.minImageScale /   Helioviewer.userSettings.settings.state.imageScale ),
+                height: this.hv_poly_height_max_zoom_pixels * ( Helioviewer.userSettings._constraints.minImageScale /   Helioviewer.userSettings.settings.state.imageScale )
             }
             this.region_pos = {
                 x: ( this.hv_poly_hpc_x_final / Helioviewer.userSettings.settings.state.imageScale),
@@ -714,9 +706,11 @@ var EventMarker = Class.extend(
             });
         }
         
-        content     += '<div class="btn-container">'+"\n"
+        content     += '<div class="btn-container text-btn">'+"\n"
                     +       "\t"+'<div class="ui-icon ui-icon-info btn event-info"></div><div class="btn-label btn event-info">View HEK data</div>'+"\n"
-//                    +       "\t"+'<div class="ui-icon ui-icon-video btn event-movie"></div><div class="btn-label btn event-movie">Generate Movie</div>'+"\n"
+                    +  '</div>'+"\n"
+                    +  '<div class="btn-container text-btn" style="margin-left: 4px;">'+"\n"
+                    +       "\t"+'<div class="ui-icon ui-icon-arrowreturnthick-1-s btn event-script"></div><div class="btn-label btn event-script">Science Data Download Script</div>'+"\n"
                     +  '</div>'+"\n";
         
                     
@@ -744,8 +738,63 @@ var EventMarker = Class.extend(
         this.eventPopupDomNode.find(".btn.event-info").bind('click', $.proxy(this._showEventInfoDialog, this));
         this.eventPopupDomNode.find('.close-button').bind('click', $.proxy(this.toggleEventPopUp, this));
         this.eventPopupDomNode.bind("mousedown", function () { return false; });
-        this.eventPopupDomNode.bind('dblclick', function () { return false; });
+        this.eventPopupDomNode.bind('dblclick',  function () { return false; });
         this.eventPopupDomNode.draggable();
+        
+        this.eventPopupDomNode.find(".event-script").bind('click', function() {
+            var hpc_bbox_ll_x, hpc_bbox_ll_y,
+                hpc_bbox_ur_x, hpc_bbox_ur_y,
+                hpc_bbox, x, y, params;
+                
+            hpc_bbox = self['hpc_bbox'].replace(/POLYGON\(\(/,'');
+            hpc_bbox = hpc_bbox.replace(/\)\)/,'');
+            hpc_bbox = hpc_bbox.split(',');
+            
+            $.each( hpc_bbox, function(i,x_y) {
+                x_y = x_y.split(' ');
+                x = parseFloat(x_y[0]);
+                y = parseFloat(x_y[1]);
+                
+                if ( i==0 ) {
+                    hpc_bbox_ll_x = hpc_bbox_ur_x = x;
+                    hpc_bbox_ll_y = hpc_bbox_ur_y = y;
+                }
+                else {
+                    if ( x < hpc_bbox_ll_x ) { hpc_bbox_ll_x = x; }
+                    if ( y < hpc_bbox_ll_y ) { hpc_bbox_ll_y = y; }
+                    if ( x > hpc_bbox_ur_x ) { hpc_bbox_ur_x = x; }
+                    if ( y > hpc_bbox_ur_y ) { hpc_bbox_ur_y = y; }
+                }
+            });
+                
+            params = {
+                'fovType'       :'hek',
+                'startDate'     : new Date(self.event_starttime+".000Z"),
+                'endDate'       : new Date(self.event_endtime  +".000Z"),
+                'imageLayers'   : Helioviewer.userSettings.get("state.tileLayers"), // array
+                'eventLayers'   : helioviewer.viewport.serializeEvents(),  // string
+                'eventLayersVisible' : Helioviewer.userSettings.get("state.eventLayerVisible"),
+                'imageScale'    : Helioviewer.userSettings.get("state.imageScale"), 
+                'hpc_x'         : self['hpc_x'],  
+                'hpc_y'         : self['hpc_y'], 
+                'hpc_bbox_ll_x' : hpc_bbox_ll_x, 
+                'hpc_bbox_ll_y' : hpc_bbox_ll_y, 
+                'hpc_bbox_ur_x' : hpc_bbox_ur_x, 
+                'hpc_bbox_ur_y' : hpc_bbox_ur_y,
+                'event_type'    : self['event_type'],
+                'kb_archivid'   : self['kb_archivid'],
+                'rot_from_time' : self['event_starttime']+'.000Z'  // Default.  Overrides below.
+            };
+            if ( self['frm_name'] == 'SPoCA' ) {
+                params['rot_from_time'] = self['event_endtime']+'.000Z';
+            }
+            else if ( self['frm_name'] == 'Emerging flux region module' &&
+                      parseFloat(self['frm_versionnumber']) < 0.55 ) {
+                      
+                params['rot_from_time'] = self['event_peaktime']+'.000Z';         
+            }
+            $('#science-data-button').trigger("click", [params]);
+        });
         
         // Allow text selection (prevent drag where text exists)
         this.eventPopupDomNode.find("h1, .param-label, .param-value, .btn-container .btn").click(function(event){

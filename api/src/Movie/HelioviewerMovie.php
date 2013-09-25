@@ -61,7 +61,10 @@ class Movie_HelioviewerMovie
     public $timestamp;
     public $watermark;
     public $eventsLabels;
-    public $earthScale;
+    public $scale;
+    public $scaleType;
+    public $scaleX;
+    public $scaleY;
 
     private $_db;
     private $_layers;
@@ -69,6 +72,10 @@ class Movie_HelioviewerMovie
     private $_roi;
     private $_timestamps = array();
     private $_frames     = array();
+    
+    private $_cachedir;
+    private $_filename;
+    private $_filepath;
 
     /**
      * Prepares the parameters passed in from the api call and makes a movie from them.
@@ -77,13 +84,17 @@ class Movie_HelioviewerMovie
      */
     public function __construct($publicId, $format="mp4")
     {
-        $this->_db = new Database_ImgIndex();
+        $this->_db      = false;
+               
+        $this->_cachedir = HV_CACHE_DIR.'/api/HelioviewerMovie';
+        $this->_filename = urlencode($publicId.'.json');
+        $this->_filepath = $this->_cachedir.'/'.$this->_filename;
         
-        $id = alphaID($publicId, true, 5, HV_MOVIE_ID_PASS);
-        $info = $this->_db->getMovieInformation($id);
+        $info = $this->_loadFromJSON($publicId, $format);
         
-        if (is_null($info)) {
-             throw new Exception("Unable to find the requested movie.", 24);
+        if ( $info === false ) {
+            $info = $this->_loadFromDB($publicId, $format);
+            $this->_cacheToJSON($publicId, $format, $info);
         }
         
         $this->publicId     = $publicId;
@@ -96,14 +107,17 @@ class Movie_HelioviewerMovie
         $this->imageScale   = (float) $info['imageScale'];
         $this->frameRate    = (float) $info['frameRate'];
         $this->movieLength  = (float) $info['movieLength'];
-        $this->id           = (int) $id;
+        $this->id           = (int) alphaID($publicId, true, 5, HV_MOVIE_ID_PASS);
         $this->status       = (int) $info['status'];
         $this->numFrames    = (int) $info['numFrames'];
         $this->width        = (int) $info['width'];
         $this->height       = (int) $info['height'];
         $this->watermark    = (bool) $info['watermark'];
         $this->eventsLabels = (bool) $info['eventsLabels'];
-        $this->earthScale   = (bool) $info['earthScale'];
+        $this->scale        = (bool) $info['scale'];
+        $this->scaleType    = $info['scaleType'];
+        $this->scaleX       = (float) $info['scaleX'];
+        $this->scaleY       = (float) $info['scaleY'];
         $this->maxFrames    = min((int) $info['maxFrames'], HV_MAX_MOVIE_FRAMES);
         
         // Data Layers
@@ -114,11 +128,77 @@ class Movie_HelioviewerMovie
         $this->_roi = Helper_RegionOfInterest::parsePolygonString($info['roi'], $info['imageScale']);
     }
     
+    
+    private function _dbSetup() {
+        if ( $this->_db === false ) {
+            $this->_db = new Database_ImgIndex();
+        }
+    }
+    
+    private function _loadFromJSON($publicId, $format) {
+        if ( @file_exists($this->_filepath) ) {
+            $fh = @fopen($this->_filepath,'r');
+            $contents = '';
+            while ( !@feof($fh) ) {
+                $contents .= @fread($fh, 8192);
+            }
+            @fclose($fh);
+            
+            $info = json_decode($contents, true);
+            if ( $info === null ) {
+                return false;
+            }
+        }
+        else {
+            return false;
+        }
+        
+        return $info;
+    }
+    
+    
+    private function _loadFromDB($publicId, $format) {        
+        $this->_dbSetup();
+        
+        $id = alphaID($publicId, true, 5, HV_MOVIE_ID_PASS);
+        $info = $this->_db->getMovieInformation($id);
+        
+        if (is_null($info)) {
+             throw new Exception("Unable to find the requested movie.", 24);
+        }
+        
+        return $info;
+    }
+    
+    
+    private function _cacheToJSON($publicId, $format, $info) {
+        $tempname = urlencode($publicId.'_'.microtime(true).'.json');
+        $temppath = $this->_cachedir.'/'.$tempname;
+
+        if ( !@file_exists($this->_cachedir) ) {
+            @mkdir($this->_cachedir, 0777, true);
+        }
+        
+        $fh = @fopen($temppath,'w');
+        if ( $fh !== false ) {
+            @fwrite($fh, json_encode($info));
+            @fclose($fh);
+        }
+        if ( @rename($temppath, $this->_filepath) === false ) {
+            if ( @copy($temppath, $this->_filepath) ) {
+                @unlink($temppath);
+            }
+        }
+    }
+    
+    
     /**
      * Build the movie frames and movie
      */
     public function build()
     {
+        $this->_dbSetup();
+        
         date_default_timezone_set('UTC');
         
         // Check to make sure we have not already started processing the movie
@@ -201,7 +281,7 @@ class Movie_HelioviewerMovie
                 "x1"         => $this->_roi->left(),
                 "y1"         => $this->_roi->top(),
                 "x2"         => $this->_roi->right(),
-                "y2"         => $this->_roi->bottom()                
+                "y2"         => $this->_roi->bottom()
             );
             $info = array_merge($info, $extra);
         }
@@ -250,6 +330,7 @@ class Movie_HelioviewerMovie
      * @param string $msg Error message
      */
     private function _abort($msg, $procTime=0) {
+        $this->_dbSetup();
         $this->_db->markMovieAsInvalid($this->id, $procTime);
         $this->_cleanUp();
         throw new Exception("Unable to create movie: " . $msg);
@@ -292,6 +373,8 @@ class Movie_HelioviewerMovie
      */
     private function _buildMovieFrames($watermark)
     {
+        $this->_dbSetup();
+        
         $frameNum = 0;
 
         // Movie frame parameters
@@ -313,8 +396,10 @@ class Movie_HelioviewerMovie
             $filepath =  sprintf("%sframes/frame%d.bmp", $this->directory, $frameNum);
 
             try {
-	            $screenshot = new Image_Composite_HelioviewerMovieFrame($filepath, $this->_layers, 
-                                      $this->_events, $this->eventsLabels, $this->earthScale, $time, $this->_roi, $options);
+	            $screenshot = new Image_Composite_HelioviewerMovieFrame(
+                    $filepath, $this->_layers, $this->_events, 
+                    $this->eventsLabels, $this->scale, $this->scaleType, 
+	                $this->scaleX, $this->scaleY, $time, $this->_roi, $options);
 	            
 	            if ($frameNum == $previewIndex) {
 	                $previewImage = $screenshot; // Make a copy of frame to be used for preview images
@@ -448,6 +533,9 @@ class Movie_HelioviewerMovie
         // Keep track of processing time for webm/mp4 encoding
         $t1 = time();
 
+        
+        $this->_dbSetup();
+
         // Create H.264 videos if they do not already exist
         if (!file_exists(realpath($this->directory . $filename))) {
             $ffmpeg->createVideo();
@@ -510,6 +598,8 @@ class Movie_HelioviewerMovie
      */
     private function _getTimeStamps()
     {
+        $this->_dbSetup();
+        
         $layerCounts = array();
 
         // Determine the number of images that are available for the request duration for each layer
@@ -571,6 +661,8 @@ class Movie_HelioviewerMovie
      */
     private function _setMovieProperties()
     {
+        $this->_dbSetup();
+        
         // Store actual start and end dates that will be used for the movie
         $this->startDate = $this->_timestamps[0];
         $this->endDate   = $this->_timestamps[sizeOf($this->_timestamps) - 1];

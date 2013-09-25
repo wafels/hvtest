@@ -126,6 +126,7 @@ var KeyboardManager = Class.extend(
             '=': 'zoom-in',
             '+': 'zoom-in',
             'f': 'toggle-fullscreen',
+            's': 'toggle-morescreen',
             ',': 'timestep-backward',
             '<': 'timestep-backward',
             '.': 'timestep-forward',

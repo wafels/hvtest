@@ -59,9 +59,9 @@ var MovieManager = MediaManager.extend(
      * @return {Movie} A Movie object
      */
     add: function (
-            id, duration, imageScale, layers, events, eventsLabels, earthScale, dateRequested, 
-            startDate, endDate, frameRate, numFrames, x1, x2, y1, y2, width, height, 
-            thumbnail, url
+            id, duration, imageScale, layers, events, eventsLabels, scale, 
+            scaleType, scaleX, scaleY, dateRequested, startDate, endDate, 
+            frameRate, numFrames, x1, x2, y1, y2, width, height, thumbnail, url
     ) {
         var movie = {
             "id"            : id,
@@ -70,7 +70,10 @@ var MovieManager = MediaManager.extend(
             "layers"        : layers,
             "events"        : events,
             "eventsLabels"  : eventsLabels,
-            "earthScale"    : earthScale,
+            "scale"         : scale,
+            "scaleType"     : scaleType,
+            "scaleX"        : scaleX,
+            "scaleY"        : scaleY,
             "dateRequested" : dateRequested,
             "startDate"     : startDate,
             "endDate"       : endDate,
@@ -111,15 +114,20 @@ var MovieManager = MediaManager.extend(
      * 
      * @return {Movie} A Movie object
      */
-    queue: function (id, eta, token, imageScale, layers, events, eventsLabels, earthScale, 
-                     dateRequested, startDate, endDate, x1, x2, y1, y2) {
+    queue: function (id, eta, token, imageScale, layers, events, eventsLabels, 
+                scale, scaleType, scaleX, scaleY, dateRequested, startDate, 
+                endDate, x1, x2, y1, y2) {
+                
         var movie = {
             "id"            : id,
             "imageScale"    : imageScale,
             "layers"        : layers,
             "events"        : events,
             "eventsLabels"  : eventsLabels,
-            "earthScale"    : earthScale,
+            "scale"         : scale,
+            "scaleType"     : scaleType,
+            "scaleX"        : scaleX,
+            "scaleY"        : scaleY,
             "dateRequested" : dateRequested,
             "startDate"     : startDate,
             "endDate"       : endDate,

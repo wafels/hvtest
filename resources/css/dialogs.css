@@ -177,8 +177,8 @@ a.show-tags-btn {
 
 .video-links img {
     vertical-align: bottom;
-    width: 32px;
     height: 32px;
+    margin-right: 2px;
 }
 
 .helioviewer-modal-dialog.ui-dialog {
