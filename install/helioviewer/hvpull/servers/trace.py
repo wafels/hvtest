@@ -16,7 +16,7 @@ class TRACEDataServer(DataServer):
         """Computes a list of remote directories expected to contain files"""
         dirs = []
         
-        trace_wavelengths = ['171', '195', '284', '1216', '1550', '1600', '1700', 'WL']
+        trace_wavelengths = ['171', '195', '284', '1216', '1550', '1600', '1700', 'white-light']
         
         for date in self.get_dates(start_date, end_date):
             # TRACE
