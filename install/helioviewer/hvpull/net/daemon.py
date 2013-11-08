@@ -16,6 +16,7 @@ from random import shuffle
 from helioviewer.jp2 import process_jp2_images, BadImage
 from helioviewer.db  import get_db_cursor, mark_as_corrupt
 from helioviewer.hvpull.browser.basebrowser import NetworkError
+from sunpy.time import parse_time
 
 class ImageRetrievalDaemon:
     """Retrieves images from the server as specified"""
@@ -306,7 +307,27 @@ class ImageRetrievalDaemon:
             # Parse header and validate metadata
             try:
                 try:
-                    image_params = sunpy.read_header(filepath)
+                    # Read in the full sunpy map, including the image itself.  This is done
+                    # since the sunpy map contains the normalizations across multiple
+                    # data sources that are required by this download code.  These normalizations
+                    # are properties of the main Map object, and are not the Map meta class.
+                    # The dictionary image_params is update with the required normalizations
+                    # from the Map object.  The code within the enclosing try...except clause
+                    # constitutes a translation layer between the SunPy Map object and what
+                    # the Helioviewer downloader needs.  As the SunPy Map object changes,
+                    # this translation layer may have to change.
+                    m = sunpy.Map(filepath)
+                    image_params = m.meta
+                    # Fix the date in image_params to the normalized one
+                    # Since SunPy 0.3, the date is now a unicode string which
+                    # requires translating into a normal string
+                    image_params['date'] = parse_time(str(m.date))
+                    # Add in the nickname
+                    image_params['nickname'] = str(m.nickname)
+                    # Add in the measurement
+                    image_params['measurement'] = str(m.measurement)
+                    # Add in the observatory
+                    image_params['observatory'] = str(m.observatory)
                 except:
                     raise BadImage("HEADER")
                 self._validate(image_params)
@@ -517,7 +538,7 @@ class ImageRetrievalDaemon:
     def _validate(self, params):
         """Filters out images that are known to have problems using information
         in their metadata"""
-        
+
         # AIA
         if params['detector'] == "AIA":
             if params['header'].get("IMG_TYPE") == "DARK":
@@ -531,10 +552,9 @@ class ImageRetrievalDaemon:
         if params['instrument'] == "LASCO":
             hcomp_sf = params['header'].get('hcomp_sf')
             
-            if ((params['detector'] == "C2" and hcomp_sf == 32) or
-                (params['detector'] == "C3" and hcomp_sf == 64)):
-                    raise BadImage("WrongMask")
-                    
+            if ((params['detector'] == "C2" and hcomp_sf == 32) or (params['detector'] == "C3" and hcomp_sf == 64)):
+                raise BadImage("WrongMask")
+
     def _init_directories(self):
         """Checks to see if working directories exists and attempts to create
         them if they do not."""
@@ -613,7 +633,8 @@ class ImageRetrievalDaemon:
             "stereo": "STEREODataServer",
             "jsoc": "JSOCDataServer",
             "rob": "ROBDataServer",
-            "uio": "UIODataServer"
+            "uio": "UIODataServer",
+            "trace": "TRACEDataServer"
         }
         
     @classmethod
