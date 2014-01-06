@@ -9,14 +9,13 @@ import time
 import logging
 import os
 import shutil
-import sunpy
 import Queue
 import MySQLdb
 from random import shuffle
 from helioviewer.jp2 import process_jp2_images, BadImage
 from helioviewer.db  import get_db_cursor, mark_as_corrupt
 from helioviewer.hvpull.browser.basebrowser import NetworkError
-from sunpy.time import parse_time
+from helioviewer.hvpull.net import jp2_header
 
 class ImageRetrievalDaemon:
     """Retrieves images from the server as specified"""
@@ -231,7 +230,7 @@ class ImageRetrievalDaemon:
                     else:
                         msg = "Unable to reach %s. Will try again in 5 seconds."
                         if num_retries > 0:
-                            msg += " (retry %d)" % num_retries
+                            msg += " (retry %d)" % num_retriesimage
                         logging.warning(msg, browser.server.name)
                         time.sleep(5)
                         num_retries += 1
@@ -316,18 +315,7 @@ class ImageRetrievalDaemon:
                     # constitutes a translation layer between the SunPy Map object and what
                     # the Helioviewer downloader needs.  As the SunPy Map object changes,
                     # this translation layer may have to change.
-                    m = sunpy.Map(filepath)
-                    image_params = m.meta
-                    # Fix the date in image_params to the normalized one
-                    # Since SunPy 0.3, the date is now a unicode string which
-                    # requires translating into a normal string
-                    image_params['date'] = parse_time(str(m.date))
-                    # Add in the nickname
-                    image_params['nickname'] = str(m.nickname)
-                    # Add in the measurement
-                    image_params['measurement'] = str(m.measurement)
-                    # Add in the observatory
-                    image_params['observatory'] = str(m.observatory)
+                    image_params = jp2_header.get_image_params(filepath)
                 except:
                     raise BadImage("HEADER")
                 self._validate(image_params)
@@ -623,6 +611,8 @@ class ImageRetrievalDaemon:
             return False
 
         return True
+
+    
     
     @classmethod
     def get_servers(cls):
