@@ -285,6 +285,37 @@ span.ui-icon-hover, div.ui-icon-hover {
     float: left;
 }
 
+/** Science Data Download Script dialog */
+    
+#science-data-dialog {
+    display: none;
+    margin: 15px 15px 0 15px;
+    font-size: 1em;
+}
+
+#science-data-dialog label {
+    display: inline-block;
+    margin: 5px 2px 0 0;
+}
+
+#science-data-dialog fieldset {
+    padding: 2px 10px;
+}
+
+#science-data-dialog legend {
+    margin-left: -10px;
+    font-weight: bold;
+    color: white;
+}
+
+#science-data-dialog input {
+    margin: 1px 4px;
+}
+
+#science-data-dialog .form-disabled {
+    opacity: 0.5;
+}
+
 /** Settings dialog */
 
 #settings-dialog {

@@ -547,6 +547,27 @@ class Module_WebClient implements Module {
     }
 
     /**
+     * Creates a SSW script to download the original data associated with
+     * the specified parameters.
+     */
+     public function getSciDataScript()
+     {
+         if (      strtolower($this->_params['lang']) == 'sswidl' ) {
+             include_once 'src/Helper/SSWIDL.php';
+             $script = new Helper_SSWIDL($this->_params);
+         }
+         else if ( strtolower($this->_params['lang']) == 'sunpy' ) {
+             include_once 'src/Helper/SunPy.php';
+             $script = new Helper_SunPy($this->_params);
+         }
+         else {
+             handleError('Invalid value specified for request parameter.',25);
+         }
+
+         $script->buildScript();
+     }
+
+    /**
      * Retrieves the latest usage statistics from the database
      */
     public function getDataCoverage() {
@@ -1135,6 +1156,30 @@ class Module_WebClient implements Module {
                 'optional' => array('key'),
                 'alphanum' => array('key')
             );
+            break;
+        case "getSciDataScript":
+            $expected = array(
+                "required" => array('imageScale', 'imageLayers','eventLayers',
+                                    'startTime', 'lang', 'fovType'),
+                "optional" => array('endTime', 'x0','y0', 'hpc_x', 'hpc_y',
+                                    'width', 'height', 'movieId',
+                                    'x1','y1', 'x2','y2',
+                                    'hpc_bbox_ll_x', 'hpc_bbox_ll_y',
+                                    'hpc_bbox_ur_x', 'hpc_bbox_ur_y',
+                                    'rot_from_time', 'kb_archivid',
+                                    'event_type',
+                                    'callback'),
+                "floats"   => array('imageScale','x0','y0','x1','y1','x2','y2',
+                                    'hpc_x', 'hpc_y',
+                                    'hpc_bbox_ll_x', 'hpc_bbox_ll_y',
+                                    'hpc_bbox_ur_x', 'hpc_bbox_ur_y'),
+                "ints"     => array('width', 'height'),
+                "dates"    => array('startTime', 'endTime', 'rot_from_time'),
+                "alphanum" => array('movieId', 'fovType', 'event_type',
+                                    'callback'),
+                "urls"     => array('kb_archivid')
+            );
+            break;
         default:
             break;
         }

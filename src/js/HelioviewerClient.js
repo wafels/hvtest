@@ -36,9 +36,6 @@ var HelioviewerClient = Class.extend(
         } else {
             Helioviewer.root = Helioviewer.api.substr(0, Helioviewer.api.search("/api"));
         }
-
-
-
     },
 
     /**
@@ -102,7 +99,8 @@ var HelioviewerClient = Class.extend(
             centerY        : Helioviewer.userSettings.get('state.centerY'),
             marginTop      : marginTop,
             marginBottom   : marginBottom,
-            warnMouseCoords: Helioviewer.userSettings.get('notifications.coordinates')
+            warnMouseCoords: Helioviewer.userSettings.get(
+                                'notifications.coordinates')
         });
     },
 

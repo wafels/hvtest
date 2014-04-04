@@ -51,7 +51,7 @@
  */
 function handleError($msg, $errorCode=255) {
 
-    // error_log('Error Code '.$errorCode.': '.$msg);
+    error_log('Error Code '.$errorCode.': '.$msg);
     header('Content-type: application/json;charset=UTF-8');
 
     // JSON

@@ -163,7 +163,7 @@ class HelioviewerWebClient extends HelioviewerClient {
 
             $flvURL = HV_BACK_END.'?action=downloadMovie&format=flv&id='.$id;
             $swfURL = substr(HV_BACK_END, 0, -14)
-                    . '/lib/flowplayer/flowplayer-3.2.8.swf?config="'
+                    . '/lib/flowplayer/flowplayer-3.2.8.swf?config='
                     . urlencode("{'clip':{'url':'$flvURL'}}");
         }
         else {
@@ -185,11 +185,11 @@ class HelioviewerWebClient extends HelioviewerClient {
                     . urlencode("{'clip':{'url':'$flvURL'}}");
         }
 ?>
-        <meta property="og:description" content="<?php //echo $info['title'];?>" />
-        <meta property="og:image" content="<?php echo $info['thumbnails']['full'];?>" />
-        <meta property="og:video" content="<?php echo $swfURL;?>" />
-        <meta property="og:video:width" content="<?php echo $info['width'];?>" />
-        <meta property="og:video:height" content="<?php echo $info['height'];?>" />
+        <meta property="og:description" content="<?php //echo $info['title']; ?>" />
+        <meta property="og:image" content="<?php echo $info['thumbnails']['full']; ?>" />
+        <meta property="og:video" content="<?php echo $swfURL; ?>" />
+        <meta property="og:video:width" content="<?php echo $info['width']; ?>" />
+        <meta property="og:video:height" content="<?php echo $info['height']; ?>" />
         <meta property="og:video:type" content="application/x-shockwave-flash" />
 <?php
     }
@@ -513,6 +513,7 @@ class HelioviewerWebClient extends HelioviewerClient {
         <!-- Right Column -->
         <div id="col3">
             <div id="right-col-header" style='height: 11px'></div>
+
             <!-- Recent Blog Entries -->
             <div style="margin: 0 0 4px 5px;" class="section-header">
                 <a href="<?php echo HV_NEWS_URL; ?>" target="_blank">Helioviewer Project News</a></div>
@@ -521,7 +522,7 @@ class HelioviewerWebClient extends HelioviewerClient {
             <!-- User-Submitted Videos -->
             <div id="user-video-gallery-header" class="section-header">
                 <a href="http://www.youtube.com/user/HelioviewerScience" target="_blank" style='text-decoration: none;'>
-                    <img id='youtube-logo' src='resources/images/youtube_79x32.png' alt='YouTube Logo' />
+                    <img id='youtube-logo' src='<?php echo $this->config['static_asset_url']; ?>resources/images/youtube_79x32.png' alt='YouTube Logo' />
                 </a>
                 <span style='position: relative;'>User-Generated Movies</span>
             </div>
@@ -568,7 +569,7 @@ class HelioviewerWebClient extends HelioviewerClient {
 <!-- Loading Indicator -->
 <div id="loading" style="display: none">
     <span style='vertical-align: top; margin-right: 3px;'>Loading</span>
-    <img src="resources/images/ajax-loader.gif" alt="Loading" />
+    <img src="<?php echo $this->config['static_asset_url']; ?>resources/images/ajax-loader.gif" alt="Loading" />
 </div>
 
 <!-- Viewport shadow -->
@@ -633,7 +634,7 @@ class HelioviewerWebClient extends HelioviewerClient {
 
     <!-- Upload Form -->
     <div id='upload-form'>
-        <img id='youtube-logo-large' src='resources/images/Social.me/60 by 60 pixels/youtube.png' alt='YouTube logo' />
+        <img id='youtube-logo-large' src='<?php echo $this->config['static_asset_url']; ?>resources/images/Social.me/60 by 60 pixels/youtube.png' alt='YouTube logo' />
         <h1>Upload Video</h1>
         <br />
         <form id="youtube-video-info" action="api/index.php" method="post">
