@@ -18,6 +18,7 @@ var MediaManagerUI = Class.extend(
      * @param {ScreenshotManager} model ScreenshotManager instance
      */
     init: function (type) {
+console.info('MediaManagerUI.init('+type+')');
         this._type = type;
 
         this._btn             = $("#" + type + "-button");
@@ -29,16 +30,20 @@ var MediaManagerUI = Class.extend(
         this._historyBody     = $("#" + type + "-history");
         this._clearBtn        = $("#" + type + "-clear-history-button");
         this._tooltips        = $("#social-buttons div");
-        this._allButtons      = $("#movie-button, #screenshot-button");
+        this._allButtons      = $("#movie-button, #screenshot-button, #scidata-button");
         this._allContainers   = $(".media-manager-container");
 
-        this._loadSavedItems();
+
+        if ( this._manager !== undefined ) {
+            this._loadSavedItems();
+        }
     },
 
     /**
      * Checks for media item in history
      */
     has: function (id) {
+console.info('MediaManagerUI.has()');
         return this._manager.has(id);
     },
 
@@ -46,6 +51,7 @@ var MediaManagerUI = Class.extend(
      * Hides the media manager
      */
     hide: function () {
+console.info('MediaManagerUI.hide()');
         this._container.hide();
         this._btn.removeClass("active");
         this._tooltips.qtip("enable");
@@ -56,6 +62,7 @@ var MediaManagerUI = Class.extend(
      * Shows the media manager
      */
     show: function () {
+console.info('MediaManagerUI.show()');
         this._allContainers.hide();
         this._allButtons.removeClass("active");
         this._btn.addClass("active");
@@ -69,6 +76,7 @@ var MediaManagerUI = Class.extend(
      * Toggles the visibility of the media manager
      */
     toggle: function () {
+console.info('MediaManagerUI.toggle()');
         if (this._container.is(":visible")) {
             this.hide();
         } else {
@@ -82,6 +90,7 @@ var MediaManagerUI = Class.extend(
      * @param {Object} The movie or screenshot to be added
      */
     _addItem: function (item) {
+console.info('MediaManagerUI._addItem()');
         var htmlId, html, last, url, name = item.name;
 
         // HTML for a single row in the history dialog
@@ -125,6 +134,7 @@ var MediaManagerUI = Class.extend(
      * the mouse over the specified history entry.
      */
     _buildPreviewTooltip: function (item) {
+console.info('MediaManagerUI._buildPreviewTooltip()');
         var self = this;
 
         $("#" + this._type + "-" + item.id).qtip({
@@ -154,6 +164,7 @@ var MediaManagerUI = Class.extend(
      * @param {Int} Identifier of the screenshot to be removed
      */
     _removeItem: function (id) {
+console.info('MediaManagerUI._removeItem()');
         $("#" + this._type + "-" + id).qtip("destroy").unbind().remove();
 
         // Hide the history section if the last entry was removed
@@ -166,6 +177,7 @@ var MediaManagerUI = Class.extend(
      * Create history entries for items from previous sessions
      */
     _loadSavedItems: function () {
+console.info('MediaManagerUI._loadSavedItems()');
         var self = this;
 
         $.each(this._manager.toArray().reverse(), function (i, item) {
@@ -178,25 +190,29 @@ var MediaManagerUI = Class.extend(
      * and preview tooltip positions
      */
     _refresh: function () {
+console.info('MediaManagerUI._refresh()');
         var type = this._type;
 
         // Update preview tooltip positioning
         this._historyBody.find(".qtip").qtip('reposition');
 
         // Update the status information for each row in the history
-        $.each(this._manager.toArray(), function (i, item) {
-            var status, elapsed;
+        if ( this._manager !== undefined ) {
+            $.each(this._manager.toArray(), function (i, item) {
+                var status, elapsed;
 
-            status = $("#" + type + "-" + item.id).find(".status");
-            elapsed = Date.parseUTCDate(item.dateRequested).getElapsedTime();
-            status.html(elapsed);
-        });
+                status = $("#" + type + "-" + item.id).find(".status");
+                elapsed = Date.parseUTCDate(item.dateRequested).getElapsedTime();
+                status.html(elapsed);
+            });
+        }
     },
 
     /**
      * Translates viewport coordinates into arcseconds
      */
     _toArcsecCoords: function (pixels, scale) {
+console.info('MediaManagerUI._toArcsecCoords()');
         var coordinates = {
             x1: pixels.left,
             x2: pixels.right,
@@ -211,6 +227,7 @@ var MediaManagerUI = Class.extend(
      * Initializes event handlers
      */
     _initEvents: function () {
+console.info('MediaManagerUI._initEvents()');
         var self = this;
 
         this._btn.click(function () {
@@ -235,6 +252,7 @@ var MediaManagerUI = Class.extend(
      * @return {Boolean} Returns true if the request is valid
      */
     _validateRequest: function (roi, layers) {
+console.info('MediaManagerUI._validateRequest()');
         var message;
 
         // Selected area too small

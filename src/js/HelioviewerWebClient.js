@@ -9,8 +9,8 @@
   TooltipHelper, HelioviewerViewport, ScreenshotBuilder, ScreenshotHistory,
   MovieHistory, UserVideoGallery, MessageConsole, Helioviewer,
   KeyboardManager, SettingsLoader, TimeControls, FullscreenControl,
-  ZoomControls, ScreenshotManagerUI, MovieManagerUI, assignTouchHandlers,
-  TileLayerAccordion, VisualGlossary, _gaq */
+  ZoomControls, SciDataManagerUI, ScreenshotManagerUI, MovieManagerUI,
+  assignTouchHandlers, TileLayerAccordion, VisualGlossary, _gaq */
 "use strict";
 var HelioviewerWebClient = HelioviewerClient.extend(
     /** @lends HelioviewerWebClient.prototype */
@@ -69,6 +69,7 @@ var HelioviewerWebClient = HelioviewerClient.extend(
 
         this._screenshotManagerUI = new ScreenshotManagerUI();
         this._movieManagerUI      = new MovieManagerUI();
+        this._sciDataManagerUI    = new SciDataManagerUI();
 
         this._glossary = new VisualGlossary(this._setupDialog);
 
@@ -193,6 +194,23 @@ var HelioviewerWebClient = HelioviewerClient.extend(
             "title": "Helioviewer - Usage Tips"
         });
 
+        // Science Data Script Download dialog
+        this._scienceDialog("#scidata-button", "#science-data-dialog", {
+            "buttons": {
+                "Generate Script": function () {
+                    self.getSciDownloadScript($('form#helioviewer-science-data-script'));
+                    $(this).dialog("close");
+                }
+            },
+            "title": "Science Data Download Script Generation",
+            "width": 420,
+            "height": 'auto',
+            "resizable": true,
+            "close": function (e) {
+                $(document).trigger("unbind-scidata-form-from-viewport");
+            }
+        });
+
         // Settings dialog
         this._setupDialog("#settings-button", "#settings-dialog", {
             "buttons": {
@@ -235,6 +253,39 @@ var HelioviewerWebClient = HelioviewerClient.extend(
                 else {
                     d.dialog('open');
                 }
+            } else {
+                d.load(this.href, onLoad).dialog($.extend(defaults, options));
+                btn.addClass("dialog-loaded");
+            }
+            return false;
+        });
+    },
+
+    /**
+     * Sets up event handlers for a single dialog
+     */
+    _scienceDialog: function (btn, dialog, options, onLoad) {
+        // Default options
+        var defaults = {
+            title     : "Helioviewer.org",
+            autoOpen  : true,
+            draggable : true,
+            width     : 480,
+            height    : 400,
+            position  : ['top',80]
+        };
+
+        // Button click handler
+        $(btn).bind('toggle-scidata-dialog', function () {
+            var d   = $(dialog),
+                btn = $(this);
+
+            if (btn.hasClass("dialog-loaded")) {
+                if (d.dialog('isOpen')) {
+                    d.dialog('close');
+                }
+                else {
+                    d.dialog('open');                }
             } else {
                 d.load(this.href, onLoad).dialog($.extend(defaults, options));
                 btn.addClass("dialog-loaded");
@@ -329,6 +380,7 @@ var HelioviewerWebClient = HelioviewerClient.extend(
                  "#movie-manager-container .text-btn, " +
                  "#image-area-select-buttons > .text-btn, " +
                  "#screenshot-manager-container .text-btn, " +
+                 "#scidata-manager-container .text-btn, " +
                  "#event-container .text-btn");
         btns.live("mouseover",
             function () {
@@ -338,6 +390,8 @@ var HelioviewerWebClient = HelioviewerClient.extend(
             function () {
                 $(this).find(".ui-icon").removeClass("ui-icon-hover");
             });
+
+        $('#science-data-dialog').click($.proxy(this.sciDataForm, this));
 
         // Fix drag and drop for mobile browsers
         $("#helioviewer-viewport, .ui-slider-handle").each(function () {
@@ -355,6 +409,91 @@ var HelioviewerWebClient = HelioviewerClient.extend(
 
             $("#helioviewer-url-input-box").attr('value', url).select();
         });
+    },
+
+    /**
+     * Download science data associated with the current Viewport
+     */
+    getSciDownloadScript: function (form) {
+
+        var ///jGrowlOpts,
+            ///body,
+            self = this,
+            endDate,
+            imageLayers='', eventLayers='',
+            endTime='', startTime='',
+            apiRequest;
+
+        $.each(form.find('#helioviewer-script-contents input:checkbox:checked'), function(i,layer) {
+            var imageLayer = $(layer).attr('name');
+            if ( imageLayer == 'hek' ) {
+                eventLayers = form.find("input[name*='eventLayers']").val();
+            }
+            else {
+                imageLayers += '['+
+                                   $(layer).attr('name')+','+
+                                   form.find('#'+$(layer).attr('id')+'-startDate').val()+','+
+                                   form.find('#'+$(layer).attr('id')+'-startTime').val()+
+                               ']';
+            }
+        });
+        imageLayers = imageLayers.replace(/\]\[/g,'],[');
+
+        startTime = form.find('input#startDate').val();
+        startTime = startTime.replace(/\//g,'-');
+        startTime = startTime.replace(/ /g,'T');
+        startTime = startTime + 'Z';
+
+        // Download link
+        apiRequest = Helioviewer.api +
+            "?action=getSciDataScript" +
+            "&fovType="    +encodeURIComponent(form.find("input[name*='fovType']").val()) +
+            "&lang="       +encodeURIComponent(form.find('input:radio:checked').val()) +
+            "&imageLayers="+encodeURIComponent(imageLayers) +
+            "&eventLayers="+encodeURIComponent(eventLayers) +
+            "&imageScale=" +encodeURIComponent(this.viewport.getImageScale()) +  // arcsec/pixel
+            "&startTime="  +encodeURIComponent(startTime);
+
+        if ( form.find('#science-data-dates-checkbox').attr('checked') == 'checked' &&
+             form.find('input#endDate').val() != '' &&
+             form.find('input#endTime').val() != '' ) {
+
+            endTime = form.find('input#endTime').val();
+            endTime = endTime.replace(/\//g,'-');
+            endTime = endTime.replace(/ /g,'T');
+            endTime = endTime + 'Z';
+
+            apiRequest += "&endTime="+encodeURIComponent(endTime);  // arcsec/pixel
+        }
+
+        if ( form.find("input[name*='x0']").val() ) {
+            apiRequest += "&x0="    +encodeURIComponent(form.find("input[name*='x0']").val())+
+                          "&y0="    +encodeURIComponent(form.find("input[name*='y0']").val())+
+                          "&width=" +encodeURIComponent(form.find("input[name*='width']").val())+
+                          "&height="+encodeURIComponent(form.find("input[name*='height']").val()); // pixels
+        }
+        else if ( form.find("input[name*='x1']").val() ) {
+            apiRequest += "&x1="+encodeURIComponent(form.find("input[name*='x1']").val())+
+                          "&y1="+encodeURIComponent(form.find("input[name*='y1']").val())+
+                          "&x2="+encodeURIComponent(form.find("input[name*='x2']").val())+
+                          "&y2="+encodeURIComponent(form.find("input[name*='y2']").val()); // arcsec
+        }
+        else if ( form.find("input[name*='fovType']").val().toLowerCase() == 'hek' ) {
+            apiRequest += "&hpc_x="        +encodeURIComponent(form.find("input[name*='hpc_x']").val())+
+                          "&hpc_y="        +encodeURIComponent(form.find("input[name*='hpc_y']").val())+
+                          "&hpc_bbox_ll_x="+encodeURIComponent(form.find("input[name*='hpc_bbox_ll_x']").val())+
+                          "&hpc_bbox_ll_y="+encodeURIComponent(form.find("input[name*='hpc_bbox_ll_y']").val())+
+                          "&hpc_bbox_ur_x="+encodeURIComponent(form.find("input[name*='hpc_bbox_ur_x']").val())+
+                          "&hpc_bbox_ur_y="+encodeURIComponent(form.find("input[name*='hpc_bbox_ur_y']").val())+
+                          "&rot_from_time="+encodeURIComponent(form.find("input[name*='rot_from_time']").val())+
+                          "&kb_archivid="  +encodeURIComponent(form.find("input[name*='kb_archivid']").val());
+        }
+
+        if ( form.find("input[name*='movieId']").length == 1 ) {
+            apiRequest += "&movieId="+encodeURIComponent(form.find("input[name*='movieId']").val());
+        }
+
+        location.href = apiRequest;
     },
 
     /**

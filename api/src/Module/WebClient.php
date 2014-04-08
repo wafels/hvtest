@@ -368,7 +368,7 @@ class Module_WebClient implements Module {
     }
 
     /**
-     * Re-generate a screenshot using the metadata stored in the 
+     * Re-generate a screenshot using the metadata stored in the
      * `screenshots` database table.
      *
      * @return
@@ -561,7 +561,8 @@ class Module_WebClient implements Module {
              $script = new Helper_SunPy($this->_params);
          }
          else {
-             handleError('Invalid value specified for request parameter.',25);
+             handleError(
+                'Invalid value specified for request parameter "lang".', 25);
          }
 
          $script->buildScript();

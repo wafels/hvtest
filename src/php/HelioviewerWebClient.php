@@ -103,6 +103,7 @@ class HelioviewerWebClient extends HelioviewerClient {
                     'Media/MovieManager.js', 'Media/MovieManagerUI.js',
                     'Media/ScreenshotManager.js',
                     'Media/ScreenshotManagerUI.js',
+                    'Media/SciDataManagerUI.js',
                     'UI/TileLayerAccordion.js',
                     'UI/EventLayerAccordion.js', 'UI/MessageConsole.js',
                     'UI/TimeControls.js', 'Utility/FullscreenControl.js',
@@ -305,6 +306,12 @@ class HelioviewerWebClient extends HelioviewerClient {
                                     <span style="line-height: 1.6em">Screenshot</span>
                                 </div>
 
+                                <!-- SciData button -->
+                                <div id="scidata-button" class="text-btn qtip-topleft" title="Generate a script for downloading science-quality data.">
+                                    <span class="ui-icon ui-icon-arrowreturnthick-1-s" style="float: left;"></span>
+                                    <span style="line-height: 1.6em">Science Data</span>
+                                </div>
+
                                 <!-- Settings button -->
                                 <div id="settings-button" class="text-btn qtip-topleft" title="Configure Helioviewer.org user preferences.">
                                     <span class="ui-icon ui-icon-gear" style="float: left;"></span>
@@ -333,6 +340,27 @@ class HelioviewerWebClient extends HelioviewerClient {
                                 <div id="mouse-coords-y"></div>
                             </div>
 
+                            <!-- SciData Manager -->
+                            <div id='scidata-manager-container' class='media-manager-container glow'>
+                                <div id='scidata-manager-build-btns' class='media-manager-build-btns'>
+                                    <div id='scidata-manager-full-viewport' class='text-btn' title='Create a science data download script for the entire viewport.'>
+                                        <span class='ui-icon ui-icon-arrowthick-2-se-nw' style='float:left;'></span>
+                                        <span style='line-height: 1.6em'>Full Viewport</span>
+                                    </div>
+                                    <div id='scidata-manager-select-area' class='text-btn qtip-left' style='float:right;' title='Create a science data downloads script for a sub-region of the viewport.'>
+                                        <span class='ui-icon ui-icon-scissors' style='float:left;'></span>
+                                        <span style='line-height: 1.6em'>Select Area</span>
+                                    </div>
+                                </div>
+                                <div id='scidata-history-title' class='media-history-title'>
+                                    Science Data Download Script History
+                                    <div id='scidata-clear-history-button' class='text-btn qtip-left' style='float:right;' title='Remove all scripts from the history.'>
+                                        <span class='ui-icon ui-icon-trash' style='float:left;'></span>
+                                        <span style='font-weight:normal'><i>Clear</i></span>
+                                    </div>
+                                </div>
+                                <div id='scidata-history'></div>
+                            </div>
                             <!-- Screenshot Manager -->
                             <div id='screenshot-manager-container' class='media-manager-container glow'>
                                 <div id='screenshot-manager-build-btns' class='media-manager-build-btns'>
@@ -583,6 +611,52 @@ class HelioviewerWebClient extends HelioviewerClient {
 
 <!-- Layer choice dialog -->
 <div id='layer-choice-dialog'></div>
+
+<!-- Science Data Download dialog -->
+<div id='science-data-dialog'>
+    <form id='helioviewer-science-data-script'>
+
+        <!-- Science Data Download Script Start/End Times -->
+        <fieldset id="helioviewer-script-dates">
+        <legend>Date/Time Span:</legend>
+
+            <div id="dates-custom" style="float: left; margin-top: 5px;">
+                <div style="padding: 0 0 0 5px; text-align: center;">
+                    <h2 style="margin: 0 0 2px 0;">Start:</h2>
+                    <input class="dimmable" type="text" id="startDate" name="startDate" style="text-align:center;"><br />
+                    <img id="startThumb" src="resources/images/ajax-loader-large.gif" width="150" style="margin-top:4px;" />
+                </div>
+            </div>
+
+            <div id="dates-custom" style="float: right;">
+                <div style="padding: 2px 0 0 5px; text-align: center;">
+                    <h2 style="margin: 0 0 2px 0;">End:</h2>
+                    <input class="dimmable" type="text" id="endDate" name="endDate" style="text-align:center;"><br />
+                    <img id="endThumb" src="resources/images/ajax-loader-large.gif"  width="150" style="margin-top:4px;" />
+                </div>
+            </div>
+        </fieldset>
+        <br />
+
+        <!-- Science Data Download Script Data Sets -->
+        <fieldset id='helioviewer-script-contents'>
+        </fieldset>
+        <br />
+
+        <!-- Science Data Download Script Language -->
+        <fieldset id='helioviewer-script-lang'>
+        <legend>Script Language:</legend>
+            <div style="padding: 2px 0 12px 0;">
+                <input id="science-data-sswidl" type="radio" name="science-data-lang" value="sswidl" checked />
+                <label for="science-data-sswidl">SolarSoft (SSW) / IDL</label><br />
+
+                <input id="science-data-sunpy" type="radio" name="science-data-lang" value="sunpy" />
+                <label for="science-data-sunpy">SunPy / Python</label><br />
+            </div>
+        </fieldset>
+
+    </form>
+</div>
 
 <!-- Settings dialog -->
 <div id='settings-dialog'>

@@ -40,3 +40,7 @@ releases
 robots.txt
 statistics/milestones.txt
 status/movieId.php
+RE:\..*
+RE:\._.*
+RE:.*\/\._.*
+RE:.*\/\..*
