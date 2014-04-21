@@ -8,6 +8,18 @@
         <script type="text/javascript">
 $(function() {
 
+    var toISOString = Date.prototype.toISOString;
+    Date.prototype.toISOString = function () {
+        var date = toISOString.call(this).replace(/"/g, '');
+
+        if (date.length === 20) {
+            date = date.substring(0, 19) + ".000Z";
+        }
+
+        return date;
+    };
+
+
     var seriesOptions = [],
         yAxisOptions = [],
         count = 0, baseSeriesIndex,
@@ -29,7 +41,7 @@ $(function() {
         });
 
 
-    $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[SDO,AIA,AIA,94,1,100],[SDO,AIA,AIA,171,1,100]&endDate=2011-12-31T23:59:59.999Z', function(data) {
+    $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[SDO,AIA,AIA,211,1,100],[SDO,AIA,AIA,304,1,100],[SDO,AIA,AIA,335,1,100]', function(data) {
 
         count = 0;
         $.each(data, function (sourceId, series) {
@@ -93,7 +105,13 @@ $(function() {
                 type: 'column',
                 stacking: 'normal',
                 zoomType: 'x',
-                height: 900
+                height: 900,
+                events: {
+                    click: function(event) {
+                        var date = new Date(event.xAxis[0].value);
+                        console.warn(date.toISOString());
+                    }
+                }
             },
 
             credits: {
@@ -178,6 +196,14 @@ $(function() {
                     },
                     dataGrouping: {
                         groupPixelWidth: 20
+                    },
+                    point: {
+                        events: {
+                            click: function(event) {
+                                var date = new Date(this.x);
+                                console.warn(date.toISOString());
+                            }
+                        }
                     }
                 }
             },
@@ -209,9 +235,10 @@ $(function() {
             series: seriesOptions
         });
 
-        // Hide last series (sum of aother series, for Navigator pane)
-        //var chart = $('#data-coverage-timeline').highcharts();
-        //chart.series[baseSeriesIndex].hide();
+        var chart = $('#data-coverage-timeline').highcharts();
+        chart.series[0].addPoint([1396029600000, 5000], false);
+        chart.series[0].addPoint([1396137600000, 3000], false);
+        chart.redraw();
     }
 
 });
