@@ -118,12 +118,20 @@ class Database_Statistics
     /**
      * Gets latest datasource coverage and return as JSON
      */
-    public function getDataCoverage($resolution, $endDate, $interval,
-        $stepSize, $steps) {
+    public function getDataCoverage($layers) {
+
+        // Get list of layer sourceIds
+        $layerArray = $layers->toArray();
+        $requestedLayerIds = array();
+        foreach ($layerArray as $layer) {
+            $requestedLayerIds[] = $layer['sourceId'];
+        }
+        $requestedLayerIds = implode(',', $requestedLayerIds);
 
         require_once 'src/Helper/DateTimeConversions.php';
 
-        $sql = 'SELECT id, name, description FROM datasources ORDER BY description';
+        $sql = 'SELECT id, name, description FROM datasources WHERE id IN ('
+             . $requestedLayerIds .') ORDER BY description';
         $result = $this->_dbConnection->query($sql);
 
         $output = array();
@@ -131,71 +139,18 @@ class Database_Statistics
         while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
             $sourceId = $row['id'];
 
-            $output['sourceId'.$sourceId] = new stdClass;
-            $output['sourceId'.$sourceId]->sourceId = $sourceId;
-            $output['sourceId'.$sourceId]->label = $row['description'];
-            $output['sourceId'.$sourceId]->data = array();
-        }
-
-        // Format to use for displaying dates
-        switch($resolution) {
-        case "5m":
-        case "15m":
-        case "30m":
-            $dateFormat = "Y-m-d H:i";
-            break;
-        case "1h":
-            $dateFormat = "Y-m-d H:i";
-            break;
-        case "1D":
-            $dateFormat = "Y-m-d";
-            break;
-        case "14D":
-        case "1W":
-            $dateFormat = "Y-m-d";
-            break;
-        case "30D":
-        case "1M":
-        case "3M":
-        case "6M":
-            $dateFormat = "M Y";
-            break;
-        case "1Y":
-            $dateFormat = "Y";
-            break;
-        default:
-            $dateFormat = "Y-m-d H:i e";
+            $output[$sourceId] = array();
+            $output[$sourceId]['sourceId'] = $sourceId;
+            $output[$sourceId]['label'] = $row['description'];
+            $output[$sourceId]['data'] = array();
         }
 
 
-        // Start date
-        $date = $endDate->sub($interval);
+        $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp, SUM(count) as count FROM data_coverage_5_min WHERE sourceId in (".$requestedLayerIds.") GROUP BY sourceId, timestamp ORDER BY timestamp;";
+        $result = $this->_dbConnection->query($sql);
 
-        // Query each time interval
-        for ($i = 0; $i < $steps; $i++) {
-            $dateIndex = $date->format($dateFormat); // Format date for array index
-            $dateStart = toMySQLDateString($date);   // MySQL-formatted date string
-
-            // Move to end date for the current interval
-            $date->add($stepSize);
-
-            // Fill with zeros to begin with
-            foreach ($output as $sourceId => $arr) {
-                array_push($output[$sourceId]->data, array($dateIndex => 0));
-            }
-            $dateEnd = toMySQLDateString($date);
-
-            $sql = "SELECT sourceId, SUM(count) as count FROM data_coverage_5_min " .
-                   "WHERE date BETWEEN '$dateStart' AND '$dateEnd' GROUP BY sourceId;";
-            //echo "\n<br />";
-
-            $result = $this->_dbConnection->query($sql);
-
-            // And append counts for each sourceId during that interval to the relevant array
-            while ($count = $result->fetch_array(MYSQLI_ASSOC)) {
-                $num = (int) $count['count'];
-                $output['sourceId'.$count['sourceId']]->data[$i][$dateIndex] = $num;
-            }
+        while ( $row = $result->fetch_array(MYSQLI_ASSOC) ) {
+            $output[$row['sourceId']]['data'][] = array((int)$row['timestamp']*1000, (int)$row['count']);
         }
 
         return json_encode($output);

@@ -368,7 +368,7 @@ class Module_WebClient implements Module {
     }
 
     /**
-     * Re-generate a screenshot using the metadata stored in the 
+     * Re-generate a screenshot using the metadata stored in the
      * `screenshots` database table.
      *
      * @return
@@ -551,137 +551,17 @@ class Module_WebClient implements Module {
      */
     public function getDataCoverage() {
 
-        // Define allowed date/time resolutions
-        $validRes = array('5m', '15m', '30m',
-                          '1h',
-                          '1D',
-                          '1W',
-                          '1M', '3M',
-                          '1Y');
-        if ( isset($this->_options['resolution']) && $this->_options['resolution']!='') {
-
-            // Make sure a valid resolution was specified
-            if ( !in_array($this->_options['resolution'], $validRes) ) {
-                $msg = 'Invalid resolution specified. Valid options include: '
-                     . implode(', ', $validRes);
-                throw new Exception($msg, 25);
-            }
-            $resolution = $this->_options['resolution'];
-        }
-        else {
-            $resolution = '1h';
-        }
-
-        $magnitude   = intval($resolution);
-        $period_abbr = ltrim($resolution, '0123456789');
-
-
-        $date = false;
-        if ( isset($this->_options['endDate']) ) {
-            $formatArr = Array('Y-m-d\TH:i:s\Z',
-                               'Y-m-d\TH:i:s.u\Z',
-                               'Y-m-d\TH:i:s.\Z');
-            foreach ( $formatArr as $fmt ) {
-                $date = DateTime::createFromFormat(
-                    $fmt, $this->_options['endDate'] );
-                if ( $date !== false ) {
-                    break;
-                }
-            }
-        }
-        if ( $date === false ) {
-            $date = new DateTime();
-        }
-
-
-        switch ($period_abbr) {
-        case 'm':
-            $steps    = 30;
-            $stepSize = new DateInterval('PT'.($magnitude).'M');
-            $interval = new DateInterval('PT'.($magnitude*$steps).'M');
-            $endDate = clone $date;
-            $endDate->setTime(date_format($date,'H'), 59, 59);
-            $endDate->add(new DateInterval('PT1S'));
-            break;
-        case 'h':
-            $steps    = 24;
-            $stepSize = new DateInterval('PT'.($magnitude).'H');
-            $interval = new DateInterval('PT'.($magnitude*$steps).'H');
-            $date->setTime(date_format($date,'H'), 59, 59);
-            $endDate = clone $date;
-            $endDate->setTime(date_format($date,'H'), 59, 59);
-            $endDate->add(new DateInterval('PT1S'));
-            break;
-        case 'D':
-            $steps = 30;
-            $stepSize = new DateInterval('P'.($magnitude).'D');
-            $interval = new DateInterval('P'.($magnitude*$steps).'D');
-            $endDate = clone $date;
-            $endDate->setTime(23, 59, 59);
-            $endDate->add(new DateInterval('PT1S'));
-            break;
-        case 'W':
-            $steps = 36;
-            $stepSize = new DateInterval('P'.($magnitude).'W');
-            $interval = new DateInterval('P'.($magnitude*$steps).'W');
-            $endDate = clone $date;
-            $endDate->modify('first day of this week');
-            $endDate->add(new DateInterval('P2W'));
-            $endDate->setTime(23, 59, 59);
-            $endDate->add(new DateInterval('PT1S'));
-            break;
-        case 'M':
-            $steps = 36;
-            $stepSize = new DateInterval('P'.($magnitude).'M');
-            $interval = new DateInterval('P'.($magnitude*$steps).'M');
-            $endDate = clone $date;
-            $endDate->modify('last day of this month');
-            $endDate->setTime(23, 59, 59);
-            $endDate->add(new DateInterval('PT1S'));
-            break;
-        case 'Y':
-            $steps = 25;
-            $stepSize = new DateInterval('P'.($magnitude).'Y');
-            $interval = new DateInterval('P'.($magnitude*$steps).'Y');
-            $endDate = clone $date;
-            $endDate->setDate(date_format($date,'Y'), 12, 31);
-            $endDate->setTime(23, 59, 59);
-            $endDate->add(new DateInterval('PT1S'));
-            break;
-        default:
-            $msg = 'Invalid resolution specified. Valid options include: '
-                 . implode(', ', $validRes);
-            throw new Exception($msg, 25);
+        $layers = null;
+        if ( array_key_exists('imageLayers', $this->_params) ) {
+            include_once 'src/Helper/HelioviewerLayers.php';
+            // Data Layers
+            $layers = new Helper_HelioviewerLayers($this->_params['imageLayers']);
         }
 
         include_once 'src/Database/Statistics.php';
-        $statistics = new Database_Statistics();
+        $statistics = new Database_Statistics($layers);
 
-/*
-        print_r(
-            array(
-                '_options' => $this->_options
-            )
-        );
-        print_r(
-            array(
-                'interval'  => $interval,
-                'steps'     => $steps,
-                'stepSize'  => $stepSize,
-                'endDate'   => $endDate
-            )
-        );
-*/
-
-        $this->_printJSON(
-            $statistics->getDataCoverage(
-                $resolution,
-                $endDate,
-                $interval,
-                $stepSize,
-                $steps
-            )
-        );
+        $this->_printJSON($statistics->getDataCoverage($layers));
     }
 
     /**
@@ -904,7 +784,6 @@ class Module_WebClient implements Module {
      *
      * Note: mkdir may not set permissions properly due to an issue with umask.
      *       (See http://www.webmasterworld.com/forum88/13215.htm)
-
      *
      * @param string $filepath The filepath where the image is stored
      *
@@ -1094,7 +973,7 @@ class Module_WebClient implements Module {
             break;
         case 'getDataCoverage':
             $expected = array(
-                'optional' => array('resolution','endDate',
+                'optional' => array('resolution','endDate', 'imageLayers',
                     'callback'),
                 'alphanum' => array('resolution', 'callback'),
                 'dates'    => array('endDate')
