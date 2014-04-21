@@ -23,12 +23,13 @@ $(function() {
                 contextButtonTitle: 'Chart save & print options...',
                 downloadJPEG: 'Download JPG image',
                 loading: 'Loading Timeline Data...',
-                rangeSelectorZoom: 'Range:'
+                rangeSelectorZoom: 'Range:',
+                rangeSelectorFrom: 'View:  '
             }
         });
 
 
-    $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[SDO,AIA,AIA,94,1,100],[SDO,AIA,AIA,171,1,100],[SDO,AIA,AIA,193,1,100],[SDO,AIA,AIA,211,1,100],[SDO,AIA,AIA,304,1,100]', function(data) {
+    $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[SDO,AIA,AIA,94,1,100],[SDO,AIA,AIA,171,1,100]&endDate=2011-12-31T23:59:59.999Z', function(data) {
 
         count = 0;
         $.each(data, function (sourceId, series) {

@@ -547,21 +547,12 @@ class Module_WebClient implements Module {
     }
 
     /**
-     * Retrieves the latest usage statistics from the database
+     * Retrieves data coverage statistics from the database
      */
     public function getDataCoverage() {
-
-        $layers = null;
-        if ( array_key_exists('imageLayers', $this->_params) ) {
-            include_once 'src/Helper/HelioviewerLayers.php';
-            // Data Layers
-            $layers = new Helper_HelioviewerLayers($this->_params['imageLayers']);
-        }
-
         include_once 'src/Database/Statistics.php';
-        $statistics = new Database_Statistics($layers);
-
-        $this->_printJSON($statistics->getDataCoverage($layers));
+        $statistics = new Database_Statistics();
+        $this->_printJSON($statistics->getDataCoverage($this->_params));
     }
 
     /**
@@ -973,10 +964,11 @@ class Module_WebClient implements Module {
             break;
         case 'getDataCoverage':
             $expected = array(
-                'optional' => array('resolution','endDate', 'imageLayers',
-                    'callback'),
+                'required' => array('imageLayers'),
+                'optional' => array('resolution', 'startDate', 'endDate',
+                                    'callback'),
                 'alphanum' => array('resolution', 'callback'),
-                'dates'    => array('endDate')
+                'dates'    => array('startDate', 'endDate')
             );
             break;
         case 'updateDataCoverage':

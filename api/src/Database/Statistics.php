@@ -118,7 +118,41 @@ class Database_Statistics
     /**
      * Gets latest datasource coverage and return as JSON
      */
-    public function getDataCoverage($layers) {
+    public function getDataCoverage($params) {
+        include_once 'src/Helper/HelioviewerLayers.php';
+        $layers = new Helper_HelioviewerLayers($params['imageLayers']);
+
+        date_default_timezone_set('UTC');
+        include_once 'src/Helper/DateTimeConversions.php';
+
+        // If no endDate is supplied, set it to the current date/time
+        if ( !array_key_exists('endDate', $params) ||
+             $params['endDate'] == '' ) {
+
+            $endDate = new DateTime();
+        }
+        else {
+            $endDate = toUnixTimestamp($params['endDate']);
+            $endDate = parseUnixTimestamp($endDate);
+        }
+
+        // If no startDate is supplied, set it to 1 year before
+        // the value of endDate
+        if ( !array_key_exists('startDate', $params) ||
+             $params['startDate'] == '' ) {
+
+            $startDate = clone $endDate;
+            $startDate->sub(new DateInterval('P1Y'));
+        }
+        else {
+            $startDate = new DateTime();
+            $startDate->createFromFormat(
+                'Y-m-d\TH:i:s\Z', $params['startDate']
+            );
+        }
+
+        $mysqlEndDate = toMySQLDateString($endDate);
+        $mysqlStartDate = toMySQLDateString($startDate);
 
         // Get list of layer sourceIds
         $layerArray = $layers->toArray();
@@ -146,7 +180,9 @@ class Database_Statistics
         }
 
 
-        $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp, SUM(count) as count FROM data_coverage_5_min WHERE sourceId in (".$requestedLayerIds.") GROUP BY sourceId, timestamp ORDER BY timestamp;";
+        $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp, SUM(count) as count FROM data_coverage_5_min WHERE sourceId in (".$requestedLayerIds.") AND date BETWEEN '"
+             . $mysqlStartDate . "' AND '"
+             . $mysqlEndDate . "' GROUP BY sourceId, timestamp ORDER BY timestamp;";
         $result = $this->_dbConnection->query($sql);
 
         while ( $row = $result->fetch_array(MYSQLI_ASSOC) ) {
