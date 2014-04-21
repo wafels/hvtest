@@ -150,21 +150,7 @@ $(function() {
             },
 
             xAxis: {
-                plotLines: [{
-                    value: 1396000000000,
-                    width: 2,
-                    color: 'black',
-                    dashStyle: 'solid',
-                    zIndex: 5,
-                    label: {
-                        text: 'Viewport',
-                        verticalAlign: 'top',
-                        align: 'center',
-                        y: 30,
-                        x: -5,
-                        rotation: 270
-                    }
-                }]
+                plotLines: []
             },
 
             yAxis: {
@@ -256,6 +242,34 @@ $(function() {
 
         });
 
+
+        var hasPlotLine = false;
+        $('#btn-plotline').click({'chart':chart, 'hasPlotLine':hasPlotLine}, function(e){
+            if (!hasPlotLine) {
+                chart.xAxis[0].addPlotLine({
+                    value: 1396000000000,
+                    width: 2,
+                    color: 'black',
+                    dashStyle: 'solid',
+                    zIndex: 5,
+                    id: 'plot-line-1',
+                    label: {
+                        text: 'Viewport',
+                        verticalAlign: 'top',
+                        align: 'center',
+                        y: 30,
+                        x: -5,
+                        rotation: 270
+                    }
+                });
+                $('#btn-plotline').html('Remove plot line');
+            } else {
+                chart.xAxis[0].removePlotLine('plot-line-1');
+                $('#btn-plotline').html('Add plot line');
+            }
+            hasPlotLine = !hasPlotLine;
+        });
+
     }
 
 });
@@ -267,6 +281,7 @@ $(function() {
 
 <button id="btn-zoom-in">Zoom In</button>
 <button id="btn-zoom-out">Zoom Out</button>
+<button id="btn-plotline">Add PlotLine</button>
 <div id="data-coverage-timeline" style="height: 500px; min-width: 600px"></div>
     </body>
 </html>
