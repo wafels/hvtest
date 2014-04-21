@@ -239,6 +239,23 @@ $(function() {
         chart.series[0].addPoint([1396029600000, 5000], false);
         chart.series[0].addPoint([1396137600000, 3000], false);
         chart.redraw();
+
+        $('#btn-zoom-in').click({'chart':chart}, function(e){
+            var min = chart.xAxis[0].getExtremes().min,
+                max = chart.xAxis[0].getExtremes().max;
+
+            chart.xAxis[0].setExtremes((min + 100 * 3600 * 1000), (max - 48 * 3600 * 1000));
+
+        });
+
+        $('#btn-zoom-out').click({'chart':chart}, function(e){
+            var min = chart.xAxis[0].getExtremes().min,
+                max = chart.xAxis[0].getExtremes().max;
+
+            chart.xAxis[0].setExtremes((min - 100 * 3600 * 1000), (max + 48 * 3600 * 1000));
+
+        });
+
     }
 
 });
@@ -248,6 +265,8 @@ $(function() {
 <script src="js/highstock.js"></script>
 <script src="js/modules/exporting.js"></script>
 
+<button id="btn-zoom-in">Zoom In</button>
+<button id="btn-zoom-out">Zoom Out</button>
 <div id="data-coverage-timeline" style="height: 500px; min-width: 600px"></div>
     </body>
 </html>
