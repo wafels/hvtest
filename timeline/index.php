@@ -127,6 +127,11 @@ $(function() {
                 }]
             },
 
+            scrollbar: {
+
+                liveRedraw: false
+            },
+
             xAxis: {
                 plotLines: [],
                 ordinal: false,
@@ -290,7 +295,7 @@ $(function() {
             var chart = $('#data-coverage-timeline').highcharts();
 
             chart.showLoading('Loading data from server...');
-            $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[14,1,100]', function(data) {
+            $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[14,1,100]&endDate=2013-01-01T00:00:00.000Z', function(data) {
 
                 while(chart.series.length > 0) {
                     chart.series[0].remove(false);
@@ -302,9 +307,11 @@ $(function() {
                     chart.addSeries({
                         name: series['label'],
                         data: series['data']
-                    }, false, false);
+                    }, true, false);
                     count++;
                 });
+
+                chart.xAxis[0].setExtremes( 1328400000000,  1345161600000);
 
                 chart.redraw();
                 chart.hideLoading();
