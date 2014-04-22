@@ -105,7 +105,7 @@ $(function() {
                 type: 'column',
                 stacking: 'normal',
                 zoomType: 'x',
-                height: 900,
+                height: 500,
                 events: {
                     click: function(event) {
                         var date = new Date(event.xAxis[0].value);
@@ -222,9 +222,11 @@ $(function() {
         });
 
         var chart = $('#data-coverage-timeline').highcharts();
+        chart.showLoading('Loading, please wait...');
         chart.series[0].addPoint([1396029600000, 5000], false);
         chart.series[0].addPoint([1396137600000, 3000], false);
         chart.redraw();
+        chart.hideLoading();
 
         $('#btn-zoom-in').click({'chart':chart}, function(e){
             var min = chart.xAxis[0].getExtremes().min,
@@ -270,18 +272,78 @@ $(function() {
             hasPlotLine = !hasPlotLine;
         });
 
+        $('#btn-prev').click({'chart':chart}, function(e){
+            if (!hasPlotLine) {
+                chart.xAxis[0].addPlotLine({
+                    value: 1396000000000,
+                    width: 2,
+                    color: 'black',
+                    dashStyle: 'solid',
+                    zIndex: 5,
+                    id: 'plot-line-1',
+                    label: {
+                        text: 'Viewport',
+                        verticalAlign: 'top',
+                        align: 'center',
+                        y: 30,
+                        x: -5,
+                        rotation: 270
+                    }
+                });
+                $('#btn-plotline').html('Remove plot line');
+            } else {
+                chart.xAxis[0].removePlotLine('plot-line-1');
+                $('#btn-plotline').html('Add plot line');
+            }
+            hasPlotLine = !hasPlotLine;
+        });
+
+
+
+        $('#btn-load').click({'chart':chart}, function (e) {
+            var chart = $('#data-coverage-timeline').highcharts();
+
+            chart.showLoading('Loading data from server...');
+            $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[SDO,AIA,AIA,335,1,100]', function(data) {
+
+                while(chart.series.length > 0) {
+                    chart.series[0].remove(false);
+                }
+                chart.redraw();
+
+                var count = 0;
+                $.each(data, function (sourceId, series) {
+                    chart.addSeries({
+                        name: series['label'],
+                        data: series['data']
+                    }, false, false);
+                    count++;
+                });
+
+
+                chart.redraw();
+                chart.hideLoading();
+            });
+
+        });
+
     }
 
 });
         </script>
     </head>
     <body>
-<script src="js/highstock.js"></script>
-<script src="js/modules/exporting.js"></script>
+        <script src="js/highstock.js"></script>
+        <script src="js/modules/exporting.js"></script>
 
-<button id="btn-zoom-in">Zoom In</button>
-<button id="btn-zoom-out">Zoom Out</button>
-<button id="btn-plotline">Add PlotLine</button>
-<div id="data-coverage-timeline" style="height: 500px; min-width: 600px"></div>
+        <button id="btn-zoom-out">Zoom Out</button>
+        <button id="btn-zoom-in">Zoom In</button>
+        <button id="btn-plotline">Add PlotLine</button>
+        <button id="btn-load">Load</button>
+
+        <div id="data-coverage-timeline" style="min-height: 500px;"></div>
+
+        <button id="btn-prev" style="float: left;"><- Previous</button>
+        <button id="btn-next" style="float: right;">Next -></button>
     </body>
 </html>
