@@ -128,10 +128,18 @@ $(function() {
             },
 
             xAxis: {
-                plotLines: []
+                plotLines: [],
+                ordinal: false,
+                events: {
+                    afterSetExtremes:
+                        function () {
+                            console.warn(['Viewing: ',new Date(this.min), new Date(this.max)]);
+                        }
+                }
             },
 
             yAxis: {
+                allowDecimals: false,
                 labels: {
 
                 }
