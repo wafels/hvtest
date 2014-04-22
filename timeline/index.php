@@ -61,29 +61,7 @@ $(function() {
     function createChart(baseSeriesIndex) {
 
         $('#data-coverage-timeline').highcharts('StockChart', {
-            colors: [
-                '#FF8F97',
-            //    '#FFB294',
-            //    '#FFD391',
-                '#FEF38E',
-            //    '#E8FF8C',
-            //    '#C8FF8D',
-                '#A3FF8D',
-            //    '#7BFF8E',
-            //    '#7AFFAE',
-                '#7CFFC9',
-                // '#81FFFC',
-                // '#8CE6FF',
-                '#95C6FF',
-                // '#9DA4FF',
-                // '#AB8CFF',
-                '#CA89FF',
-                // '#E986FF',
-                // '#FF82FF',
-                '#FF85FF',
-                // '#FF8ACC',
-                // '#FF8DAD'
-            ],
+
 
             title: {
                 text: 'Image Data Coverage',
@@ -304,7 +282,7 @@ $(function() {
             var chart = $('#data-coverage-timeline').highcharts();
 
             chart.showLoading('Loading data from server...');
-            $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[SDO,AIA,AIA,335,1,100]', function(data) {
+            $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[14,1,100]', function(data) {
 
                 while(chart.series.length > 0) {
                     chart.series[0].remove(false);
@@ -319,7 +297,6 @@ $(function() {
                     }, false, false);
                     count++;
                 });
-
 
                 chart.redraw();
                 chart.hideLoading();
