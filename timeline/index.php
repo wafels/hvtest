@@ -301,7 +301,13 @@ $(function() {
                 chart.redraw();
                 chart.hideLoading();
             });
+        });
 
+        $('#btn-jump').click({'chart':chart}, function (e) {
+                chart.xAxis[0].setExtremes(
+                    1395913600000,
+                    1396086400000
+                );
         });
 
     }
@@ -315,8 +321,9 @@ $(function() {
 
         <button id="btn-zoom-out">Zoom Out</button>
         <button id="btn-zoom-in">Zoom In</button>
+        <button id="btn-jump">Jump to Timestamp</button>
         <button id="btn-plotline">Add PlotLine</button>
-        <button id="btn-load">Load</button>
+        <button id="btn-load">Load Data</button>
 
         <div id="data-coverage-timeline" style="min-height: 500px;"></div>
 
