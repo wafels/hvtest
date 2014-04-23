@@ -7,6 +7,16 @@
         <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
         <script type="text/javascript">
 $(function() {
+    var imageLayers = '[15,1,100],[16,1,100]';
+<?php
+
+    if ( array_key_exists('imageLayers', $_GET) &&
+        preg_match('/^[\[\],A-Za-z0-9]+$/', $_GET['imageLayers']) ) {
+
+        echo 'imageLayers = "'.$_GET['imageLayers'].'";';
+    }
+
+?>
 
     var toISOString = Date.prototype.toISOString;
     Date.prototype.toISOString = function () {
@@ -40,7 +50,7 @@ $(function() {
         }
     });
 
-    data = {"12":{"sourceId":"12","label":"SDO AIA 211","data":[[1366719000000, null], [1398252600000, null]]},"13":{"sourceId":"13","label":"SDO AIA 304","data":[[1366719000000, null], [1398252600000, null]]}};
+    data = {"0":{"sourceId":"0","label":"Loading...","data":[[1366719000000, null], [1398252600000, null]]}};
 
     count = 0;
     $.each(data, function (sourceId, series) {
@@ -57,7 +67,7 @@ $(function() {
 
     var chart = $('#data-coverage-timeline').highcharts();
     chart.showLoading('Loading data from server...');
-    $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[SDO,AIA,AIA,211,1,100],[SDO,AIA,AIA,304,1,100],[SDO,AIA,AIA,335,1,100]', function(data) {
+    $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers='+imageLayers, function(data) {
 
         while(chart.series.length > 0) {
             chart.series[0].remove(false);
