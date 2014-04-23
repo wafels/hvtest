@@ -7,13 +7,35 @@
         <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
         <script type="text/javascript">
 $(function() {
-    var imageLayers = '[15,1,100],[16,1,100]';
+    var imageLayers = '[15,1,100],[16,1,100]',
+        startDate, endDate;
 <?php
 
     if ( array_key_exists('imageLayers', $_GET) &&
         preg_match('/^[\[\],A-Za-z0-9]+$/', $_GET['imageLayers']) ) {
 
         echo 'imageLayers = "'.$_GET['imageLayers'].'";';
+    }
+
+    if ( array_key_exists('endDate', $_GET) &&
+        preg_match('/^[-:TZ0-9\.]+$/', $_GET['endDate']) ) {
+
+        echo 'endDate = "'.$_GET['endDate'].'";';
+    }
+    else {
+        $endDate = new DateTime();
+        echo 'endDate = "'.$endDate->format('Y-m-d\TH:i:s\Z').'";';
+    }
+
+    if ( array_key_exists('startDate', $_GET) &&
+        preg_match('/^[-:TZ0-9\.]+$/', $_GET['startDate']) ) {
+
+        echo 'startDate = "'.$_GET['startDate'].'";';
+    }
+    else {
+        $startDate = clone $endDate;
+        $startDate->sub(new DateInterval('P1Y'));
+        echo 'startDate = "'.$startDate->format('Y-m-d\TH:i:s\Z').'";';
     }
 
 ?>
@@ -66,7 +88,9 @@ $(function() {
 
 
     var chart = $('#data-coverage-timeline').highcharts();
+
     chart.showLoading('Loading data from server...');
+
     $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers='+imageLayers, function(data) {
 
         while(chart.series.length > 0) {
@@ -304,31 +328,122 @@ $(function() {
             hasPlotLine = !hasPlotLine;
         });
 
-        $('#btn-prev').click({'chart':chart}, function(e){
-            if (!hasPlotLine) {
-                chart.xAxis[0].addPlotLine({
-                    value: 1396000000000,
-                    width: 2,
-                    color: 'black',
-                    dashStyle: 'solid',
-                    zIndex: 5,
-                    id: 'plot-line-1',
-                    label: {
-                        text: 'Viewport',
-                        verticalAlign: 'top',
-                        align: 'center',
-                        y: 30,
-                        x: -5,
-                        rotation: 270
+
+        $('#btn-prev').click(
+            {   'chart'       : chart,
+                'imageLayers' : imageLayers,
+                'startDate'   : startDate,
+                'endDate'     : endDate
+            },
+            function (e) {
+                chart.showLoading('Loading data from server...');
+
+                var date;
+
+                date = Date.parse(startDate);
+                date = new Date(date);
+                var year = date.getFullYear();
+                date.setYear(year-1);
+                startDate = date.toISOString();
+
+                date = Date.parse(endDate);
+                date = new Date(date);
+                var year = date.getFullYear();
+                date.setYear(year-1);
+                endDate = date.toISOString();
+
+                var url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
+                url += 'imageLayers=' + imageLayers;
+                url += '&startDate=' + startDate;
+                url += '&endDate=' + endDate;
+
+                console.warn(url);
+
+                $.getJSON(url, function(data) {
+
+                    while(chart.series.length > 0) {
+                        chart.series[0].remove(false);
                     }
+                    chart.redraw();
+
+                    var count = 0;
+                    $.each(data, function (sourceId, series) {
+                        chart.addSeries({
+                            name: series['label'],
+                            data: series['data']
+                        }, true, false);
+                        count++;
+                    });
+
+                    chart.xAxis[0].setExtremes(
+                        chart.xAxis[0].getExtremes().dataMin,
+                        chart.xAxis[0].getExtremes().dataMax
+                    );
+
+                    chart.redraw();
+                    chart.hideLoading();
                 });
-                $('#btn-plotline').html('Remove plot line');
-            } else {
-                chart.xAxis[0].removePlotLine('plot-line-1');
-                $('#btn-plotline').html('Add plot line');
             }
-            hasPlotLine = !hasPlotLine;
-        });
+        );
+
+
+        $('#btn-next').click(
+            {   'chart'       : chart,
+                'imageLayers' : imageLayers,
+                'startDate'   : startDate,
+                'endDate'     : endDate
+            },
+            function (e) {
+                chart.showLoading('Loading data from server...');
+
+                var date;
+
+                date = Date.parse(startDate);
+                date = new Date(date);
+                var year = date.getFullYear();
+                date.setYear(year+1);
+                startDate = date.toISOString();
+
+                date = Date.parse(endDate);
+                date = new Date(date);
+                var year = date.getFullYear();
+                date.setYear(year+1);
+                endDate = date.toISOString();
+
+                var url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
+                url += 'imageLayers=' + imageLayers;
+                url += '&startDate=' + startDate;
+                url += '&endDate=' + endDate;
+
+                console.warn(url);
+
+                $.getJSON(url, function(data) {
+
+                    while(chart.series.length > 0) {
+                        chart.series[0].remove(false);
+                    }
+                    chart.redraw();
+
+                    var count = 0;
+                    $.each(data, function (sourceId, series) {
+                        chart.addSeries({
+                            name: series['label'],
+                            data: series['data']
+                        }, true, false);
+                        count++;
+                    });
+
+                    chart.xAxis[0].setExtremes(
+                        chart.xAxis[0].getExtremes().dataMin,
+                        chart.xAxis[0].getExtremes().dataMax
+                    );
+
+                    chart.redraw();
+                    chart.hideLoading();
+                });
+            }
+        );
+
 
 
 

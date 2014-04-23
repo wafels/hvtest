@@ -145,10 +145,8 @@ class Database_Statistics
             $startDate->sub(new DateInterval('P1Y'));
         }
         else {
-            $startDate = new DateTime();
-            $startDate->createFromFormat(
-                'Y-m-d\TH:i:s\Z', $params['startDate']
-            );
+            $startDate = toUnixTimestamp($params['startDate']);
+            $startDate = parseUnixTimestamp($startDate);
         }
 
         $mysqlEndDate = toMySQLDateString($endDate);
@@ -183,6 +181,7 @@ class Database_Statistics
         $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp, SUM(count) as count FROM data_coverage_5_min WHERE sourceId in (".$requestedLayerIds.") AND date BETWEEN '"
              . $mysqlStartDate . "' AND '"
              . $mysqlEndDate . "' GROUP BY sourceId, timestamp ORDER BY timestamp;";
+
         $result = $this->_dbConnection->query($sql);
 
         while ( $row = $result->fetch_array(MYSQLI_ASSOC) ) {
