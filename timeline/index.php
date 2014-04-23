@@ -26,34 +26,55 @@ $(function() {
         colors = Highcharts.getOptions().colors;
 
 
-        Highcharts.setOptions({
-            global: {
-                useUTC: true,
-                timezoneOffset: 0 * 60
-            },
-            lang: {
-                contextButtonTitle: 'Chart save & print options...',
-                downloadJPEG: 'Download JPG image',
-                loading: 'Loading Timeline Data...',
-                rangeSelectorZoom: 'Range:',
-                rangeSelectorFrom: 'View:  '
-            }
-        });
+    Highcharts.setOptions({
+        global: {
+            useUTC: true,
+            timezoneOffset: 0 * 60
+        },
+        lang: {
+            contextButtonTitle: 'Chart save & print options...',
+            downloadJPEG: 'Download JPG image',
+            loading: 'Loading Timeline Data...',
+            rangeSelectorZoom: 'Range:',
+            rangeSelectorFrom: 'View:  '
+        }
+    });
+
+    data = {"12":{"sourceId":"12","label":"SDO AIA 211","data":[[1366719000000, null], [1398252600000, null]]},"13":{"sourceId":"13","label":"SDO AIA 304","data":[[1366719000000, null], [1398252600000, null]]}};
+
+    count = 0;
+    $.each(data, function (sourceId, series) {
+        seriesOptions[count] = {
+            name: series['label'],
+            data: series['data']
+        };
+        count++;
+    });
+
+    baseSeriesIndex = count - 1;
+    createChart(baseSeriesIndex);
 
 
+    var chart = $('#data-coverage-timeline').highcharts();
+    chart.showLoading('Loading data from server...');
     $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[SDO,AIA,AIA,211,1,100],[SDO,AIA,AIA,304,1,100],[SDO,AIA,AIA,335,1,100]', function(data) {
 
-        count = 0;
+        while(chart.series.length > 0) {
+            chart.series[0].remove(false);
+        }
+        chart.redraw();
+
+        var count = 0;
         $.each(data, function (sourceId, series) {
-            seriesOptions[count] = {
+            chart.addSeries({
                 name: series['label'],
                 data: series['data']
-            };
+            }, true, false);
             count++;
         });
 
-        baseSeriesIndex = count - 1;
-        createChart(baseSeriesIndex);
+        chart.redraw();
+        chart.hideLoading();
     });
 
 
@@ -213,11 +234,11 @@ $(function() {
         });
 
         var chart = $('#data-coverage-timeline').highcharts();
-        chart.showLoading('Loading, please wait...');
-        chart.series[0].addPoint([1396029600000, 5000], false);
-        chart.series[0].addPoint([1396137600000, 3000], false);
-        chart.redraw();
-        chart.hideLoading();
+        // chart.showLoading('Loading, please wait...');
+        // chart.series[0].addPoint([1396029600000, 5000], false);
+        // chart.series[0].addPoint([1396137600000, 3000], false);
+        // chart.redraw();
+        // chart.hideLoading();
 
         $('#btn-zoom-in').click({'chart':chart}, function(e){
             var min = chart.xAxis[0].getExtremes().min,
@@ -292,10 +313,10 @@ $(function() {
 
 
         $('#btn-load').click({'chart':chart}, function (e) {
-            var chart = $('#data-coverage-timeline').highcharts();
 
+            var chart = $('#data-coverage-timeline').highcharts();
             chart.showLoading('Loading data from server...');
-            $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[14,1,100]&endDate=2013-01-01T00:00:00.000Z', function(data) {
+            $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[14,1,100],[9,1,100]&endDate=2013-01-01T00:00:00.000Z', function(data) {
 
                 while(chart.series.length > 0) {
                     chart.series[0].remove(false);
