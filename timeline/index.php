@@ -242,18 +242,18 @@ $(function() {
 
         $('#btn-zoom-in').click({'chart':chart}, function(e){
             var min = chart.xAxis[0].getExtremes().min,
-                max = chart.xAxis[0].getExtremes().max;
+                max = chart.xAxis[0].getExtremes().max,
+                span = max - min;
 
-            chart.xAxis[0].setExtremes((min + 100 * 3600 * 1000), (max - 48 * 3600 * 1000));
-
+            chart.xAxis[0].setExtremes(min+(span*.25), max-(span*.25));
         });
 
         $('#btn-zoom-out').click({'chart':chart}, function(e){
             var min = chart.xAxis[0].getExtremes().min,
-                max = chart.xAxis[0].getExtremes().max;
+                max = chart.xAxis[0].getExtremes().max,
+                span = max - min;
 
-            chart.xAxis[0].setExtremes((min - 100 * 3600 * 1000), (max + 48 * 3600 * 1000));
-
+            chart.xAxis[0].setExtremes(min-(span*.25), max+(span*.25));
         });
 
 
