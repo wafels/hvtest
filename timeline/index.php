@@ -162,7 +162,6 @@ $(function() {
 
     count = 0;
     $.each(data, function (sourceId, series) {
-        console.warn(colors[sourceId]);
         seriesOptions[count] = {
             name: series['label'],
             data: series['data'],
@@ -179,7 +178,12 @@ $(function() {
 
     chart.showLoading('Loading data from server...');
 
-    $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers='+imageLayers, function(data) {
+    var url = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
+    url += 'imageLayers='+imageLayers;
+    url += '&startDate='+startDate;
+    url += '&endDate='+endDate;
+
+    $.getJSON(url, function(data) {
 
         while(chart.series.length > 0) {
             chart.series[0].remove(false);
@@ -195,6 +199,11 @@ $(function() {
             }, true, false);
             count++;
         });
+
+        chart.xAxis[0].setExtremes(
+            chart.xAxis[0].getExtremes().dataMin,
+            chart.xAxis[0].getExtremes().dataMax
+        );
 
         chart.redraw();
         chart.hideLoading();
@@ -258,9 +267,6 @@ $(function() {
                     type: 'month',
                     count: 1,
                     text: '1m'
-                }, {
-                    type: 'ytd',
-                    text: 'YTD'
                 }, {
                     type: 'year',
                     count: 1,
@@ -553,7 +559,7 @@ $(function() {
 
         <div id="data-coverage-timeline" style="min-height: 500px;"></div>
 
-        <button id="btn-prev" style="float: left;"><- Previous</button>
-        <button id="btn-next" style="float: right;">Next -></button>
+        <button id="btn-prev" style="float: left;"><- Prev Year</button>
+        <button id="btn-next" style="float: right;">Next Year -></button>
     </body>
 </html>
