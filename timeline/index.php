@@ -241,19 +241,29 @@ $(function() {
         // chart.hideLoading();
 
         $('#btn-zoom-in').click({'chart':chart}, function(e){
-            var min = chart.xAxis[0].getExtremes().min,
-                max = chart.xAxis[0].getExtremes().max,
-                span = max - min;
+            var extremes = chart.xAxis[0].getExtremes(),
+                newMin, newMax, span, scaleFactor = 0.2;
 
-            chart.xAxis[0].setExtremes(min+(span*.25), max-(span*.25));
+            span = extremes.max - extremes.min;
+            newMin = extremes.min+(span*scaleFactor);
+            newMax = extremes.max-(span*scaleFactor);
+
+            chart.xAxis[0].setExtremes(newMin, newMax);
         });
 
         $('#btn-zoom-out').click({'chart':chart}, function(e){
-            var min = chart.xAxis[0].getExtremes().min,
-                max = chart.xAxis[0].getExtremes().max,
-                span = max - min;
+            var extremes = chart.xAxis[0].getExtremes(),
+                newMin, newMax, span, scaleFactor = 0.2;
 
-            chart.xAxis[0].setExtremes(min-(span*.25), max+(span*.25));
+            span   = extremes.max - extremes.min;
+
+            newMin = extremes.min-(span*scaleFactor);
+            newMin = newMin < extremes.dataMin ? extremes.dataMin : newMin;
+
+            newMax = extremes.max+(span*scaleFactor);
+            newMax = newMax > extremes.dataMax ? extremes.dataMax : newMax;
+
+            chart.xAxis[0].setExtremes(newMin, newMax);
         });
 
 
