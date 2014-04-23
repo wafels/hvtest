@@ -55,7 +55,93 @@ $(function() {
     var seriesOptions = [],
         yAxisOptions = [],
         count = 0, baseSeriesIndex,
-        colors = Highcharts.getOptions().colors;
+        colors = [
+                '#FF8F97',
+                '#FFB294',
+                '#FFD391',
+                '#FEF38E',
+                '#E8FF8C',
+                '#C8FF8D',
+                '#A3FF8D',
+                '#7BFF8E',
+                '#7AFFAE',
+                '#7CFFC9',
+                '#81FFFC',
+                '#8CE6FF',
+                '#95C6FF',
+                '#9DA4FF',
+                '#AB8CFF',
+                '#CA89FF',
+                '#E986FF',
+                '#FF82FF',
+                '#FF85FF',
+                '#FF8ACC',
+                '#FF8DAD',
+                '#FF8F97',
+                '#FFB294',
+                '#FFD391',
+                '#FEF38E',
+                '#E8FF8C',
+                '#C8FF8D',
+                '#A3FF8D',
+                '#7BFF8E',
+                '#7AFFAE',
+                '#7CFFC9',
+                '#81FFFC',
+                '#8CE6FF',
+                '#95C6FF',
+                '#9DA4FF',
+                '#AB8CFF',
+                '#CA89FF',
+                '#E986FF',
+                '#FF82FF',
+                '#FF85FF',
+                '#FF8ACC',
+                '#FF8DAD',
+                '#FF8F97',
+                '#FFB294',
+                '#FFD391',
+                '#FEF38E',
+                '#E8FF8C',
+                '#C8FF8D',
+                '#A3FF8D',
+                '#7BFF8E',
+                '#7AFFAE',
+                '#7CFFC9',
+                '#81FFFC',
+                '#8CE6FF',
+                '#95C6FF',
+                '#9DA4FF',
+                '#AB8CFF',
+                '#CA89FF',
+                '#E986FF',
+                '#FF82FF',
+                '#FF85FF',
+                '#FF8ACC',
+                '#FF8DAD',
+                '#FF8F97',
+                '#FFB294',
+                '#FFD391',
+                '#FEF38E',
+                '#E8FF8C',
+                '#C8FF8D',
+                '#A3FF8D',
+                '#7BFF8E',
+                '#7AFFAE',
+                '#7CFFC9',
+                '#81FFFC',
+                '#8CE6FF',
+                '#95C6FF',
+                '#9DA4FF',
+                '#AB8CFF',
+                '#CA89FF',
+                '#E986FF',
+                '#FF82FF',
+                '#FF85FF',
+                '#FF8ACC',
+                '#FF8DAD'
+            ];
+
 
 
     Highcharts.setOptions({
@@ -76,9 +162,11 @@ $(function() {
 
     count = 0;
     $.each(data, function (sourceId, series) {
+        console.warn(colors[sourceId]);
         seriesOptions[count] = {
             name: series['label'],
-            data: series['data']
+            data: series['data'],
+            color: colors[sourceId]
         };
         count++;
     });
@@ -102,7 +190,8 @@ $(function() {
         $.each(data, function (sourceId, series) {
             chart.addSeries({
                 name: series['label'],
-                data: series['data']
+                data: series['data'],
+                color: colors[sourceId]
             }, true, false);
             count++;
         });
@@ -333,7 +422,8 @@ $(function() {
             {   'chart'       : chart,
                 'imageLayers' : imageLayers,
                 'startDate'   : startDate,
-                'endDate'     : endDate
+                'endDate'     : endDate,
+                'colors'      : colors
             },
             function (e) {
                 chart.showLoading('Loading data from server...');
@@ -370,7 +460,8 @@ $(function() {
                     $.each(data, function (sourceId, series) {
                         chart.addSeries({
                             name: series['label'],
-                            data: series['data']
+                            data: series['data'],
+                            color: colors[sourceId]
                         }, true, false);
                         count++;
                     });
@@ -391,7 +482,8 @@ $(function() {
             {   'chart'       : chart,
                 'imageLayers' : imageLayers,
                 'startDate'   : startDate,
-                'endDate'     : endDate
+                'endDate'     : endDate,
+                'colors'      : colors
             },
             function (e) {
                 chart.showLoading('Loading data from server...');
@@ -428,7 +520,8 @@ $(function() {
                     $.each(data, function (sourceId, series) {
                         chart.addSeries({
                             name: series['label'],
-                            data: series['data']
+                            data: series['data'],
+                            color: colors[sourceId]
                         }, true, false);
                         count++;
                     });
@@ -444,43 +537,6 @@ $(function() {
             }
         );
 
-
-
-
-        $('#btn-load').click({'chart':chart}, function (e) {
-
-            var chart = $('#data-coverage-timeline').highcharts();
-            chart.showLoading('Loading data from server...');
-            $.getJSON('http://dev4.helioviewer.org/api/v1/getDataCoverage/?imageLayers=[14,1,100],[9,1,100]&endDate=2013-01-01T00:00:00.000Z', function(data) {
-
-                while(chart.series.length > 0) {
-                    chart.series[0].remove(false);
-                }
-                chart.redraw();
-
-                var count = 0;
-                $.each(data, function (sourceId, series) {
-                    chart.addSeries({
-                        name: series['label'],
-                        data: series['data']
-                    }, true, false);
-                    count++;
-                });
-
-                chart.xAxis[0].setExtremes( 1328400000000,  1345161600000);
-
-                chart.redraw();
-                chart.hideLoading();
-            });
-        });
-
-        $('#btn-jump').click({'chart':chart}, function (e) {
-                chart.xAxis[0].setExtremes(
-                    1395913600000,
-                    1396086400000
-                );
-        });
-
     }
 
 });
@@ -494,7 +550,6 @@ $(function() {
         <button id="btn-zoom-in">Zoom In</button>
         <button id="btn-jump">Jump to Timestamp</button>
         <button id="btn-plotline">Add PlotLine</button>
-        <button id="btn-load">Load Data</button>
 
         <div id="data-coverage-timeline" style="min-height: 500px;"></div>
 
