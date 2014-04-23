@@ -8,7 +8,7 @@
         <script type="text/javascript">
 $(function() {
     var imageLayers = '[15,1,100],[16,1,100]',
-        startDate, endDate;
+        startDate, endDate, startTimestamp, endTimestamp;
 <?php
 
     if ( array_key_exists('imageLayers', $_GET) &&
@@ -21,6 +21,7 @@ $(function() {
         preg_match('/^[-:TZ0-9\.]+$/', $_GET['endDate']) ) {
 
         echo 'endDate = "'.$_GET['endDate'].'";';
+        $endDate = new DateTime($_GET['endDate']);
     }
     else {
         $endDate = new DateTime();
@@ -31,12 +32,19 @@ $(function() {
         preg_match('/^[-:TZ0-9\.]+$/', $_GET['startDate']) ) {
 
         echo 'startDate = "'.$_GET['startDate'].'";';
+        $startDate = new DateTime($_GET['startDate']);
     }
     else {
         $startDate = clone $endDate;
         $startDate->sub(new DateInterval('P1Y'));
         echo 'startDate = "'.$startDate->format('Y-m-d\TH:i:s\Z').'";';
     }
+
+    $startTimestamp = $startDate->getTimestamp() * 1000;
+    echo 'startTimestamp = '.$startTimestamp.';';
+
+    $endTimestamp = $endDate->getTimestamp() * 1000;
+    echo 'endTimestamp = '.$endTimestamp.';';
 
 ?>
 
@@ -158,7 +166,7 @@ $(function() {
         }
     });
 
-    data = {"0":{"sourceId":"0","label":"Loading...","data":[[1366719000000, null], [1398252600000, null]]}};
+    data = {"0":{"sourceId":"0","label":"Loading...","data":[[startTimestamp, null], [endTimestamp, null]]}};
 
     count = 0;
     $.each(data, function (sourceId, series) {
@@ -288,7 +296,7 @@ $(function() {
                 events: {
                     afterSetExtremes:
                         function () {
-                            console.warn(['Viewing: ',new Date(this.min), new Date(this.max)]);
+                            //console.warn(['Viewing: ',new Date(this.min), new Date(this.max)]);
                         }
                 }
             },
@@ -311,7 +319,7 @@ $(function() {
 
             plotOptions: {
                 column: {
-                    animation: false,
+                    animation: true,
                     stacking: 'normal',
                     pointPadding: 0,
                     borderWidth: 1,
@@ -351,6 +359,19 @@ $(function() {
                     type: 'column',
                     color: '#ddd',
                     fillOpacity: 0.4
+                },
+                xAxis: {
+                    dateTimeLabelFormats: {
+                        millisecond: '%H:%M:%S.%L',
+                        second: '%H:%M:%S',
+                        minute: '%H:%M',
+                        hour: '%H:%M',
+                        day: '%e. %b',
+                        week: '%e. %b',
+                        month: '%b %Y',
+                        year: '%Y'
+                    },
+                    ordinal: false
                 }
             },
 
