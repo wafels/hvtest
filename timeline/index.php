@@ -7,12 +7,12 @@
         <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.2/jquery.min.js"></script>
         <script type="text/javascript">
 $(function() {
-    var imageLayers = '[15,1,100],[16,1,100]',
+    var imageLayers = '[9,1,100],[12,1,100]',
         startDate, endDate, startTimestamp, endTimestamp;
 <?php
 
     if ( array_key_exists('imageLayers', $_GET) &&
-        preg_match('/^[\[\],A-Za-z0-9]+$/', $_GET['imageLayers']) ) {
+        preg_match('/^[\[\],A-Za-z0-9\-]+$/', $_GET['imageLayers']) ) {
 
         echo 'imageLayers = "'.$_GET['imageLayers'].'";';
     }
@@ -64,92 +64,53 @@ $(function() {
         yAxisOptions = [],
         count = 0, baseSeriesIndex,
         colors = [
-                '#FF8F97',
-                '#FFB294',
-                '#FFD391',
-                '#FEF38E',
-                '#E8FF8C',
-                '#C8FF8D',
-                '#A3FF8D',
-                '#7BFF8E',
-                '#7AFFAE',
-                '#7CFFC9',
-                '#81FFFC',
-                '#8CE6FF',
-                '#95C6FF',
-                '#9DA4FF',
-                '#AB8CFF',
-                '#CA89FF',
-                '#E986FF',
-                '#FF82FF',
-                '#FF85FF',
-                '#FF8ACC',
-                '#FF8DAD',
-                '#FF8F97',
-                '#FFB294',
-                '#FFD391',
-                '#FEF38E',
-                '#E8FF8C',
-                '#C8FF8D',
-                '#A3FF8D',
-                '#7BFF8E',
-                '#7AFFAE',
-                '#7CFFC9',
-                '#81FFFC',
-                '#8CE6FF',
-                '#95C6FF',
-                '#9DA4FF',
-                '#AB8CFF',
-                '#CA89FF',
-                '#E986FF',
-                '#FF82FF',
-                '#FF85FF',
-                '#FF8ACC',
-                '#FF8DAD',
-                '#FF8F97',
-                '#FFB294',
-                '#FFD391',
-                '#FEF38E',
-                '#E8FF8C',
-                '#C8FF8D',
-                '#A3FF8D',
-                '#7BFF8E',
-                '#7AFFAE',
-                '#7CFFC9',
-                '#81FFFC',
-                '#8CE6FF',
-                '#95C6FF',
-                '#9DA4FF',
-                '#AB8CFF',
-                '#CA89FF',
-                '#E986FF',
-                '#FF82FF',
-                '#FF85FF',
-                '#FF8ACC',
-                '#FF8DAD',
-                '#FF8F97',
-                '#FFB294',
-                '#FFD391',
-                '#FEF38E',
-                '#E8FF8C',
-                '#C8FF8D',
-                '#A3FF8D',
-                '#7BFF8E',
-                '#7AFFAE',
-                '#7CFFC9',
-                '#81FFFC',
-                '#8CE6FF',
-                '#95C6FF',
-                '#9DA4FF',
-                '#AB8CFF',
-                '#CA89FF',
-                '#E986FF',
-                '#FF82FF',
-                '#FF85FF',
-                '#FF8ACC',
-                '#FF8DAD'
-            ];
+                '#030380', // SOHO EIT 171
+                '#035F03', // SOHO EIT 195
+                '#796102', // SOHO EIT 284
+                '#890303', // SOHO EIT 304
 
+                '#8F0000', // SOHO LASCO C2
+                '#0027AF', // SOHO LASCO C3
+
+                '#8F8F8F', // SOHO MDI Mag
+                '#6F6F6F', // SOHO MDI Int
+
+                '#3E8C80', // SDO AIA 94
+                '#07B8B8', // SDO AIA 131
+                '#B77F00', // SDO AIA 171
+                '#B37F3E', // SDO AIA 191
+                '#B37F8D', // SDO AIA 211
+                '#B70B00', // SDO AIA 304
+                '#3E7FB3', // SDO AIA 335
+                '#8C8C3E', // SDO AIA 1600
+                '#B27F7F', // SDO AIA 1700
+                '#FFFF7E', // SDO AIA 4500
+
+                '#8F8F8F', // SDO MDI Int
+                '#6F6F6F', // SDO MDI Mag
+
+                '#32AC00', // STEREO A EUVI 171
+                '#A06800', // STEREO A EUVI 195
+                '#8A6F01', // STEREO A EUVI 284
+                '#8D0000', // STEREO A EUVI 304
+
+                '#32AC00', // STEREO B EUVI 171
+                '#A06800', // STEREO B EUVI 195
+                '#8A6F01', // STEREO B EUVI 284
+                '#8D0000', // STEREO B EUVI 304
+
+                '#3F8900', // STEREO A COR1
+                '#C41D00', // STEREO A COR2
+
+                '#3F8900', // STEREO B COR1
+                '#C41D00', // STEREO B COR2
+
+                '#B77E00', // PROBA-2 SWAP 174
+
+                '#F29F00', // Yohkoh SXT AlMgMn
+                '#F29F00', // Yohkoh SXT thin-Al
+                '#7F7F7F'  // Yohkoh SXT white-light
+            ];
 
 
     Highcharts.setOptions({
@@ -173,7 +134,8 @@ $(function() {
         seriesOptions[count] = {
             name: series['label'],
             data: series['data'],
-            color: colors[sourceId]
+            color: colors[sourceId],
+            id: count
         };
         count++;
     });
@@ -244,12 +206,12 @@ $(function() {
                 type: 'column',
                 stacking: 'normal',
                 zoomType: 'x',
-                height: 500,
+                height: 400,
                 events: {
                     click: function(event) {
                         var date = new Date(event.xAxis[0].value);
                         console.warn(date.toISOString());
-                    }
+                    },
                 }
             },
 
@@ -571,7 +533,6 @@ $(function() {
     </head>
     <body>
         <script src="js/highstock.js"></script>
-        <script src="js/modules/exporting.js"></script>
 
         <button id="btn-zoom-out">Zoom Out</button>
         <button id="btn-zoom-in">Zoom In</button>
