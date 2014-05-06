@@ -211,7 +211,7 @@ $(function() {
                     click: function(event) {
                         var date = new Date(event.xAxis[0].value);
                         console.warn(date.toISOString());
-                    },
+                    }
                 }
             },
 
@@ -296,6 +296,41 @@ $(function() {
                     },
                     point: {
                         events: {
+                            dblclick: function () {
+                                chart.destroy();
+
+                                $(function() {
+                                    $.getJSON('http://www.highcharts.com/samples/data/jsonp.php?filename=aapl-c.json&callback=?', function(data) {
+
+                                        // Create the chart
+                                        $('#data-coverage-timeline').highcharts('StockChart', {
+
+
+                                            rangeSelector : {
+                                                inputEnabled: $('#container').width() > 480,
+                                                selected : 2
+                                            },
+
+                                            title : {
+                                                text : 'AAPL Stock Price'
+                                            },
+
+                                            series : [{
+                                                name : 'AAPL Stock Price',
+                                                data : data,
+                                                lineWidth : 0,
+                                                marker : {
+                                                    enabled : true,
+                                                    radius : 2
+                                                },
+                                                tooltip: {
+                                                    valueDecimals: 2
+                                                }
+                                            }]
+                                        });
+                                    });
+                                });
+                            },
                             click: function(event) {
                                 var date = new Date(this.x);
                                 console.warn(date.toISOString());
@@ -533,6 +568,7 @@ $(function() {
     </head>
     <body>
         <script src="js/highstock.js"></script>
+        <script src="custom_events-master/customEvents.js"></script>
 
         <button id="btn-zoom-out">Zoom Out</button>
         <button id="btn-zoom-in">Zoom In</button>
