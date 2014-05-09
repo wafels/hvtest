@@ -521,7 +521,7 @@ var HelioviewerTimeline = Class.extend({
 
 
         url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverageDetail/';
-        url += '?imageLayers='+'[14,1,100],[15,1,100]';
+        url += '?imageLayers='+'[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
         url += '&startDate='+startDate;
         url += '&endDate='+endDate;
 
@@ -549,7 +549,8 @@ console.warn(url);
                 },
 
                 chart : {
-                    type: 'scatter'
+                    type: 'scatter',
+                    zoomType: 'x'
                 },
 
                 tooltip: {
@@ -598,9 +599,8 @@ console.warn(url);
                         text: '30m'
                     },
                     {
-                        type: 'hour',
-                        count: 1,
-                        text: '1h'
+                        type: 'all',
+                        text: 'All'
                     }]
                 },
 
@@ -615,6 +615,19 @@ console.warn(url);
                         }
                     }
 
+                },
+
+                plotOptions: {
+                    series: {
+                        marker: {
+                            symbol: 'circle'
+                        }
+                    }
+                },
+
+                legend: {
+                    enabled: true,
+                    itemDistance: 12,
                 },
 
                 series : seriesOptions

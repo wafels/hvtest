@@ -31,7 +31,7 @@
                 chart.renderPlaceholder();
                 chart.loadingIndicator(true);
 
-                imageLayers = '[14,1,100],[15,1,100]';
+                imageLayers = '[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
                 startDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMin).toISOString();
                 endDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMax).toISOString();
 
