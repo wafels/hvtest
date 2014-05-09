@@ -364,7 +364,6 @@ var HelioviewerTimeline = Class.extend({
             },
 
             scrollbar: {
-
                 liveRedraw: false
             },
 
@@ -381,9 +380,7 @@ var HelioviewerTimeline = Class.extend({
 
             yAxis: {
                 allowDecimals: false,
-                labels: {
-
-                }
+                labels: {}
             },
 
             loading: {
@@ -509,6 +506,10 @@ var HelioviewerTimeline = Class.extend({
 
     dataCoverageScatterPlot: function (event) {
 
+        if ( this.series.currentDataGrouping.unitRange > 60*60*1000 ) {
+            $('#btn-zoom-in').click();
+        }
+
         console.info([this.x, this.series.currentDataGrouping.unitRange]);
 
         var chart = $('#data-coverage-timeline').highcharts(),
@@ -543,11 +544,6 @@ console.warn(url);
             // Create the chart
             $('#data-coverage-timeline').highcharts('StockChart', {
 
-                rangeSelector : {
-                    inputEnabled: $('#container').width() > 480,
-                    selected : 2
-                },
-
                 title : {
                     text : 'Individual Images'
                 },
@@ -557,12 +553,68 @@ console.warn(url);
                 },
 
                 tooltip: {
-                    pointFormat: '<span style="color:{series.color}; font-weight: bold;">{series.name}:</span> {point.y} images<br/>',
+                    pointFormat: '<span style="color:{series.color}; font-weight: bold;">{point.x}</span><br/>',
                     valueDecimals: 0,
                     crosshairs: true,
                     followPointer: false,
-                    shared: true,
+                    shared: false,
+                    dateTimeLabelFormats: {
+                        millisecond:"%A, %b %e, %H:%M:%S.%L",
+                        second:"%A, %b %e, %H:%M:%S",
+                        minute:"%A, %b %e, %H:%M",
+                        hour:"%A, %b %e, %H:%M",
+                        day:"%A, %b %e, %Y",
+                        week:"Week from %A, %b %e, %Y",
+                        month:"%B %Y",
+                        year:"%Y"
+                    },
                     xDateFormat: "%A, %b %e, %H:%M UTC"
+                },
+
+                credits: {
+                    enabled: false
+                },
+
+                rangeSelector: {
+                    selected: 0,
+                    buttons: [{
+                        type: 'minute',
+                        count: 5,
+                        text: '5m'
+                    },
+                    {
+                        type: 'minute',
+                        count: 10,
+                        text: '10m'
+                    },
+                    {
+                        type: 'minute',
+                        count: 15,
+                        text: '15m'
+                    },
+                    {
+                        type: 'minute',
+                        count: 30,
+                        text: '30m'
+                    },
+                    {
+                        type: 'hour',
+                        count: 1,
+                        text: '1h'
+                    }]
+                },
+
+                yAxis: {
+                    floor: 0,
+                    ceiling: 6,
+                    allowDecimals: false,
+                    labels: {
+                        enabled: false,
+                        formatter: function () {
+                            return this.value;
+                        }
+                    }
+
                 },
 
                 series : seriesOptions
