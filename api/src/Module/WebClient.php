@@ -567,6 +567,15 @@ class Module_WebClient implements Module {
     }
 
     /**
+     * Retrieves un-binned data coverage statistics from the database
+     */
+    public function getDataCoverageDetail() {
+        include_once 'src/Database/Statistics.php';
+        $statistics = new Database_Statistics();
+        $this->_printJSON($statistics->getDataCoverageDetail($this->_params));
+    }
+
+    /**
      * Returns status information (i.e. time of most recent available data)
      * based on either observatory, instrument, detector or measurement.
      *

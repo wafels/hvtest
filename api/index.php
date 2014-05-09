@@ -75,6 +75,7 @@ function loadModule($params) {
         'getTile'                => 'WebClient',
         'getUsageStatistics'     => 'WebClient',
         'getDataCoverage'        => 'WebClient',
+        'getDataCoverageDetail'  => 'WebClient',
         'updateDataCoverage'     => 'WebClient',
         'shortenURL'             => 'WebClient',
         'takeScreenshot'         => 'WebClient',

@@ -258,6 +258,87 @@ class Database_Statistics
     }
 
     /**
+     * Gets un-binned datasource coverage and return as JSON
+     */
+    public function getDataCoverageDetail($params) {
+        include_once 'src/Helper/HelioviewerLayers.php';
+        $layers = new Helper_HelioviewerLayers($params['imageLayers']);
+
+        date_default_timezone_set('UTC');
+        include_once 'src/Helper/DateTimeConversions.php';
+
+        // If no endDate is supplied, set it to the current date/time
+        if ( !array_key_exists('endDate', $params) ||
+             $params['endDate'] == '' ) {
+
+            $endDate = new DateTime();
+        }
+        else {
+            $endDate = toUnixTimestamp($params['endDate']);
+            $endDate = parseUnixTimestamp($endDate);
+        }
+
+        // If no startDate is supplied, set it to 1 year before
+        // the value of endDate
+        if ( !array_key_exists('startDate', $params) ||
+             $params['startDate'] == '' ) {
+
+            $startDate = clone $endDate;
+            $startDate->sub(new DateInterval('P1Y'));
+        }
+        else {
+            $startDate = toUnixTimestamp($params['startDate']);
+            $startDate = parseUnixTimestamp($startDate);
+        }
+
+        $mysqlEndDate = toMySQLDateString($endDate);
+        $mysqlStartDate = toMySQLDateString($startDate);
+
+        // Get list of layer sourceIds
+        $layerArray = $layers->toArray();
+        $requestedLayerIds = array();
+        foreach ($layerArray as $layer) {
+            $requestedLayerIds[] = $layer['sourceId'];
+        }
+        $requestedLayerIds = implode(',', $requestedLayerIds);
+
+        require_once 'src/Helper/DateTimeConversions.php';
+
+        $sql = 'SELECT id, name, description FROM datasources WHERE id IN ('
+             . $requestedLayerIds .') ORDER BY description';
+        $result = $this->_dbConnection->query($sql);
+
+        $output = array();
+
+        $sources = array();
+        $count = 1;
+        while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
+            $sourceId = $row['id'];
+            $sources[$sourceId] = $count;
+
+            $output[$sourceId] = array();
+            $output[$sourceId]['sourceId'] = $sourceId;
+            $output[$sourceId]['label'] = $row['description'];
+            $output[$sourceId]['data'] = array();
+
+            $count++;
+        }
+
+
+        $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp FROM images WHERE sourceId in (".$requestedLayerIds.") AND date BETWEEN '"
+             . $mysqlStartDate . "' AND '"
+             . $mysqlEndDate . "' ORDER BY sourceId, timestamp;";
+
+        $result = $this->_dbConnection->query($sql);
+
+        while ( $row = $result->fetch_array(MYSQLI_ASSOC) ) {
+            $output[$row['sourceId']]['data'][] = array((int)$row['timestamp']*1000, (int)$sources[$row['sourceId']]);
+        }
+
+        return json_encode($output);
+    }
+
+    /**
      * Determines date format to use for the x-axis of the requested resolution
      */
     private function _getDateFormat($resolution)

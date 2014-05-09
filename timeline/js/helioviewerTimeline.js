@@ -519,7 +519,7 @@ var HelioviewerTimeline = Class.extend({
         endDate   = new Date(this.x + this.series.currentDataGrouping.unitRange).toISOString();
 
 
-        url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
+        url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverageDetail/';
         url += '?imageLayers='+'[14,1,100],[15,1,100]';
         url += '&startDate='+startDate;
         url += '&endDate='+endDate;
