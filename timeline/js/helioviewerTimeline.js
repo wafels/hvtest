@@ -507,16 +507,41 @@ var HelioviewerTimeline = Class.extend({
     },
 
 
-    dataCoverageScatterPlot: function () {
+    dataCoverageScatterPlot: function (event) {
 
-        var chart = $('#data-coverage-timeline').highcharts();
+        console.info([this.x, this.series.currentDataGrouping.unitRange]);
+
+        var chart = $('#data-coverage-timeline').highcharts(),
+            url, startDate, endDate, count, self = this;
         //chart.destroy();
 
-        $.getJSON('http://www.highcharts.com/samples/data/jsonp.php?filename=aapl-c.json&callback=?', function(data) {
+        startDate = new Date(this.x).toISOString();
+        endDate   = new Date(this.x + this.series.currentDataGrouping.unitRange).toISOString();
+
+
+        url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
+        url += '?imageLayers='+'[14,1,100],[15,1,100]';
+        url += '&startDate='+startDate;
+        url += '&endDate='+endDate;
+
+console.warn(url);
+
+        $.getJSON(url, function(data) {
+
+            var seriesOptions = [];
+
+            count = 0;
+            $.each(data, function (sourceId, series) {
+                seriesOptions[count] = {
+                    name  : series['label'],
+                    data  : series['data'],
+                    id    : count
+                };
+                count++;
+            });
 
             // Create the chart
             $('#data-coverage-timeline').highcharts('StockChart', {
-
 
                 rangeSelector : {
                     inputEnabled: $('#container').width() > 480,
@@ -524,21 +549,23 @@ var HelioviewerTimeline = Class.extend({
                 },
 
                 title : {
-                    text : 'AAPL Stock Price'
+                    text : 'Individual Images'
                 },
 
-                series : [{
-                    name : 'AAPL Stock Price',
-                    data : data,
-                    lineWidth : 0,
-                    marker : {
-                        enabled : true,
-                        radius : 2
-                    },
-                    tooltip: {
-                        valueDecimals: 2
-                    }
-                }]
+                chart : {
+                    type: 'scatter'
+                },
+
+                tooltip: {
+                    pointFormat: '<span style="color:{series.color}; font-weight: bold;">{series.name}:</span> {point.y} images<br/>',
+                    valueDecimals: 0,
+                    crosshairs: true,
+                    followPointer: false,
+                    shared: true,
+                    xDateFormat: "%A, %b %e, %H:%M UTC"
+                },
+
+                series : seriesOptions
             });
         });
     }
