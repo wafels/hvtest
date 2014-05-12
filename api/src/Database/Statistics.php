@@ -118,7 +118,8 @@ class Database_Statistics
     /**
      * Gets latest datasource coverage and return as JSON
      */
-    public function getDataCoverage($params) {
+    public function getDataCoverage($params, $force=false) {
+
         include_once 'src/Helper/HelioviewerLayers.php';
         $layers = new Helper_HelioviewerLayers($params['imageLayers']);
 
@@ -149,43 +150,76 @@ class Database_Statistics
             $startDate = parseUnixTimestamp($startDate);
         }
 
-        $mysqlEndDate = toMySQLDateString($endDate);
-        $mysqlStartDate = toMySQLDateString($startDate);
 
-        // Get list of layer sourceIds
-        $layerArray = $layers->toArray();
-        $requestedLayerIds = array();
-        foreach ($layerArray as $layer) {
-            $requestedLayerIds[] = $layer['sourceId'];
-        }
-        $requestedLayerIds = implode(',', $requestedLayerIds);
+        $cached = false;
+        if ( HV_DISABLE_CACHE !== true || $force===false ) {
+            require_once HV_API_DIR . '/src/Helper/Serialize.php';
 
-        require_once 'src/Helper/DateTimeConversions.php';
+            $cachedir = 'api/Database/Statistics';
+            $filename = urlencode($startDate->format('c').'_'.$endDate->format('c').'.cache');
+            $filepath = $cachedir.'/'.$filename;
 
-        $sql = 'SELECT id, name, description FROM datasources WHERE id IN ('
-             . $requestedLayerIds .') ORDER BY description';
-        $result = $this->_dbConnection->query($sql);
+            $cache = new Helper_Serialize($cachedir,
+                $filename, 86400);
 
-        $output = array();
-
-        while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
-            $sourceId = $row['id'];
-
-            $output[$sourceId] = array();
-            $output[$sourceId]['sourceId'] = $sourceId;
-            $output[$sourceId]['label'] = $row['description'];
-            $output[$sourceId]['data'] = array();
+            // Read cache (and invalidate if older than
+            // Helper_Serialize::_maxAgeSec)
+            $output = $cache->readCache(true);
+            if ( $output !== false ) {
+                $cached = true;
+error_log('read from cache!');
+            }
         }
 
+        // Load data directly from the database
+        if ( $cached !== true || $force===true ) {
 
-        $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp, SUM(count) as count FROM data_coverage_5_min WHERE sourceId in (".$requestedLayerIds.") AND date BETWEEN '"
-             . $mysqlStartDate . "' AND '"
-             . $mysqlEndDate . "' GROUP BY sourceId, timestamp ORDER BY timestamp;";
+            $mysqlEndDate = toMySQLDateString($endDate);
+            $mysqlStartDate = toMySQLDateString($startDate);
 
-        $result = $this->_dbConnection->query($sql);
+            // Get list of layer sourceIds
+            $layerArray = $layers->toArray();
+            $requestedLayerIds = array();
+            foreach ($layerArray as $layer) {
+                $requestedLayerIds[] = $layer['sourceId'];
+            }
+            $requestedLayerIds = implode(',', $requestedLayerIds);
 
-        while ( $row = $result->fetch_array(MYSQLI_ASSOC) ) {
-            $output[$row['sourceId']]['data'][] = array((int)$row['timestamp']*1000, (int)$row['count']);
+            require_once 'src/Helper/DateTimeConversions.php';
+
+            $sql = 'SELECT id, name, description FROM datasources WHERE id IN ('
+                 . $requestedLayerIds .') ORDER BY description';
+            $result = $this->_dbConnection->query($sql);
+
+            $output = array();
+
+            while ($row = $result->fetch_array(MYSQLI_ASSOC)) {
+                $sourceId = $row['id'];
+
+                $output[$sourceId] = array();
+                $output[$sourceId]['sourceId'] = $sourceId;
+                $output[$sourceId]['label'] = $row['description'];
+                $output[$sourceId]['data'] = array();
+            }
+
+
+            $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp, SUM(count) as count FROM data_coverage_5_min WHERE sourceId in (".$requestedLayerIds.") AND date BETWEEN '"
+                 . $mysqlStartDate . "' AND '"
+                 . $mysqlEndDate . "' GROUP BY sourceId, timestamp ORDER BY timestamp;";
+
+            $result = $this->_dbConnection->query($sql);
+
+            while ( $row = $result->fetch_array(MYSQLI_ASSOC) ) {
+                $output[$row['sourceId']]['data'][] = array((int)$row['timestamp']*1000, (int)$row['count']);
+            }
+error_log('read from database!');
+
+
+            if ( HV_DISABLE_CACHE !== true ) {
+                if ( $cache->writeCache($output) ) {
+                    $cached = true;
+                }
+            }
         }
 
         return json_encode($output);

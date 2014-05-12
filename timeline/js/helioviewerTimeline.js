@@ -114,7 +114,7 @@ var HelioviewerTimeline = Class.extend({
                     color: 'black',
                     dashStyle: 'solid',
                     zIndex: 5,
-                    id: 'plot-line-1',
+                    id: 'viewport-plotline',
                     label: {
                         text: 'Viewport',
                         verticalAlign: 'top',
@@ -252,11 +252,20 @@ var HelioviewerTimeline = Class.extend({
 
     renderPlaceholder: function () {
         var self = this, count = 0, startTimestamp, endTimestamp,
-            chartOptions, data;
+            chartOptions, data, dateObj = new Date();
 
-        startTimestamp = new Date().getTime();
-        startTimestamp -= 60*60*24*365 * 1000;
-        endTimestamp   = new Date().getTime();
+        // Set endTimestamp to the beginning of next month
+        dateObj.setMonth(dateObj.getMonth() + 1);
+        dateObj.setDate(1);
+        dateObj.setHours(0);
+        dateObj.setMinutes(0);
+        dateObj.setSeconds(0);
+        dateObj.setMilliseconds(0);
+        endTimestamp = dateObj.getTime();
+
+        // Set startTimestamp to 1 year before endTimestamp
+        dateObj.setMonth(dateObj.getMonth() - 6);
+        startTimestamp = dateObj.getTime();
 
         data = { "0": {
                         "sourceId" : "0",
