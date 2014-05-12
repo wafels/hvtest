@@ -10,10 +10,7 @@ bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 12
 
 "use strict";
 
-var HelioviewerTimeline = Class.extend({
-
-    init: function (container) {
-        this._colors  = [
+   var _colors  = [
                 '#030380', // SOHO EIT 171
                 '#035F03', // SOHO EIT 195
                 '#796102', // SOHO EIT 284
@@ -51,6 +48,10 @@ var HelioviewerTimeline = Class.extend({
                 '#F29F00', // Yohkoh SXT thin-Al
                 '#7F7F7F'  // Yohkoh SXT white-light
             ];
+
+var HelioviewerTimeline = Class.extend({
+
+    init: function (container) {
         this._seriesOptions = [];
         this._yAxisOptions  = [];
         this._container = container;
@@ -77,7 +78,7 @@ var HelioviewerTimeline = Class.extend({
     _setupEventHandlers: function () {
         var self = this;
 
-        $('#btn-zoom-in').click({'chart':chart}, function(e){
+        $('#btn-zoom-in').click( function(e){
             var extremes = self._timeline.xAxis[0].getExtremes(),
                 newMin, newMax, span, scaleFactor = 0.2;
 
@@ -88,7 +89,7 @@ var HelioviewerTimeline = Class.extend({
             self._timeline.xAxis[0].setExtremes(newMin, newMax);
         });
 
-        $('#btn-zoom-out').click({'chart':chart}, function(e){
+        $('#btn-zoom-out').click( function(e){
             var extremes = self._timeline.xAxis[0].getExtremes(),
                 newMin, newMax, span, scaleFactor = 0.2;
 
@@ -105,7 +106,7 @@ var HelioviewerTimeline = Class.extend({
 
 
         var hasPlotLine = false;
-        $('#btn-plotline').click({'chart':chart, 'hasPlotLine':hasPlotLine}, function(e){
+        $('#btn-plotline').click({'hasPlotLine':hasPlotLine}, function(e){
             if (!hasPlotLine) {
                 self._timeline.xAxis[0].addPlotLine({
                     value: 1396000000000,
@@ -137,7 +138,7 @@ var HelioviewerTimeline = Class.extend({
                 'imageLayers' : imageLayers,
                 'startDate'   : startDate,
                 'endDate'     : endDate,
-                'colors'      : this._colors
+                'colors'      : _colors
             },
             function (e) {
                 self._timeline.showLoading('Loading data from server...');
@@ -161,8 +162,6 @@ var HelioviewerTimeline = Class.extend({
                 url += '&startDate=' + startDate;
                 url += '&endDate=' + endDate;
 
-                console.warn(url);
-
                 $.getJSON(url, function(data) {
 
                     while(self._timeline.series.length > 0) {
@@ -175,7 +174,7 @@ var HelioviewerTimeline = Class.extend({
                         self._timeline.addSeries({
                             name: series['label'],
                             data: series['data'],
-                            color: self._colors[sourceId]
+                            color: _colors[sourceId]
                         }, true, false);
                         count++;
                     });
@@ -197,7 +196,7 @@ var HelioviewerTimeline = Class.extend({
                 'imageLayers' : imageLayers,
                 'startDate'   : startDate,
                 'endDate'     : endDate,
-                'colors'      : self._colors
+                'colors'      : _colors
             },
             function (e) {
                 self._timeline.showLoading('Loading data from server...');
@@ -221,8 +220,6 @@ var HelioviewerTimeline = Class.extend({
                 url += '&startDate=' + startDate;
                 url += '&endDate=' + endDate;
 
-                console.warn(url);
-
                 $.getJSON(url, function(data) {
 
                     while(self._timeline.series.length > 0) {
@@ -235,7 +232,7 @@ var HelioviewerTimeline = Class.extend({
                         self._timeline.addSeries({
                             name: series['label'],
                             data: series['data'],
-                            color: self._colors[sourceId]
+                            color: _colors[sourceId]
                         }, true, false);
                         count++;
                     });
@@ -273,7 +270,7 @@ var HelioviewerTimeline = Class.extend({
             self._seriesOptions[count] = {
                 name  : series['label'],
                 data  : series['data'],
-                color : self._colors[sourceId],
+                color : _colors[sourceId],
                 id    : count
             };
             count++;
@@ -326,7 +323,6 @@ var HelioviewerTimeline = Class.extend({
                 events: {
                     click: function(event) {
                         var date = new Date(event.xAxis[0].value);
-                        console.warn(date.toISOString());
                     }
                 }
             },
@@ -412,9 +408,6 @@ var HelioviewerTimeline = Class.extend({
                             dblclick: this.dataCoverageScatterPlot,
                             click: function(event) {
                                 var date = new Date(this.x);
-                                console.warn(date.toISOString());
-                                console.info(this.x);
-                                console.info(this.series.currentDataGrouping.unitRange);
                             }
                         }
                     }
@@ -478,7 +471,7 @@ var HelioviewerTimeline = Class.extend({
                 self._timeline.addSeries({
                     name: series['label'],
                     data: series['data'],
-                    color: self._colors[sourceId]
+                    color: _colors[sourceId]
                 }, true, false);
                 count++;
             });
@@ -506,18 +499,17 @@ var HelioviewerTimeline = Class.extend({
 
     dataCoverageScatterPlot: function (event) {
 
-        if ( this.series.currentDataGrouping.unitRange > 60*60*1000 ) {
+        var binSize = this.series.closestPointRange,
+            chart = $('#data-coverage-timeline').highcharts(),
+            url, startDate, endDate, count;
+
+        if ( binSize > 60*60*1000 ) {
             $('#btn-zoom-in').click();
+            return true;
         }
 
-        console.info([this.x, this.series.currentDataGrouping.unitRange]);
-
-        var chart = $('#data-coverage-timeline').highcharts(),
-            url, startDate, endDate, count, self = this;
-        //chart.destroy();
-
         startDate = new Date(this.x).toISOString();
-        endDate   = new Date(this.x + this.series.currentDataGrouping.unitRange).toISOString();
+        endDate   = new Date(this.x + binSize).toISOString();
 
 
         url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverageDetail/';
@@ -525,18 +517,17 @@ var HelioviewerTimeline = Class.extend({
         url += '&startDate='+startDate;
         url += '&endDate='+endDate;
 
-console.warn(url);
-
         $.getJSON(url, function(data) {
 
             var seriesOptions = [];
 
             count = 0;
-            $.each(data, function (sourceId, series) {
+            $.each(data, function (sourceId, series) {222
                 seriesOptions[count] = {
                     name  : series['label'],
                     data  : series['data'],
-                    id    : count
+                    id    : count,
+                    color : _colors[sourceId]
                 };
                 count++;
             });
