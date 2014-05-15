@@ -263,13 +263,13 @@ error_log('read from database!');
         }
 
         $sql = 'REPLACE INTO ' .
-                    'data_coverage_5_min ' .
+                    'data_coverage_30_min ' .
                 '(date, sourceId, count) ' .
                 'SELECT ' .
                     'SQL_BIG_RESULT SQL_BUFFER_RESULT SQL_NO_CACHE ' .
                     'CONCAT( ' .
                         'DATE_FORMAT(date, "%Y-%m-%d %H:"), '    .
-                        'LPAD((MINUTE(date) DIV 5)*5, 2, "0"), ' .
+                        '(MINUTE(date) DIV 30)*30, ' .
                         '":00") AS "bin", ' .
                     'sourceId, ' .
                     'COUNT(id) ' .

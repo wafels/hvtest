@@ -147,14 +147,18 @@ var HelioviewerTimeline = Class.extend({
 
                 date = Date.parse(startDate);
                 date = new Date(date);
-                var year = date.getFullYear();
-                date.setYear(year-1);
+                //var year = date.getFullYear();
+                //date.setYear(year-1);
+                var month = date.getMonth();
+                date.setMonth(month-3);
                 startDate = date.toISOString();
 
                 date = Date.parse(endDate);
                 date = new Date(date);
-                var year = date.getFullYear();
-                date.setYear(year-1);
+                // var year = date.getFullYear();
+                // date.setYear(year-1);
+                var month = date.getMonth();
+                date.setMonth(month-3);
                 endDate = date.toISOString();
 
                 var url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
@@ -205,14 +209,18 @@ var HelioviewerTimeline = Class.extend({
 
                 date = Date.parse(startDate);
                 date = new Date(date);
-                var year = date.getFullYear();
-                date.setYear(year+1);
+                // var year = date.getFullYear();
+                // date.setYear(year+1);
+                var month = date.getMonth();
+                date.setMonth(month+3);
                 startDate = date.toISOString();
 
                 date = Date.parse(endDate);
                 date = new Date(date);
-                var year = date.getFullYear();
-                date.setYear(year+1);
+                // var year = date.getFullYear();
+                // date.setYear(year+1);
+                var month = date.getMonth();
+                date.setMonth(month+3);
                 endDate = date.toISOString();
 
                 var url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
@@ -263,8 +271,8 @@ var HelioviewerTimeline = Class.extend({
         dateObj.setMilliseconds(0);
         endTimestamp = dateObj.getTime();
 
-        // Set startTimestamp to 1 year before endTimestamp
-        dateObj.setMonth(dateObj.getMonth() - 6);
+        // Set startTimestamp to 3 months before endTimestamp
+        dateObj.setMonth(dateObj.getMonth() - 3);
         startTimestamp = dateObj.getTime();
 
         data = { "0": {
@@ -341,7 +349,7 @@ var HelioviewerTimeline = Class.extend({
             },
 
             rangeSelector: {
-                selected: 3,
+                selected: 2,
                 buttons: [{
                     type: 'hour',
                     count: 1,
@@ -358,10 +366,6 @@ var HelioviewerTimeline = Class.extend({
                     type: 'month',
                     count: 1,
                     text: '1m'
-                }, {
-                    type: 'year',
-                    count: 1,
-                    text: '1y'
                 }, {
                     type: 'all',
                     text: 'All'
@@ -577,7 +581,7 @@ var HelioviewerTimeline = Class.extend({
                 },
 
                 rangeSelector: {
-                    selected: 0,
+                    selected: 3,
                     buttons: [{
                         type: 'minute',
                         count: 5,

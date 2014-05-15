@@ -12,8 +12,8 @@
 
         <div id="data-coverage-timeline" style="min-height: 500px;"></div>
 
-        <button id="btn-prev" style="float: left;"><- Prev Year</button>
-        <button id="btn-next" style="float: right;">Next Year -></button>
+        <button id="btn-prev" style="float: left;"><- Prev 3 Months</button>
+        <button id="btn-next" style="float: right;">Next 3 Months -></button>
 
 
         <!-- Library JavaScript -->
