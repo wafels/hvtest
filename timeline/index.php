@@ -9,6 +9,7 @@
         <button id="btn-zoom-out">Zoom Out</button>
         <button id="btn-zoom-in">Zoom In</button>
         <button id="btn-plotline">Add PlotLine</button>
+        <button id="btn-back" style="display: none;">Back</button>
 
         <div id="data-coverage-timeline" style="min-height: 500px;"></div>
 

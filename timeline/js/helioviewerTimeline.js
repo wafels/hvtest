@@ -255,6 +255,33 @@ var HelioviewerTimeline = Class.extend({
                 });
             }
         );
+
+        $('#btn-back').click( function(e){
+            var chart = new HelioviewerTimeline(container),
+                url, startDate, endDate, imageLayers;
+
+            $('#btn-back').hide();
+            $('#btn-prev').show();
+            $('#btn-next').show();
+            $('#btn-zoom-in').show();
+            $('#btn-zoom-out').show();
+            $('#btn-plotline').show();
+
+            chart.renderPlaceholder();
+            chart.loadingIndicator(true);
+
+            imageLayers = '[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
+            startDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMin).toISOString();
+            endDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMax).toISOString();
+
+            url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
+            url += '?imageLayers='+imageLayers;
+            url += '&startDate='+startDate;
+            url += '&endDate='+endDate;
+console.warn(url);
+            chart.loadIntoTimeline(url);
+        });
+
     },
 
 
@@ -366,6 +393,10 @@ var HelioviewerTimeline = Class.extend({
                     type: 'month',
                     count: 1,
                     text: '1m'
+                // }, {
+                //     type: 'year',
+                //     count: 1,
+                //     text: '1y'
                 }, {
                     type: 'all',
                     text: 'All'
@@ -521,6 +552,12 @@ var HelioviewerTimeline = Class.extend({
             return true;
         }
 
+        $('#btn-prev').hide();
+        $('#btn-next').hide();
+        $('#btn-zoom-in').hide();
+        $('#btn-zoom-out').hide();
+        $('#btn-plotline').hide();
+
         startDate = new Date(this.x).toISOString();
         endDate   = new Date(this.x + binSize).toISOString();
 
@@ -637,6 +674,8 @@ var HelioviewerTimeline = Class.extend({
                 series : seriesOptions
             });
         });
+
+        $('#btn-back').show();
     }
 
 });
