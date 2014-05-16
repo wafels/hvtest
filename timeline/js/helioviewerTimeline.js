@@ -74,16 +74,23 @@ var HelioviewerTimeline = Class.extend({
     },
 
 
-    btnZoomIn: function () {
+    btnZoomIn: function (event, params) {
         var extremes, newMin, newMax, span, scaleFactor = 0.2;
 
         this._timeline = $('#data-coverage-timeline').highcharts();
 
-        extremes = this._timeline.xAxis[0].getExtremes();
-
-        span = extremes.max - extremes.min;
-        newMin = extremes.min+(span*scaleFactor);
-        newMax = extremes.max-(span*scaleFactor);
+        if ( params === undefined ) {
+            extremes = this._timeline.xAxis[0].getExtremes();
+            span = extremes.max - extremes.min;
+            newMin = extremes.min+(span*scaleFactor);
+            newMax = extremes.max-(span*scaleFactor);
+        }
+        else {
+            newMin = new Date(params['binStart']);
+            newMin = newMin.getTime();
+            newMax = new Date(params['binEnd']);
+            newMax = newMax.getTime();
+        }
 
         this._timeline.xAxis[0].setExtremes(newMin, newMax);
     },
@@ -562,8 +569,15 @@ var HelioviewerTimeline = Class.extend({
             chart = $('#data-coverage-timeline').highcharts(),
             url, startDate, endDate, count;
 
+        startDate = new Date(this.x).toISOString();
+        endDate   = new Date(this.x + binSize).toISOString();
+
         if ( binSize > 60*60*1000 ) {
-            $('#btn-zoom-in').click();
+            $('#btn-zoom-in').trigger(
+                'click',
+                {   'binStart' : startDate,
+                    'binEnd'   : endDate    }
+            );
             return true;
         }
 
@@ -572,9 +586,6 @@ var HelioviewerTimeline = Class.extend({
         $('#btn-zoom-in').hide();
         $('#btn-zoom-out').hide();
         $('#btn-plotline').hide();
-
-        startDate = new Date(this.x).toISOString();
-        endDate   = new Date(this.x + binSize).toISOString();
 
 
         url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverageDetail/';
