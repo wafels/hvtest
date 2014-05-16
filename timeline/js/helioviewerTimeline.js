@@ -10,7 +10,7 @@ bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 12
 
 "use strict";
 
-   var _colors  = [
+    var _colors  = [
                 '#030380', // SOHO EIT 171
                 '#035F03', // SOHO EIT 195
                 '#796102', // SOHO EIT 284
@@ -55,6 +55,7 @@ var HelioviewerTimeline = Class.extend({
         this._seriesOptions = [];
         this._yAxisOptions  = [];
         this._container = container;
+        this._viewportPlotline = false;
 
         Highcharts.setOptions({
             global: {
@@ -69,219 +70,233 @@ var HelioviewerTimeline = Class.extend({
         });
 
         this.setTimelineOptions();
-        //this.setDrilldownOptions();
-
         this._setupEventHandlers();
+    },
+
+
+    btnZoomIn: function () {
+        var extremes, newMin, newMax, span, scaleFactor = 0.2;
+
+        this._timeline = $('#data-coverage-timeline').highcharts();
+
+        extremes = this._timeline.xAxis[0].getExtremes();
+
+        span = extremes.max - extremes.min;
+        newMin = extremes.min+(span*scaleFactor);
+        newMax = extremes.max-(span*scaleFactor);
+
+        this._timeline.xAxis[0].setExtremes(newMin, newMax);
+    },
+
+
+    btnZoomOut: function () {
+        var extremes, newMin, newMax, span, scaleFactor = 0.2;
+
+        this._timeline = $('#data-coverage-timeline').highcharts();
+
+        extremes = this._timeline.xAxis[0].getExtremes();
+
+        span   = extremes.max - extremes.min;
+
+        newMin = extremes.min-(span*scaleFactor);
+        newMin = newMin < extremes.dataMin ? extremes.dataMin : newMin;
+
+        newMax = extremes.max+(span*scaleFactor);
+        newMax = newMax > extremes.dataMax ? extremes.dataMax : newMax;
+
+        this._timeline.xAxis[0].setExtremes(newMin, newMax);
+    },
+
+
+    btnBack: function () {
+        var chart = new HelioviewerTimeline(container),
+            url, startDate, endDate, imageLayers;
+
+        this._timeline = $('#data-coverage-timeline').highcharts();
+
+        $('#btn-back').hide();
+        $('#btn-prev').show();
+        $('#btn-next').show();
+        $('#btn-zoom-in').show();
+        $('#btn-zoom-out').show();
+        $('#btn-plotline').show();
+
+        chart.renderPlaceholder();
+        chart.loadingIndicator(true);
+
+        imageLayers = '[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
+        startDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMin).toISOString();
+        endDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMax).toISOString();
+
+        url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
+        url += '?imageLayers='+imageLayers;
+        url += '&startDate='+startDate;
+        url += '&endDate='+endDate;
+
+        chart.loadIntoTimeline(url);
+    },
+
+
+    btnPrev: function () {
+        var self = this, url, month, date;
+
+        this._timeline = $('#data-coverage-timeline').highcharts();
+        this._timeline.showLoading('Loading data from server...');
+
+        date = Date.parse(startDate);
+        date = new Date(date);
+        month = date.getMonth();
+        date.setMonth(month-3);
+        startDate = date.toISOString();
+
+        date = Date.parse(endDate);
+        date = new Date(date);
+        month = date.getMonth();
+        date.setMonth(month-3);
+        endDate = date.toISOString();
+
+        url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
+        url += 'imageLayers=' + imageLayers;
+        url += '&startDate=' + startDate;
+        url += '&endDate=' + endDate;
+
+        $.getJSON(url, function(data) {
+            var count = 0;
+
+            while(self._timeline.series.length > 0) {
+                self._timeline.series[0].remove(false);
+            }
+            self._timeline.redraw();
+
+            $.each(data, function (sourceId, series) {
+                self._timeline.addSeries({
+                    name: series['label'],
+                    data: series['data'],
+                    color: _colors[sourceId]
+                }, true, false);
+                count++;
+            });
+
+            self._timeline.xAxis[0].setExtremes(
+                self._timeline.xAxis[0].getExtremes().dataMin,
+                self._timeline.xAxis[0].getExtremes().dataMax
+            );
+
+            self._timeline.redraw();
+            self._timeline.hideLoading();
+        });
+    },
+
+
+    btnNext: function () {
+        var self = this, url, month, date;
+
+        this._timeline = $('#data-coverage-timeline').highcharts();
+        this._timeline.showLoading('Loading data from server...');
+
+        date = Date.parse(startDate);
+        date = new Date(date);
+        month = date.getMonth();
+        date.setMonth(month+3);
+        startDate = date.toISOString();
+
+        date = Date.parse(endDate);
+        date = new Date(date);
+        month = date.getMonth();
+        date.setMonth(month+3);
+        endDate = date.toISOString();
+
+        url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
+        url += 'imageLayers=' + imageLayers;
+        url += '&startDate=' + startDate;
+        url += '&endDate=' + endDate;
+
+        $.getJSON(url, function(data) {
+            var count = 0;
+
+            while(self._timeline.series.length > 0) {
+                self._timeline.series[0].remove(false);
+            }
+            self._timeline.redraw();
+
+            $.each(data, function (sourceId, series) {
+                self._timeline.addSeries({
+                    name: series['label'],
+                    data: series['data'],
+                    color: _colors[sourceId]
+                }, true, false);
+                count++;
+            });
+
+            self._timeline.xAxis[0].setExtremes(
+                self._timeline.xAxis[0].getExtremes().dataMin,
+                self._timeline.xAxis[0].getExtremes().dataMax
+            );
+
+            self._timeline.redraw();
+            self._timeline.hideLoading();
+        });
+    },
+
+
+    btnPlotline: function () {
+        if ( !this._viewportPlotline ) {
+            this._timeline.xAxis[0].addPlotLine({
+                value: 1396000000000,
+                width: 2,
+                color: 'black',
+                dashStyle: 'solid',
+                zIndex: 5,
+                id: 'viewport-plotline',
+                label: {
+                    text: 'Viewport',
+                    verticalAlign: 'top',
+                    align: 'center',
+                    y: 30,
+                    x: -5,
+                    rotation: 270
+                }
+            });
+            $('#btn-plotline').html('Remove plot line');
+        }
+        else {
+            this._timeline.xAxis[0].removePlotLine('viewport-plotline');
+            $('#btn-plotline').html('Add plot line');
+        }
+
+        this._viewportPlotline = !this._viewportPlotline;
     },
 
 
     _setupEventHandlers: function () {
         var self = this;
 
-        $('#btn-zoom-in').click( function(e){
-            var extremes = self._timeline.xAxis[0].getExtremes(),
-                newMin, newMax, span, scaleFactor = 0.2;
+        $('#btn-zoom-in').bind('click', $.proxy(this.btnZoomIn, this));
+        $('#btn-zoom-out').bind('click', $.proxy(this.btnZoomOut, this));
+        $('#btn-plotline').bind('click', $.proxy(this.btnPlotline, this));
 
-            span = extremes.max - extremes.min;
-            newMin = extremes.min+(span*scaleFactor);
-            newMax = extremes.max-(span*scaleFactor);
-
-            self._timeline.xAxis[0].setExtremes(newMin, newMax);
-        });
-
-        $('#btn-zoom-out').click( function(e){
-            var extremes = self._timeline.xAxis[0].getExtremes(),
-                newMin, newMax, span, scaleFactor = 0.2;
-
-            span   = extremes.max - extremes.min;
-
-            newMin = extremes.min-(span*scaleFactor);
-            newMin = newMin < extremes.dataMin ? extremes.dataMin : newMin;
-
-            newMax = extremes.max+(span*scaleFactor);
-            newMax = newMax > extremes.dataMax ? extremes.dataMax : newMax;
-
-            self._timeline.xAxis[0].setExtremes(newMin, newMax);
-        });
-
-
-        var hasPlotLine = false;
-        $('#btn-plotline').click({'hasPlotLine':hasPlotLine}, function(e){
-            if (!hasPlotLine) {
-                self._timeline.xAxis[0].addPlotLine({
-                    value: 1396000000000,
-                    width: 2,
-                    color: 'black',
-                    dashStyle: 'solid',
-                    zIndex: 5,
-                    id: 'viewport-plotline',
-                    label: {
-                        text: 'Viewport',
-                        verticalAlign: 'top',
-                        align: 'center',
-                        y: 30,
-                        x: -5,
-                        rotation: 270
-                    }
-                });
-                $('#btn-plotline').html('Remove plot line');
-            } else {
-                self._timeline.xAxis[0].removePlotLine('plot-line-1');
-                $('#btn-plotline').html('Add plot line');
-            }
-            hasPlotLine = !hasPlotLine;
-        });
-
-
-        $('#btn-prev').click(
-            {   'chart'       : chart,
+        $('#btn-prev').bind(
+            'click',
+            {
                 'imageLayers' : imageLayers,
                 'startDate'   : startDate,
                 'endDate'     : endDate,
                 'colors'      : _colors
             },
-            function (e) {
-                self._timeline.showLoading('Loading data from server...');
-
-                var date;
-
-                date = Date.parse(startDate);
-                date = new Date(date);
-                //var year = date.getFullYear();
-                //date.setYear(year-1);
-                var month = date.getMonth();
-                date.setMonth(month-3);
-                startDate = date.toISOString();
-
-                date = Date.parse(endDate);
-                date = new Date(date);
-                // var year = date.getFullYear();
-                // date.setYear(year-1);
-                var month = date.getMonth();
-                date.setMonth(month-3);
-                endDate = date.toISOString();
-
-                var url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
-                url += 'imageLayers=' + imageLayers;
-                url += '&startDate=' + startDate;
-                url += '&endDate=' + endDate;
-
-                $.getJSON(url, function(data) {
-
-                    while(self._timeline.series.length > 0) {
-                        self._timeline.series[0].remove(false);
-                    }
-                    self._timeline.redraw();
-
-                    var count = 0;
-                    $.each(data, function (sourceId, series) {
-                        self._timeline.addSeries({
-                            name: series['label'],
-                            data: series['data'],
-                            color: _colors[sourceId]
-                        }, true, false);
-                        count++;
-                    });
-
-                    self._timeline.xAxis[0].setExtremes(
-                        self._timeline.xAxis[0].getExtremes().dataMin,
-                        self._timeline.xAxis[0].getExtremes().dataMax
-                    );
-
-                    self._timeline.redraw();
-                    self._timeline.hideLoading();
-                });
-            }
+            $.proxy(this.btnPrev, this)
         );
 
-
-        $('#btn-next').click(
-            {   'chart'       : chart,
-                'imageLayers' : imageLayers,
+        $('#btn-next').bind(
+            'click',
+            {   'imageLayers' : imageLayers,
                 'startDate'   : startDate,
                 'endDate'     : endDate,
                 'colors'      : _colors
             },
-            function (e) {
-                self._timeline.showLoading('Loading data from server...');
-
-                var date;
-
-                date = Date.parse(startDate);
-                date = new Date(date);
-                // var year = date.getFullYear();
-                // date.setYear(year+1);
-                var month = date.getMonth();
-                date.setMonth(month+3);
-                startDate = date.toISOString();
-
-                date = Date.parse(endDate);
-                date = new Date(date);
-                // var year = date.getFullYear();
-                // date.setYear(year+1);
-                var month = date.getMonth();
-                date.setMonth(month+3);
-                endDate = date.toISOString();
-
-                var url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
-                url += 'imageLayers=' + imageLayers;
-                url += '&startDate=' + startDate;
-                url += '&endDate=' + endDate;
-
-                $.getJSON(url, function(data) {
-
-                    while(self._timeline.series.length > 0) {
-                        self._timeline.series[0].remove(false);
-                    }
-                    self._timeline.redraw();
-
-                    var count = 0;
-                    $.each(data, function (sourceId, series) {
-                        self._timeline.addSeries({
-                            name: series['label'],
-                            data: series['data'],
-                            color: _colors[sourceId]
-                        }, true, false);
-                        count++;
-                    });
-
-                    self._timeline.xAxis[0].setExtremes(
-                        self._timeline.xAxis[0].getExtremes().dataMin,
-                        self._timeline.xAxis[0].getExtremes().dataMax
-                    );
-
-                    self._timeline.redraw();
-                    self._timeline.hideLoading();
-                });
-            }
+            $.proxy(this.btnNext, this)
         );
 
-        $('#btn-back').click( function(e){
-            var chart = new HelioviewerTimeline(container),
-                url, startDate, endDate, imageLayers;
-
-            $('#btn-back').hide();
-            $('#btn-prev').show();
-            $('#btn-next').show();
-            $('#btn-zoom-in').show();
-            $('#btn-zoom-out').show();
-            $('#btn-plotline').show();
-
-            chart.renderPlaceholder();
-            chart.loadingIndicator(true);
-
-            imageLayers = '[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
-            startDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMin).toISOString();
-            endDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMax).toISOString();
-
-            url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
-            url += '?imageLayers='+imageLayers;
-            url += '&startDate='+startDate;
-            url += '&endDate='+endDate;
-console.warn(url);
-            chart.loadIntoTimeline(url);
-        });
-
+        $('#btn-back').bind('click', $.proxy(this.btnBack, this));
     },
 
 
