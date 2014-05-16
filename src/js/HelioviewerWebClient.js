@@ -57,6 +57,7 @@ var HelioviewerWebClient = HelioviewerClient.extend(
                                                this.serverSettings.maxImageScale);
 
         this.earthScale     = new ImageScale();
+        this.timeline       = new Timeline();
 
         this.fullScreenMode = new FullscreenControl("#fullscreen-btn", 500);
         this.moreScreenMode = new MorescreenControl("#morescreen-btn", 500);

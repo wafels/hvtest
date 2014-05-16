@@ -257,7 +257,7 @@ abstract class HelioviewerClient {
                         "Viewport/Helper/MouseCoordinates.js", "Viewport/Helper/HelioviewerMouseCoordinates.js",
                         "Viewport/Helper/SandboxHelper.js", "Viewport/Helper/ViewportMovementHelper.js",
                         "Viewport/HelioviewerViewport.js", "HelioviewerClient.js", "UI/ZoomControls.js",
-                        "UI/ImageScale.js", "Utility/InputValidator.js", "Utility/SettingsLoader.js",
+                        "UI/ImageScale.js", "UI/Timeline.js", "Utility/InputValidator.js", "Utility/SettingsLoader.js",
                         "Utility/UserSettings.js", "Tiling/Manager/LayerManager.js", "Events/EventManager.js",
                         "Events/EventType.js", "Events/EventTree.js", "Events/EventFeatureRecognitionMethod.js",
                         "Events/EventLayerManager.js", "Events/EventMarker.js", "Events/EventLayerManager.js",

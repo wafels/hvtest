@@ -82,6 +82,7 @@ class HelioviewerWebClient extends HelioviewerClient {
 <script src="lib/jquery.jfeed/build/jquery.jfeed.js" type="text/javascript"></script>
 <script src="lib/jquery.xml2json/jquery.xml2json.pack.js" type="text/javascript" language="javascript"></script>
 <script src="lib/jquery.jsTree-1.0rc/jquery.jstree.min.js"></script>
+<script src="lib/jquery-slide-drawer-master/js/jquery.slidedrawer.min.js"></script>
 <?php
         } else {
     ?>
@@ -90,6 +91,7 @@ class HelioviewerWebClient extends HelioviewerClient {
 <script src="lib/jquery.jfeed/build/jquery.jfeed.js" type="text/javascript"></script>
 <script src="lib/jquery.xml2json/jquery.xml2json.js" type="text/javascript" language="javascript"></script>
 <script src="lib/jquery.jsTree-1.0rc/jquery.jstree.js"></script>
+<script src="lib/jquery-slide-drawer-master/js/jquery.slidedrawer.js"></script>
 <?php
         }
     }

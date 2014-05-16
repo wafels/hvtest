@@ -11,7 +11,7 @@
         <button id="btn-plotline">Add PlotLine</button>
         <button id="btn-back" style="display: none;">Back</button>
 
-        <div id="data-coverage-timeline" style="min-height: 500px;"></div>
+        <div id="data-coverage-timeline"></div>
 
         <button id="btn-prev" style="float: left;"><- Prev 3 Months</button>
         <button id="btn-next" style="float: right;">Next 3 Months -></button>
