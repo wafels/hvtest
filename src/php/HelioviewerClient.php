@@ -210,6 +210,7 @@ abstract class HelioviewerClient {
 <script src="lib/date.js/date-en-US.js" type="text/javascript"></script>
 <script src="lib/jquery.qTip2/jquery.qtip.min.js" type="text/javascript"></script>
 <script src="lib/jquery-number-master/jquery.number.min.js" type="text/javascript"></script>
+<script src="lib/jquery-number-master/jquery.number.min.js" type="text/javascript"></script>
 <?php
         } else {
 ?>
@@ -227,6 +228,8 @@ abstract class HelioviewerClient {
 <script src="lib/jquery.json-2.3/jquery.json-2.3.min.js" type="text/javascript" ></script>
 <script src="lib/jquery.cookie/jquery.cookie.min.js" type="text/javascript" ></script>
 <script src="lib/Cookiejar/jquery.cookiejar.pack.js" type="text/javascript"></script>
+<script src="lib/Highstock-2.0.0/js/highstock.js" type="text/javascript"></script>
+<script src="lib/custom_events-master/customEvents.js" type="text/javascript"></script>
 <?php
     }
 
@@ -257,7 +260,7 @@ abstract class HelioviewerClient {
                         "Viewport/Helper/MouseCoordinates.js", "Viewport/Helper/HelioviewerMouseCoordinates.js",
                         "Viewport/Helper/SandboxHelper.js", "Viewport/Helper/ViewportMovementHelper.js",
                         "Viewport/HelioviewerViewport.js", "HelioviewerClient.js", "UI/ZoomControls.js",
-                        "UI/ImageScale.js", "UI/Timeline.js", "Utility/InputValidator.js", "Utility/SettingsLoader.js",
+                        "UI/ImageScale.js", "UI/Timeline.js", "UI/HelioviewerTimeline.js", "Utility/InputValidator.js", "Utility/SettingsLoader.js",
                         "Utility/UserSettings.js", "Tiling/Manager/LayerManager.js", "Events/EventManager.js",
                         "Events/EventType.js", "Events/EventTree.js", "Events/EventFeatureRecognitionMethod.js",
                         "Events/EventLayerManager.js", "Events/EventMarker.js", "Events/EventLayerManager.js",

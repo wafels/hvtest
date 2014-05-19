@@ -145,10 +145,12 @@ var HelioviewerTimeline = Class.extend({
 
 
     btnPrev: function () {
-        var self = this, url, month, date;
+        var self = this, url, month, date, imageLayers;
 
         this._timeline = $('#data-coverage-timeline').highcharts();
         this._timeline.showLoading('Loading data from server...');
+
+        imageLayers = '[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
 
         date = Date.parse(startDate);
         date = new Date(date);
@@ -251,7 +253,7 @@ var HelioviewerTimeline = Class.extend({
             this._timeline.xAxis[0].addPlotLine({
                 value: 1396000000000,
                 width: 2,
-                color: 'black',
+                color: '#fff',
                 dashStyle: 'solid',
                 zIndex: 5,
                 id: 'viewport-plotline',
@@ -261,7 +263,10 @@ var HelioviewerTimeline = Class.extend({
                     align: 'center',
                     y: 30,
                     x: -5,
-                    rotation: 270
+                    rotation: 270,
+                    style: {
+                        color: 'white'
+                    }
                 }
             });
             $('#btn-plotline').html('Remove plot line');
@@ -276,7 +281,7 @@ var HelioviewerTimeline = Class.extend({
 
 
     _setupEventHandlers: function () {
-        var self = this;
+        var self = this, imageLayers;
 
         $('#btn-zoom-in').bind('click', $.proxy(this.btnZoomIn, this));
         $('#btn-zoom-out').bind('click', $.proxy(this.btnZoomOut, this));
@@ -284,22 +289,11 @@ var HelioviewerTimeline = Class.extend({
 
         $('#btn-prev').bind(
             'click',
-            {
-                'imageLayers' : imageLayers,
-                'startDate'   : startDate,
-                'endDate'     : endDate,
-                'colors'      : _colors
-            },
             $.proxy(this.btnPrev, this)
         );
 
         $('#btn-next').bind(
             'click',
-            {   'imageLayers' : imageLayers,
-                'startDate'   : startDate,
-                'endDate'     : endDate,
-                'colors'      : _colors
-            },
             $.proxy(this.btnNext, this)
         );
 
@@ -369,7 +363,7 @@ var HelioviewerTimeline = Class.extend({
                 text: 'Image Data Coverage',
                 align: 'center',
                 style: {
-                    color: '#000'
+                    color: '#bbb'
                 }
             },
 
@@ -377,15 +371,16 @@ var HelioviewerTimeline = Class.extend({
                 text: 'Number of Images per Layer',
                 align: 'center',
                 style: {
-                    color: '#ccc'
+                    color: '#777'
                 }
             },
 
             chart: {
+                backgroundColor: null,
                 type: 'column',
                 stacking: 'normal',
                 zoomType: 'x',
-                height: 400,
+                //height: 360,
                 events: {
                     click: function(event) {
                         var date = new Date(event.xAxis[0].value);
@@ -398,6 +393,31 @@ var HelioviewerTimeline = Class.extend({
             },
 
             rangeSelector: {
+                buttonTheme: { // styles for the buttons
+                    style: {
+                        fontWeight: 'bold'
+                    },
+                    states: {
+                        hover: {
+                        },
+                        select: {
+                            fill: '#039',
+                            style: {
+                                color: 'white'
+                            }
+                        }
+                    }
+                },
+                inputBoxBorderColor: 'gray',
+                inputBoxWidth: 120,
+                inputBoxHeight: 18,
+                inputStyle: {
+                    fontWeight: 'bold'
+                },
+                labelStyle: {
+                    color: '#333',
+                    fontWeight: 'bold'
+                },
                 selected: 2,
                 buttons: [{
                     type: 'hour',
@@ -448,7 +468,8 @@ var HelioviewerTimeline = Class.extend({
             loading: {
                 style: {
                     position: 'absolute',
-                    backgroundColor: 'white',
+                    backgroundColor: 'black',
+                    color: 'white',
                     opacity: 0.5,
                     textAlign: 'center'
                 }
@@ -459,7 +480,8 @@ var HelioviewerTimeline = Class.extend({
                     animation: true,
                     stacking: 'normal',
                     pointPadding: 0,
-                    borderWidth: 1,
+                    borderWidth: 0.5,
+                    borderColor: '#000',
                     groupPadding: 0,
                     shadow: false,
                     dataLabels: {
@@ -491,7 +513,7 @@ var HelioviewerTimeline = Class.extend({
 
             navigator: {
                 baseSeries: 0,
-                maskFill: 'rgba(180, 198, 220, 0.5)',
+                maskFill: 'rgba(100, 100, 100, 0.5)',
                 series: {
                     type: 'column',
                     color: '#ddd',
@@ -617,7 +639,8 @@ var HelioviewerTimeline = Class.extend({
 
                 chart : {
                     type: 'scatter',
-                    zoomType: 'x'
+                    zoomType: 'x',
+                    backgroundColor: null
                 },
 
                 tooltip: {
@@ -644,6 +667,32 @@ var HelioviewerTimeline = Class.extend({
                 },
 
                 rangeSelector: {
+                    buttonTheme: { // styles for the buttons
+                        style: {
+                            fontWeight: 'bold'
+                        },
+                        states: {
+                            hover: {
+                            },
+                            select: {
+                                fill: '#039',
+                                style: {
+                                    color: 'white'
+                                }
+                            }
+                        }
+                    },
+                    inputBoxBorderColor: 'gray',
+                    inputBoxWidth: 120,
+                    inputBoxHeight: 18,
+                    inputStyle: {
+                        color: '#039',
+                        fontWeight: 'bold'
+                    },
+                    labelStyle: {
+                        color: 'silver',
+                        fontWeight: 'bold'
+                    },
                     selected: 3,
                     buttons: [{
                         type: 'minute',
