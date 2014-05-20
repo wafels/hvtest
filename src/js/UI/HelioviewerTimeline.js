@@ -11,42 +11,42 @@ bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 12
 "use strict";
 
     var _colors  = [
-                '#030380', // SOHO EIT 171
-                '#035F03', // SOHO EIT 195
-                '#796102', // SOHO EIT 284
-                '#890303', // SOHO EIT 304
-                '#8F0000', // SOHO LASCO C2
-                '#0027AF', // SOHO LASCO C3
-                '#8F8F8F', // SOHO MDI Mag
-                '#6F6F6F', // SOHO MDI Int
-                '#3E8C80', // SDO AIA 94
-                '#07B8B8', // SDO AIA 131
-                '#B77F00', // SDO AIA 171
-                '#B37F3E', // SDO AIA 191
-                '#B37F8D', // SDO AIA 211
-                '#B70B00', // SDO AIA 304
-                '#3E7FB3', // SDO AIA 335
-                '#8C8C3E', // SDO AIA 1600
-                '#B27F7F', // SDO AIA 1700
-                '#FFFF7E', // SDO AIA 4500
-                '#8F8F8F', // SDO MDI Int
-                '#6F6F6F', // SDO MDI Mag
-                '#32AC00', // STEREO A EUVI 171
-                '#A06800', // STEREO A EUVI 195
-                '#8A6F01', // STEREO A EUVI 284
-                '#8D0000', // STEREO A EUVI 304
-                '#32AC00', // STEREO B EUVI 171
-                '#A06800', // STEREO B EUVI 195
-                '#8A6F01', // STEREO B EUVI 284
-                '#8D0000', // STEREO B EUVI 304
-                '#3F8900', // STEREO A COR1
-                '#C41D00', // STEREO A COR2
-                '#3F8900', // STEREO B COR1
-                '#C41D00', // STEREO B COR2
-                '#B77E00', // PROBA-2 SWAP 174
-                '#F29F00', // Yohkoh SXT AlMgMn
-                '#F29F00', // Yohkoh SXT thin-Al
-                '#7F7F7F'  // Yohkoh SXT white-light
+                'rgba(   3,   3, 128, 0.75)', // SOHO EIT 171
+                'rgba(   3,  95,   3, 0.75)', // SOHO EIT 195
+                'rgba( 121,  97,   2, 0.75)', // SOHO EIT 284
+                'rgba( 137,   3,   3, 0.75)', // SOHO EIT 304
+                'rgba( 143,   0,   0, 0.75)', // SOHO LASCO C2
+                'rgba(   0,  39, 175, 0.75)', // SOHO LASCO C3
+                'rgba( 143, 143, 143, 0.75)', // SOHO MDI Mag
+                'rgba( 111, 111, 111, 0.75)', // SOHO MDI Int
+                'rgba(  52, 140, 128, 0.75)', // SDO AIA 94
+                'rgba(   7, 184, 184, 0.75)', // SDO AIA 131
+                'rgba( 183, 127,   0, 0.75)', // SDO AIA 171
+                'rgba( 179, 127,  62, 0.75)', // SDO AIA 191
+                'rgba( 179, 127, 141, 0.75)', // SDO AIA 211
+                'rgba( 183,  11,   0, 0.75)', // SDO AIA 304
+                'rgba(  62, 127, 179, 0.75)', // SDO AIA 335
+                'rgba( 140, 140,  62, 0.75)', // SDO AIA 1600
+                'rgba( 178, 127, 127, 0.75)', // SDO AIA 1700
+                'rgba( 255, 255, 126, 0.75)', // SDO AIA 4500
+                'rgba( 143, 143, 143, 0.75)', // SDO MDI Int
+                'rgba( 111, 111, 111, 0.75)', // SDO MDI Mag
+                'rgba(  50, 172,   0, 0.75)', // STEREO A EUVI 171
+                'rgba( 160, 104,   0, 0.75)', // STEREO A EUVI 195
+                'rgba( 138, 111,   1, 0.75)', // STEREO A EUVI 284
+                'rgba( 141,   0,   0, 0.75)', // STEREO A EUVI 304
+                'rgba(  50, 172,   0, 0.75)', // STEREO B EUVI 171
+                'rgba( 160, 104,   0, 0.75)', // STEREO B EUVI 195
+                'rgba( 138, 111,   1, 0.75)', // STEREO B EUVI 284
+                'rgba( 141,   0,   0, 0.75)', // STEREO B EUVI 304
+                'rgba(  63, 137,   0, 0.75)', // STEREO A COR1
+                'rgba( 196,  29,   0, 0.75)', // STEREO A COR2
+                'rgba(  63, 137,   0, 0.75)', // STEREO B COR1
+                'rgba( 196,  29,   0, 0.75)', // STEREO B COR2
+                'rgba( 183, 126,   0, 0.75)', // PROBA-2 SWAP 174
+                'rgba( 242, 159,   0, 0.75)', // Yohkoh SXT AlMgMn
+                'rgba( 242, 159,   0, 0.75)', // Yohkoh SXT thin-Al
+                'rgba( 127, 127, 127, 0.75)'  // Yohkoh SXT white-light
             ];
 
 var HelioviewerTimeline = Class.extend({
@@ -64,10 +64,236 @@ var HelioviewerTimeline = Class.extend({
             },
             lang: {
                 loading: 'Loading Timeline Data...',
-                rangeSelectorZoom: 'Range:',
-                rangeSelectorFrom: 'View:  '
+                rangeSelectorZoom: 'Zoom:',
+                rangeSelectorFrom: 'Displaying:  ',
+                rangeSelectorTo: 'through:  '
             }
         });
+
+        Highcharts.createElement('link', {
+           href: 'http://fonts.googleapis.com/css?family=Source+Code+Pro:200,300,400,700',
+           rel: 'stylesheet',
+           type: 'text/css'
+        }, null, document.getElementsByTagName('head')[0]);
+
+        Highcharts.theme = {
+           chart: {
+              backgroundColor: 'rgba(0,0,0,0)',
+              style: {
+                 fontFamily: "'Source Code Pro', monospace",
+                 fontWeight: '300'
+              },
+              plotBorderColor: '#606063'
+           },
+           title: {
+              style: {
+                 color: '#E0E0E3',
+                 //textTransform: 'uppercase',
+                 fontSize: '20px',
+                 fontFamily: "'Source Code Pro', monospace",
+                 fontWeight: '200'
+              }
+           },
+           subtitle: {
+              style: {
+                 color: '#E0E0E3',
+                 //textTransform: 'uppercase'
+                 fontFamily: "'Source Code Pro', monospace",
+                 fontWeight: '200'
+              }
+           },
+           loading: {
+              labelStyle: {
+                color: '#fff',
+                position: 'relative',
+                top: '1em',
+                fontSize: '1.5em',
+                fontFamily: "'Source Code Pro', monospace",
+                fontWeight: '200'
+              }
+           },
+           xAxis: {
+              gridLineColor: '#707073',
+              labels: {
+                 style: {
+                    color: '#E0E0E3',
+                    fontFamily: "'Source Code Pro', monospace",
+                    fontWeight: '200'
+                 }
+              },
+              lineColor: '#707073',
+              minorGridLineColor: '#505053',
+              tickColor: '#707073',
+              title: {
+                 style: {
+                    color: '#A0A0A3'
+
+                 }
+              }
+           },
+           yAxis: {
+              gridLineColor: '#707073',
+              labels: {
+                 enabled: false,
+                 style: {
+                    color: '#E0E0E3'
+                 }
+              },
+              lineColor: '#707073',
+              minorGridLineColor: '#505053',
+              tickColor: '#707073',
+              tickWidth: 1,
+              title: {
+                 style: {
+                    color: '#A0A0A3'
+                 }
+              }
+           },
+           tooltip: {
+              backgroundColor: 'rgba(0, 0, 0, 0.85)',
+              style: {
+                 color: '#F0F0F0'
+              }
+           },
+           plotOptions: {
+              series: {
+                 dataLabels: {
+                    color: '#B0B0B3'
+                 },
+                 marker: {
+                    lineColor: '#333'
+                 }
+              },
+              boxplot: {
+                 fillColor: '#505053'
+              },
+              candlestick: {
+                 lineColor: 'white'
+              },
+              errorbar: {
+                 color: 'white'
+              }
+           },
+           legend: {
+              itemStyle: {
+                 color: '#E0E0E3',
+                    fontFamily: "'Source Code Pro', monospace",
+                    fontWeight: '200'
+              },
+              itemHoverStyle: {
+                 color: '#FFF'
+              },
+              itemHiddenStyle: {
+                 color: '#606063'
+              },
+              verticalAlign: 'top'
+           },
+           credits: {
+              style: {
+                 color: '#666'
+              }
+           },
+           labels: {
+              style: {
+                 color: '#707073'
+              }
+           },
+
+           drilldown: {
+              activeAxisLabelStyle: {
+                 color: '#F0F0F3'
+              },
+              activeDataLabelStyle: {
+                 color: '#F0F0F3'
+              }
+           },
+
+           navigation: {
+              buttonOptions: {
+                 symbolStroke: '#DDDDDD',
+                 theme: {
+                    fill: '#505053'
+                 }
+              }
+           },
+
+           // scroll charts
+           rangeSelector: {
+              buttonTheme: {
+                 fill: '#505053',
+                 stroke: '#000000',
+                 style: {
+                    color: '#CCC'
+                 },
+                 states: {
+                    hover: {
+                       fill: '#707073',
+                       stroke: '#000000',
+                       style: {
+                          color: 'white'
+                       }
+                    },
+                    select: {
+                       fill: '#000003',
+                       stroke: '#000000',
+                       style: {
+                          color: 'white'
+                       }
+                    }
+                 }
+              },
+              inputBoxBorderColor: '#505053',
+              inputStyle: {
+                 backgroundColor: '#333',
+                 color: 'silver'
+              },
+              labelStyle: {
+                 color: 'silver'
+              },
+              inputBoxWidth: 175,
+              inputDateFormat: '%Y-%m-%d %H:%M:%S UTC',
+              inputEditDateFormat: '%Y-%m-%d %H:%M:%S UTC'
+              //inputEnabled: false
+           },
+
+           navigator: {
+              handles: {
+                 backgroundColor: '#666',
+                 borderColor: '#AAA'
+              },
+              outlineColor: '#CCC',
+              maskFill: 'rgba(255,255,255,0.1)',
+              series: {
+                 color: '#7798BF',
+                 lineColor: '#A6C7ED'
+              },
+              xAxis: {
+                 gridLineColor: '#505053'
+              }
+           },
+
+           scrollbar: {
+              barBackgroundColor: '#808083',
+              barBorderColor: '#808083',
+              buttonArrowColor: '#CCC',
+              buttonBackgroundColor: '#606063',
+              buttonBorderColor: '#606063',
+              rifleColor: '#FFF',
+              trackBackgroundColor: '#404043',
+              trackBorderColor: '#404043'
+           },
+
+           // special colors for some of the
+           legendBackgroundColor: 'rgba(0, 0, 0, 0.5)',
+           background2: '#505053',
+           dataLabelsColor: '#B0B0B3',
+           textColor: '#C0C0C0',
+           contrastTextColor: '#F0F0F3',
+           maskColor: 'rgba(255,255,255,0.3)'
+        };
+
+        // Apply the theme
+        Highcharts.setOptions(Highcharts.theme);
 
         this.setTimelineOptions();
         this._setupEventHandlers();
@@ -116,8 +342,8 @@ var HelioviewerTimeline = Class.extend({
 
 
     btnBack: function () {
-        var chart = new HelioviewerTimeline(container),
-            url, startDate, endDate, imageLayers;
+        var chart = new HelioviewerTimeline('#data-coverage-timeline'),
+            url, startDate, endDate, imageLayers, layers=[];
 
         this._timeline = $('#data-coverage-timeline').highcharts();
 
@@ -131,12 +357,18 @@ var HelioviewerTimeline = Class.extend({
         chart.renderPlaceholder();
         chart.loadingIndicator(true);
 
-        imageLayers = '[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
+        imageLayers = Helioviewer.userSettings.get("state.tileLayers");
+        $.each(imageLayers, function (i, obj) {
+            layers.push('[' + obj.sourceId + ',1,100]');
+        });
+        layers = layers.join(',');
+        console.warn(layers);
+
         startDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMin).toISOString();
         endDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMax).toISOString();
 
         url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
-        url += '?imageLayers='+imageLayers;
+        url += '?imageLayers='+layers;
         url += '&startDate='+startDate;
         url += '&endDate='+endDate;
 
@@ -145,12 +377,17 @@ var HelioviewerTimeline = Class.extend({
 
 
     btnPrev: function () {
-        var self = this, url, month, date, imageLayers;
+        var self = this, url, month, date, imageLayers, layers=[];
 
         this._timeline = $('#data-coverage-timeline').highcharts();
         this._timeline.showLoading('Loading data from server...');
 
-        imageLayers = '[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
+        imageLayers = Helioviewer.userSettings.get("state.tileLayers");
+        $.each(imageLayers, function (i, obj) {
+            layers.push('[' + obj.sourceId + ',1,100]');
+        });
+        layers = layers.join(',');
+        console.warn(layers);
 
         date = Date.parse(startDate);
         date = new Date(date);
@@ -165,7 +402,7 @@ var HelioviewerTimeline = Class.extend({
         endDate = date.toISOString();
 
         url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
-        url += 'imageLayers=' + imageLayers;
+        url += 'imageLayers=' + layers;
         url += '&startDate=' + startDate;
         url += '&endDate=' + endDate;
 
@@ -216,7 +453,7 @@ var HelioviewerTimeline = Class.extend({
         endDate = date.toISOString();
 
         url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
-        url += 'imageLayers=' + imageLayers;
+        url += 'imageLayers=' + layers;
         url += '&startDate=' + startDate;
         url += '&endDate=' + endDate;
 
@@ -359,24 +596,7 @@ var HelioviewerTimeline = Class.extend({
         }
 
         this._timelineOptions = {
-            title: {
-                text: 'Image Data Coverage',
-                align: 'center',
-                style: {
-                    color: '#bbb'
-                }
-            },
-
-            subtitle: {
-                text: 'Number of Images per Layer',
-                align: 'center',
-                style: {
-                    color: '#777'
-                }
-            },
-
             chart: {
-                backgroundColor: null,
                 type: 'column',
                 stacking: 'normal',
                 zoomType: 'x',
@@ -393,31 +613,6 @@ var HelioviewerTimeline = Class.extend({
             },
 
             rangeSelector: {
-                buttonTheme: { // styles for the buttons
-                    style: {
-                        fontWeight: 'bold'
-                    },
-                    states: {
-                        hover: {
-                        },
-                        select: {
-                            fill: '#039',
-                            style: {
-                                color: 'white'
-                            }
-                        }
-                    }
-                },
-                inputBoxBorderColor: 'gray',
-                inputBoxWidth: 120,
-                inputBoxHeight: 18,
-                inputStyle: {
-                    fontWeight: 'bold'
-                },
-                labelStyle: {
-                    color: '#333',
-                    fontWeight: 'bold'
-                },
                 selected: 2,
                 buttons: [{
                     type: 'hour',
@@ -546,6 +741,7 @@ var HelioviewerTimeline = Class.extend({
     },
 
     loadIntoTimeline: function (url) {
+console.warn(url);
         var self = this;
 
         $.getJSON(url, function(data) {
@@ -577,7 +773,7 @@ var HelioviewerTimeline = Class.extend({
 
     loadingIndicator: function (show) {
         if ( show || show === undefined ) {
-            this._timeline.showLoading('Fetching data from server...');
+            this._timeline.showLoading('Loading data from server...');
         }
         else {
             this._timeline.hideLoading();
@@ -589,7 +785,7 @@ var HelioviewerTimeline = Class.extend({
 
         var binSize = this.series.closestPointRange,
             chart = $('#data-coverage-timeline').highcharts(),
-            url, startDate, endDate, count;
+            url, startDate, endDate, count, layers=[];
 
         startDate = new Date(this.x).toISOString();
         endDate   = new Date(this.x + binSize).toISOString();
@@ -609,9 +805,16 @@ var HelioviewerTimeline = Class.extend({
         $('#btn-zoom-out').hide();
         $('#btn-plotline').hide();
 
+        imageLayers = Helioviewer.userSettings.get("state.tileLayers");
+        $.each(imageLayers, function (i, obj) {
+            layers.push('[' + obj.sourceId + ',1,100]');
+        });
+        layers = layers.join(',');
+        console.warn(layers);
+
 
         url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverageDetail/';
-        url += '?imageLayers='+'[12,1,100],[13,1,100],[14,1,100],[15,1,100],[16,1,100]';
+        url += '?imageLayers='+layers;
         url += '&startDate='+startDate;
         url += '&endDate='+endDate;
 
@@ -632,15 +835,9 @@ var HelioviewerTimeline = Class.extend({
 
             // Create the chart
             $('#data-coverage-timeline').highcharts('StockChart', {
-
-                title : {
-                    text : 'Individual Images'
-                },
-
                 chart : {
                     type: 'scatter',
-                    zoomType: 'x',
-                    backgroundColor: null
+                    zoomType: 'x'
                 },
 
                 tooltip: {
@@ -667,32 +864,6 @@ var HelioviewerTimeline = Class.extend({
                 },
 
                 rangeSelector: {
-                    buttonTheme: { // styles for the buttons
-                        style: {
-                            fontWeight: 'bold'
-                        },
-                        states: {
-                            hover: {
-                            },
-                            select: {
-                                fill: '#039',
-                                style: {
-                                    color: 'white'
-                                }
-                            }
-                        }
-                    },
-                    inputBoxBorderColor: 'gray',
-                    inputBoxWidth: 120,
-                    inputBoxHeight: 18,
-                    inputStyle: {
-                        color: '#039',
-                        fontWeight: 'bold'
-                    },
-                    labelStyle: {
-                        color: 'silver',
-                        fontWeight: 'bold'
-                    },
                     selected: 3,
                     buttons: [{
                         type: 'minute',
@@ -737,6 +908,18 @@ var HelioviewerTimeline = Class.extend({
                     series: {
                         marker: {
                             symbol: 'circle'
+                        }
+                    },
+                    scatter: {
+                        point: {
+                            events: {
+                                dblclick: function () {
+                                    var date = new Date(this.x);
+                                    console.warn([date.toISOString(), this]);
+                                    console.warn([helioviewer]);
+                                    $(document).trigger("observation-time-changed", [date]);
+                                },
+                            }
                         }
                     }
                 },

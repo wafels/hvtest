@@ -156,7 +156,7 @@ class Database_Statistics
             require_once HV_API_DIR . '/src/Helper/Serialize.php';
 
             $cachedir = 'api/Database/Statistics';
-            $filename = urlencode($startDate->format('c').'_'.$endDate->format('c').'.cache');
+            $filename = ($params['imageLayers'].'_'.$startDate->format('c').'_'.$endDate->format('c').'.cache');
             $filepath = $cachedir.'/'.$filename;
 
             $cache = new Helper_Serialize($cachedir,
