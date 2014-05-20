@@ -35,7 +35,7 @@ var Timeline = Class.extend(
             'height'      : '420px',
             'max-height'  : '96%',
             'text-align'  : 'center',
-            'background-color':'rgba(0,0,0,0.55)',
+            'background-color':'rgba(0,0,0,0.65)',
             //'border-top'  : '1px solid #333'
         });
 
