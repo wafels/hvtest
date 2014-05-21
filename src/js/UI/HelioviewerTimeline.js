@@ -342,8 +342,7 @@ var HelioviewerTimeline = Class.extend({
 
 
     btnBack: function () {
-        var chart = new HelioviewerTimeline('#data-coverage-timeline'),
-            url, startDate, endDate, imageLayers, layers=[];
+        var url, startDate, endDate, imageLayers, layers=[];
 
         this._timeline = $('#data-coverage-timeline').highcharts();
 
@@ -354,8 +353,8 @@ var HelioviewerTimeline = Class.extend({
         $('#btn-zoom-out').show();
         $('#btn-plotline').show();
 
-        chart.renderPlaceholder();
-        chart.loadingIndicator(true);
+        this.renderPlaceholder();
+        this.loadingIndicator(true);
 
         imageLayers = Helioviewer.userSettings.get("state.tileLayers");
         $.each(imageLayers, function (i, obj) {
@@ -364,15 +363,16 @@ var HelioviewerTimeline = Class.extend({
         layers = layers.join(',');
         console.warn(layers);
 
-        startDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMin).toISOString();
-        endDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMax).toISOString();
+        // TODO: Need to fetch real dates that had been saved in properties
+        startDate = '2014-01-01T00:00:00Z';
+        endDate = '2014-05-01T00:00:00Z';
 
         url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
         url += '?imageLayers='+layers;
         url += '&startDate='+startDate;
         url += '&endDate='+endDate;
 
-        chart.loadIntoTimeline(url);
+        this.loadIntoTimeline(url);
     },
 
 
@@ -535,6 +535,25 @@ var HelioviewerTimeline = Class.extend({
         );
 
         $('#btn-back').bind('click', $.proxy(this.btnBack, this));
+
+
+
+        this._container.bind('mousedown',
+            function (event) {
+                return false;
+            }
+        );
+
+        this._container.bind('dblclick',
+            function (event) {
+                return false;
+            }
+        );
+        this._container.bind('click',
+            function (event) {
+                return false;
+            }
+        );
     },
 
 
@@ -741,7 +760,6 @@ var HelioviewerTimeline = Class.extend({
     },
 
     loadIntoTimeline: function (url) {
-console.warn(url);
         var self = this;
 
         $.getJSON(url, function(data) {
@@ -785,7 +803,7 @@ console.warn(url);
 
         var binSize = this.series.closestPointRange,
             chart = $('#data-coverage-timeline').highcharts(),
-            url, startDate, endDate, count, layers=[];
+            url, startDate, endDate, count, layers=[], imageLayers;
 
         startDate = new Date(this.x).toISOString();
         endDate   = new Date(this.x + binSize).toISOString();
@@ -915,8 +933,6 @@ console.warn(url);
                             events: {
                                 dblclick: function () {
                                     var date = new Date(this.x);
-                                    console.warn([date.toISOString(), this]);
-                                    console.warn([helioviewer]);
                                     $(document).trigger("observation-time-changed", [date]);
                                 },
                             }

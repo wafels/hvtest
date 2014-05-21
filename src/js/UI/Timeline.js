@@ -39,10 +39,22 @@ var Timeline = Class.extend(
             //'border-top'  : '1px solid #333'
         });
 
-        // this.timeline_container.bind("mousedown", function () {return false;});
-        // this.timeline_container.bind("mouseup", function () {return false;});
-        this.timeline_container.bind('dblclick',  function () {return false;});
-        this.timeline_container.bind('click',     function () {return false;});
+        this.timeline_container.bind('mousedown',
+            function (event) {
+                return false;
+            }
+        );
+
+        this.timeline_container.bind('dblclick',
+            function (event) {
+                return false;
+            }
+        );
+        this.timeline_container.bind('click',
+            function (event) {
+                return false;
+            }
+        );
 
         this.timeline_container.slideDrawer({
             showDrawer: true,
