@@ -837,7 +837,7 @@ console.warn(url);
             $('#data-coverage-timeline').highcharts('StockChart', {
                 chart : {
                     type: 'scatter',
-                    zoomType: 'x'
+                    //zoomType: 'x'
                 },
 
                 tooltip: {
