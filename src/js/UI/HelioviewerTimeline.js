@@ -237,7 +237,8 @@ var HelioviewerTimeline = Class.extend({
                        fill: '#000003',
                        stroke: '#000000',
                        style: {
-                          color: 'white'
+                          color: 'white',
+                          fontWeight: 700
                        }
                     }
                  }
@@ -489,8 +490,8 @@ var HelioviewerTimeline = Class.extend({
         if ( !this._viewportPlotline ) {
             this._timeline.xAxis[0].addPlotLine({
                 value: 1396000000000,
-                width: 2,
-                color: '#fff',
+                width: 1,
+                color: 'white',
                 dashStyle: 'solid',
                 zIndex: 5,
                 id: 'viewport-plotline',
@@ -502,7 +503,9 @@ var HelioviewerTimeline = Class.extend({
                     x: -5,
                     rotation: 270,
                     style: {
-                        color: 'white'
+                        color: '#ccc',
+                        fontFamily: "'Source Code Pro', monospace'",
+                        fontWeight: 300
                     }
                 }
             });

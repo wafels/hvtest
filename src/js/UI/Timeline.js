@@ -26,18 +26,7 @@ var Timeline = Class.extend(
            $('#timeline-drawer').remove();
         }
 
-        this.timeline_container = $('<section class="drawer" style=""><header class="clickme" style="font-size: 0.67em; padding-top: 0; margin-top: 0; width: 10em; background-color: rgba(0,0,0,0.65); border-bottom: 0; padding: 0 auto; margin: -19px auto 0 auto;"><div class="ui-icon ui-icon-arrow-1-n" style="display: inline-block;"></div>Data Coverage<div class="ui-icon ui-icon-arrow-1-n" style="display: inline-block;"></div></header><div class="drawer-content"><div class="drawer-items"><div id="data-coverage-timeline"></div><button id="btn-prev" style="float: left;"><- Prev 3 Months</button><button id="btn-zoom-out">Zoom Out</button><button id="btn-zoom-in">Zoom In</button><button id="btn-plotline">Add PlotLine</button><button id="btn-back" style="display: none;"><- Go Back</button><button id="btn-next" style="float: right;">Next 3 Months -></button></div></div></div></section>').appendTo("#helioviewer-viewport");
-        this.timeline_container.css({
-            'position'    : 'absolute',
-            'bottom'      : '0',
-            'z-index'     : '9999',
-            'width'       : '100%',
-            'height'      : '420px',
-            'max-height'  : '96%',
-            'text-align'  : 'center',
-            'background-color':'rgba(0,0,0,0.65)',
-            //'border-top'  : '1px solid #333'
-        });
+        this.timeline_container = $('<section id="helioviewer_timeline" class="drawer"><header class="clickme"> Data Coverage Timeline</header><div class="drawer-content"><div class="drawer-items"><div id="data-coverage-timeline"></div><button id="btn-prev">&larr; Prev 3 Months</button><button id="btn-zoom-in">&#10133; Zoom In</button><button id="btn-zoom-out">&#10134; Zoom Out</button><button id="btn-plotline">Add PlotLine</button><button id="btn-back">&larr; Go Back</button><button id="btn-next">Next 3 Months &rarr;</button></div></div></div></section>').appendTo("#helioviewer-viewport");
 
         this.timeline_container.bind('mousedown',
             function (event) {

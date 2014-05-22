@@ -64,8 +64,8 @@ class HelioviewerWebClient extends HelioviewerClient {
      */
     protected function loadCustomCSS($signature, $includes=array()) {
         $css = array("helioviewer-web", "layout", "accordions", "dialogs",
-                     "events", "media-manager", "timenav", "video-gallery",
-                     "youtube");
+            "events", "media-manager", "timeline", "timenav", "video-gallery",
+            "youtube");
         parent::loadCustomCSS($signature, $css);
     }
 
