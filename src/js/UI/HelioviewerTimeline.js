@@ -329,7 +329,16 @@ var HelioviewerTimeline = Class.extend({
 
 
     btnZoomIn: function (event, params) {
-        var extremes, newMin, newMax, span, scaleFactor = 0.2;
+        var extremes, newMin, newMax, span, scaleFactor = 0.2,
+            binSize = this._timeline.series[0].closestPointRange, e;
+
+        if ( binSize < 60*60*1000 + 1 ) {
+            e = {
+                'timeStamp': 12345 // put zoom start time here
+            };
+            this.dataCoverageScatterPlot(e);
+            return true;
+        }
 
         this._timeline = $('#data-coverage-timeline').highcharts();
 
@@ -379,7 +388,6 @@ var HelioviewerTimeline = Class.extend({
         $('#btn-next').show();
         $('#btn-zoom-in').show();
         $('#btn-zoom-out').show();
-        $('#btn-plotline').show();
 
         this.renderPlaceholder();
         this.loadingIndicator(true);
@@ -485,37 +493,34 @@ var HelioviewerTimeline = Class.extend({
     },
 
 
-    btnPlotline: function () {
-        if ( !this._viewportPlotline ) {
-            this._timeline.xAxis[0].addPlotLine({
-                value: 1396000000000,
-                width: 1,
-                color: 'white',
-                dashStyle: 'solid',
-                zIndex: 5,
-                id: 'viewport-plotline',
-                label: {
-                    text: 'Viewport',
-                    verticalAlign: 'top',
-                    align: 'center',
-                    y: 30,
-                    x: -5,
-                    rotation: 270,
-                    style: {
-                        color: '#ccc',
-                        fontFamily: "'Source Code Pro', monospace'",
-                        fontWeight: 300
-                    }
-                }
-            });
-            $('#btn-plotline').html('Remove plot line');
-        }
-        else {
+    drawViewportPlotline: function () {
+        if ( this._viewportPlotline ) {
             this._timeline.xAxis[0].removePlotLine('viewport-plotline');
-            $('#btn-plotline').html('Add plot line');
+            this._viewportPlotline = false;
         }
 
-        this._viewportPlotline = !this._viewportPlotline;
+        this._timeline.xAxis[0].addPlotLine({
+            value: 1396000000000,
+            width: 1,
+            color: '#ccc',
+            zIndex: 5,
+            id: 'viewport-plotline',
+            label: {
+                text: 'Viewport Timestamp',
+                verticalAlign: 'top',
+                align: 'center',
+                y: 56,
+                x: -4,
+                rotation: 270,
+                style: {
+                    fontFamily: '"Source Code Pro", monospace',
+                    fontWeight: 200,
+                    fontSize: '10px',
+                    color: '#fff'
+                }
+            }
+        });
+        this._viewportPlotline = true;
     },
 
 
@@ -524,7 +529,6 @@ var HelioviewerTimeline = Class.extend({
 
         $('#btn-zoom-in').bind('click', $.proxy(this.btnZoomIn, this));
         $('#btn-zoom-out').bind('click', $.proxy(this.btnZoomOut, this));
-        $('#btn-plotline').bind('click', $.proxy(this.btnPlotline, this));
 
         $('#btn-prev').bind(
             'click',
@@ -711,7 +715,7 @@ var HelioviewerTimeline = Class.extend({
 
             plotOptions: {
                 column: {
-                    animation: true,
+                    animation: false,
                     stacking: 'normal',
                     pointPadding: 0,
                     borderWidth: 0.5,
@@ -803,6 +807,8 @@ var HelioviewerTimeline = Class.extend({
                 self._timeline.xAxis[0].getExtremes().dataMax
             );
 
+            self.drawViewportPlotline();
+
             self._timeline.redraw();
             self._timeline.hideLoading();
         });
@@ -820,28 +826,36 @@ var HelioviewerTimeline = Class.extend({
 
 
     dataCoverageScatterPlot: function (event) {
+        var binSize, self = this,
+            url, startDate, endDate, count, layers=[], imageLayers,
+            zoomStart, zoomEnd;
 
-        var binSize = this.series.closestPointRange,
-            chart = $('#data-coverage-timeline').highcharts(),
-            url, startDate, endDate, count, layers=[], imageLayers;
+            console.warn([event, event.timeStamp]);
 
-        startDate = new Date(this.x).toISOString();
-        endDate   = new Date(this.x + binSize).toISOString();
+        if ( this.x !== undefined &&
+             this.series.closestPointRange !== undefined ) {
 
-        if ( binSize > 60*60*1000 ) {
-            $('#btn-zoom-in').trigger(
-                'click',
-                {   'binStart' : startDate,
-                    'binEnd'   : endDate    }
-            );
-            return true;
+            binSize   = this.series.closestPointRange;
+            startDate = new Date(this.x).toISOString();
+            endDate   = new Date(this.x + binSize).toISOString();
+
+            if ( binSize > 60*60*1000 ) {
+                $('#btn-zoom-in').trigger(
+                    'click',
+                    {   'binStart' : startDate,
+                        'binEnd'   : endDate    }
+                );
+                return true;
+            }
+        }
+        else {
+
         }
 
         $('#btn-prev').hide();
         $('#btn-next').hide();
         $('#btn-zoom-in').hide();
         $('#btn-zoom-out').hide();
-        $('#btn-plotline').hide();
 
         imageLayers = Helioviewer.userSettings.get("state.tileLayers");
         $.each(imageLayers, function (i, obj) {
@@ -932,10 +946,7 @@ var HelioviewerTimeline = Class.extend({
                     ceiling: 6,
                     allowDecimals: false,
                     labels: {
-                        enabled: false,
-                        formatter: function () {
-                            return this.value;
-                        }
+                        enabled: false
                     }
 
                 },
@@ -950,7 +961,7 @@ var HelioviewerTimeline = Class.extend({
                         point: {
                             events: {
                                 dblclick: function () {
-                                    var date = new Date(this.x);
+                                    var date = new Date(zoomStart);
                                     $(document).trigger("observation-time-changed", [date]);
                                 },
                             }
