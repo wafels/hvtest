@@ -13,15 +13,15 @@
     font-size: 0.67em;
     color: #ccc;
     width: 12em;
-    background-color: rgba(0,0,0,0.50);
+    background-color: rgba(0,0,0,0.65);
     border-bottom: 0;
     padding: 4px 2px;
-    margin: -19px auto 0 auto;
+    margin: -21px auto 0 auto;
     border-radius: 3px 3px 0 0;
 }
 #helioviewer_timeline header.clickme:hover {
     color: #fff;
-    background-color: rgba(0,0,0,0.75);
+    background-color: rgba(0,0,0,0.85);
 }
 
 #helioviewer_timeline button {

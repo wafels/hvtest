@@ -51,11 +51,25 @@ bitwise: true, regexp: true, strict: true, newcap: true, immed: true, maxlen: 12
 
 var HelioviewerTimeline = Class.extend({
 
-    init: function (container) {
-        this._seriesOptions = [];
-        this._yAxisOptions  = [];
-        this._container = container;
+    init: function (container, imageLayers, startDate, endDate) {
+        var layers = [];
+
+        this._container        = container;
+        this._seriesOptions    = [];
+        this._yAxisOptions     = [];
         this._viewportPlotline = false;
+
+        // To be populated by this.createTimeline()
+        this._timeline = null;
+
+        this.imageLayers = imageLayers;
+        this.startDate   = startDate;
+        this.endDate     = endDate;
+
+        $.each(this.imageLayers, function (i, obj) {
+            layers.push('[' + obj.sourceId + ',1,100]');
+        });
+        this.imageLayersStr = layers.join(',');
 
         Highcharts.setOptions({
             global: {
@@ -70,12 +84,14 @@ var HelioviewerTimeline = Class.extend({
             }
         });
 
+        // Custom Fonts
         Highcharts.createElement('link', {
            href: 'http://fonts.googleapis.com/css?family=Source+Code+Pro:200,300,400,700',
            rel: 'stylesheet',
            type: 'text/css'
         }, null, document.getElementsByTagName('head')[0]);
 
+        // Custom Theme
         Highcharts.theme = {
            chart: {
               backgroundColor: 'rgba(0,0,0,0)',
@@ -284,7 +300,6 @@ var HelioviewerTimeline = Class.extend({
               trackBorderColor: '#404043'
            },
 
-           // special colors for some of the
            legendBackgroundColor: 'rgba(0, 0, 0, 0.5)',
            background2: '#505053',
            dataLabelsColor: '#B0B0B3',
@@ -298,6 +313,18 @@ var HelioviewerTimeline = Class.extend({
 
         this.setTimelineOptions();
         this._setupEventHandlers();
+    },
+
+    render: function () {
+        this.renderPlaceholder();
+        this.loadingIndicator(true);
+
+        this._url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
+        this._url += '?imageLayers=' + this.imageLayersStr;
+        this._url += '&startDate='   + this.startDate;
+        this._url += '&endDate='     + this.endDate;
+
+        this.loadIntoTimeline(this._url);
     },
 
 
@@ -343,7 +370,7 @@ var HelioviewerTimeline = Class.extend({
 
 
     btnBack: function () {
-        var url, startDate, endDate, imageLayers, layers=[];
+        var url, layers=[];
 
         this._timeline = $('#data-coverage-timeline').highcharts();
 
@@ -357,59 +384,38 @@ var HelioviewerTimeline = Class.extend({
         this.renderPlaceholder();
         this.loadingIndicator(true);
 
-        imageLayers = Helioviewer.userSettings.get("state.tileLayers");
-        $.each(imageLayers, function (i, obj) {
-            layers.push('[' + obj.sourceId + ',1,100]');
-        });
-        layers = layers.join(',');
-        console.warn(layers);
-
-        // TODO: Need to fetch real dates that had been saved in properties
-        startDate = '2014-01-01T00:00:00Z';
-        endDate = '2014-05-01T00:00:00Z';
-
         url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
-        url += '?imageLayers='+layers;
-        url += '&startDate='+startDate;
-        url += '&endDate='+endDate;
+        url += '?imageLayers=' + this.imageLayersStr;
+        url += '&startDate='   + this.startDate;
+        url += '&endDate='     + this.endDate;
 
-        this.loadIntoTimeline(url);
+        this._url = url;
+
+        this.loadIntoTimeline(this._url);
     },
 
 
     btnPrev: function () {
-        var self = this, url, month, date, imageLayers, layers=[];
+        var self = this, url, startDate, endDate;
 
-        this._timeline = $('#data-coverage-timeline').highcharts();
+        //this._timeline = $('#data-coverage-timeline').highcharts();
         this._timeline.showLoading('Loading data from server...');
 
-        imageLayers = Helioviewer.userSettings.get("state.tileLayers");
-        $.each(imageLayers, function (i, obj) {
-            layers.push('[' + obj.sourceId + ',1,100]');
-        });
-        layers = layers.join(',');
-        console.warn(layers);
+        startDate = new Date(this.startDate);
+        startDate = new Date(startDate.setMonth(startDate.getMonth() - 3));
+        this.startDate = startDate.toISOString();
 
-        date = Date.parse(startDate);
-        date = new Date(date);
-        month = date.getMonth();
-        date.setMonth(month-3);
-        startDate = date.toISOString();
+        endDate    = new Date(this.endDate);
+        endDate    = new Date(endDate.setMonth(endDate.getMonth() - 3));
+        this.endDate    = endDate.toISOString();
 
-        date = Date.parse(endDate);
-        date = new Date(date);
-        month = date.getMonth();
-        date.setMonth(month-3);
-        endDate = date.toISOString();
+        url  ='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
+        url += 'imageLayers=' + this.imageLayersStr;
+        url += '&startDate='  + this.startDate;
+        url += '&endDate='    + this.endDate;
+        this._url = url;
 
-        url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
-        url += 'imageLayers=' + layers;
-        url += '&startDate=' + startDate;
-        url += '&endDate=' + endDate;
-
-        $.getJSON(url, function(data) {
-            var count = 0;
-
+        $.getJSON(this._url, function(data) {
             while(self._timeline.series.length > 0) {
                 self._timeline.series[0].remove(false);
             }
@@ -421,7 +427,6 @@ var HelioviewerTimeline = Class.extend({
                     data: series['data'],
                     color: _colors[sourceId]
                 }, true, false);
-                count++;
             });
 
             self._timeline.xAxis[0].setExtremes(
@@ -436,31 +441,26 @@ var HelioviewerTimeline = Class.extend({
 
 
     btnNext: function () {
-        var self = this, url, month, date;
+        var self = this, url, startDate, endDate;
 
-        this._timeline = $('#data-coverage-timeline').highcharts();
+        //this._timeline = $('#data-coverage-timeline').highcharts();
         this._timeline.showLoading('Loading data from server...');
 
-        date = Date.parse(startDate);
-        date = new Date(date);
-        month = date.getMonth();
-        date.setMonth(month+3);
-        startDate = date.toISOString();
+        startDate = new Date(this.startDate);
+        startDate = new Date(startDate.setMonth(startDate.getMonth() + 3));
+        this.startDate = startDate.toISOString();
 
-        date = Date.parse(endDate);
-        date = new Date(date);
-        month = date.getMonth();
-        date.setMonth(month+3);
-        endDate = date.toISOString();
+        endDate    = new Date(this.endDate);
+        endDate    = new Date(endDate.setMonth(endDate.getMonth() + 3));
+        this.endDate    = endDate.toISOString();
 
-        url='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
-        url += 'imageLayers=' + layers;
-        url += '&startDate=' + startDate;
-        url += '&endDate=' + endDate;
+        url  ='http://dev4.helioviewer.org/api/v1/getDataCoverage/?';
+        url += 'imageLayers=' + this.imageLayersStr;
+        url += '&startDate='  + this.startDate;
+        url += '&endDate='    + this.endDate;
+        this._url = url;
 
-        $.getJSON(url, function(data) {
-            var count = 0;
-
+        $.getJSON(this._url, function(data) {
             while(self._timeline.series.length > 0) {
                 self._timeline.series[0].remove(false);
             }
@@ -472,7 +472,6 @@ var HelioviewerTimeline = Class.extend({
                     data: series['data'],
                     color: _colors[sourceId]
                 }, true, false);
-                count++;
             });
 
             self._timeline.xAxis[0].setExtremes(
@@ -521,7 +520,7 @@ var HelioviewerTimeline = Class.extend({
 
 
     _setupEventHandlers: function () {
-        var self = this, imageLayers;
+        var self = this, imageLayers, container = $('#data-coverage-timeline');
 
         $('#btn-zoom-in').bind('click', $.proxy(this.btnZoomIn, this));
         $('#btn-zoom-out').bind('click', $.proxy(this.btnZoomOut, this));
@@ -540,19 +539,23 @@ var HelioviewerTimeline = Class.extend({
         $('#btn-back').bind('click', $.proxy(this.btnBack, this));
 
 
+        $(document).bind('observation-time-changed', $.proxy(self._updateTimeline, self));
+        $(document).bind('add-new-tile-layer', $.proxy(self._updateTimeline, self));
+        $(document).bind('save-tile-layers', $.proxy(self._updateTimeline, self));
 
-        this._container.bind('mousedown',
+
+        container.bind('mousedown',
             function (event) {
                 return false;
             }
         );
 
-        this._container.bind('dblclick',
+        container.bind('dblclick',
             function (event) {
                 return false;
             }
         );
-        this._container.bind('click',
+        container.bind('click',
             function (event) {
                 return false;
             }
@@ -560,36 +563,51 @@ var HelioviewerTimeline = Class.extend({
     },
 
 
+    _updateTimeline: function () {
+        var layers = [];
+
+        this.imageLayers = Helioviewer.userSettings.get("state.tileLayers");
+
+        $.each(this.imageLayers, function (i, obj) {
+            layers.push('[' + obj.sourceId + ',1,100]');
+        });
+        this.imageLayersStr = layers.join(',');
+
+
+    },
+
+
     renderPlaceholder: function () {
         var self = this, count = 0, startTimestamp, endTimestamp,
-            chartOptions, data, dateObj = new Date();
+            chartOptions, data;
 
-        // Set endTimestamp to the beginning of next month
-        dateObj.setMonth(dateObj.getMonth() + 1);
-        dateObj.setDate(1);
-        dateObj.setHours(0);
-        dateObj.setMinutes(0);
-        dateObj.setSeconds(0);
-        dateObj.setMilliseconds(0);
-        endTimestamp = dateObj.getTime();
+        // Create dummy data
 
-        // Set startTimestamp to 3 months before endTimestamp
-        dateObj.setMonth(dateObj.getMonth() - 3);
-        startTimestamp = dateObj.getTime();
+        startTimestamp = new Date(this.startDate);;
+        startTimestamp = startTimestamp.getTime();
 
-        data = { "0": {
-                        "sourceId" : "0",
-                        "label"    : "Loading...",
-                        "data"     : [ [startTimestamp, null],
-                                       [endTimestamp, null] ]
-                      }
-                   };
+        endTimestamp   = new Date(this.endDate);
+        endTimestamp   = endTimestamp.getTime();
+
+        data = {
+            "0":
+                {
+                    "sourceId" : "0",
+                    "label"    : "Loading...",
+                    "data"     :
+                        [
+                            [startTimestamp, null],
+                            [endTimestamp,   null]
+                        ]
+                }
+        };
+
         count = 0;
         $.each(data, function (sourceId, series) {
             self._seriesOptions[count] = {
                 name  : series['label'],
                 data  : series['data'],
-                color : _colors[sourceId],
+                color : 'rgba(0,0,0,0)',
                 id    : count
             };
             count++;
@@ -600,11 +618,10 @@ var HelioviewerTimeline = Class.extend({
 
 
     createTimeline: function () {
-        $('#data-coverage-timeline').highcharts(
-            'StockChart', this._timelineOptions);
-
-        this._timeline = $('#data-coverage-timeline').highcharts();
+        this._container.highcharts('StockChart', this._timelineOptions);
+        this._timeline = this._container.highcharts();
     },
+
 
     getTimelineOptions: function () {
         return this._timelineOptions;
@@ -831,8 +848,6 @@ var HelioviewerTimeline = Class.extend({
             layers.push('[' + obj.sourceId + ',1,100]');
         });
         layers = layers.join(',');
-        console.warn(layers);
-
 
         url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverageDetail/';
         url += '?imageLayers='+layers;

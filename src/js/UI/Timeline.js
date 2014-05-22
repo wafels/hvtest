@@ -21,31 +21,33 @@ var Timeline = Class.extend(
 
 
     _initTimeline: function() {
+        var url, startDate, endDate, imageLayers, layers=[],
+            dateObj = new Date(), self = this;
 
         if ( $('#timeline-drawer').length > 0 ) {
            $('#timeline-drawer').remove();
         }
 
-        this.timeline_container = $('<section id="helioviewer_timeline" class="drawer"><header class="clickme"> Data Coverage Timeline</header><div class="drawer-content"><div class="drawer-items"><div id="data-coverage-timeline"></div><button id="btn-prev">&larr; Prev 3 Months</button><button id="btn-zoom-in">&#10133; Zoom In</button><button id="btn-zoom-out">&#10134; Zoom Out</button><button id="btn-plotline">Add PlotLine</button><button id="btn-back">&larr; Go Back</button><button id="btn-next">Next 3 Months &rarr;</button></div></div></div></section>').appendTo("#helioviewer-viewport");
+        this.timeline_drawer = $('<section id="helioviewer_timeline" class="drawer"><header class="clickme"> Data Coverage Timeline</header><div class="drawer-content"><div class="drawer-items"><div id="data-coverage-timeline"></div><button id="btn-prev">&larr; Prev 3 Months</button><button id="btn-zoom-in">&#10133; Zoom In</button><button id="btn-zoom-out">&#10134; Zoom Out</button><button id="btn-plotline">Add PlotLine</button><button id="btn-back">&larr; Go Back</button><button id="btn-next">Next 3 Months &rarr;</button></div></div></div></section>').appendTo("#helioviewer-viewport");
 
-        this.timeline_container.bind('mousedown',
+        this.timeline_drawer.bind('mousedown',
             function (event) {
                 return false;
             }
         );
 
-        this.timeline_container.bind('dblclick',
+        this.timeline_drawer.bind('dblclick',
             function (event) {
                 return false;
             }
         );
-        this.timeline_container.bind('click',
+        this.timeline_drawer.bind('click',
             function (event) {
                 return false;
             }
         );
 
-        this.timeline_container.slideDrawer({
+        this.timeline_drawer.slideDrawer({
             showDrawer: true,
             slideTimeout: true,
             slideSpeed: 500,
@@ -53,34 +55,40 @@ var Timeline = Class.extend(
             drawerHiddenHeight: -10,
         });
 
-        $("header.clickme").bind('click', function () {
-            $("div#earth-button.minimize").click();
-        });
-
-
-        var container = $('#data-coverage-timeline'),
-            chart = new HelioviewerTimeline(container),
-            url, startDate, endDate, imageLayers, layers=[];
-
-        chart.renderPlaceholder();
-        chart.loadingIndicator(true);
-
-
         imageLayers = Helioviewer.userSettings.get("state.tileLayers");
         $.each(imageLayers, function (i, obj) {
             layers.push('[' + obj.sourceId + ',1,100]');
         });
         layers = layers.join(',');
-        console.warn(layers);
 
-        startDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMin).toISOString();
-        endDate = new Date(chart._timeline.xAxis[0].getExtremes().dataMax).toISOString();
+        // Set endDate to the beginning of next month
+        dateObj.setMonth(dateObj.getMonth() + 1);
+        dateObj.setDate(1);
+        dateObj.setUTCHours(0);
+        dateObj.setMinutes(0);
+        dateObj.setSeconds(0);
+        dateObj.setMilliseconds(0);
+        endDate = dateObj.toISOString();
 
-        url  = 'http://dev4.helioviewer.org/api/v1/getDataCoverage/';
-        url += '?imageLayers='+layers;
-        url += '&startDate='+startDate;
-        url += '&endDate='+endDate;
+        // Set startDate to 3 months before endDate
+        dateObj.setMonth(dateObj.getMonth() - 3);
+        startDate = dateObj.toISOString();
 
-        chart.loadIntoTimeline(url);
+        // Render the Data Coverage Timeline
+        this._chart = new HelioviewerTimeline(
+            $('#data-coverage-timeline'),
+            imageLayers,
+            startDate,
+            endDate
+        );
+        this._chart.render();
+
+        // Event Bindings
+        $("header.clickme").bind('click', function (e) {
+            var a = this, b = self;
+            $("div#earth-button.minimize").click();
+            $("#morescreen-btn").click();
+            setTimeout(function () { self._chart._timeline.reflow(); }, 501);
+        });
     },
 });
