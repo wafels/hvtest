@@ -203,10 +203,10 @@ error_log('read from cache!');
             }
 
 
-            $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp, SUM(count) as count FROM data_coverage_5_min WHERE sourceId in (".$requestedLayerIds.") AND date BETWEEN '"
+            $sql = "SELECT sourceId, UNIX_TIMESTAMP(date) as timestamp, SUM(count) as count FROM data_coverage_30_min WHERE sourceId in (".$requestedLayerIds.") AND date BETWEEN '"
                  . $mysqlStartDate . "' AND '"
                  . $mysqlEndDate . "' GROUP BY sourceId, timestamp ORDER BY timestamp;";
-
+error_log($sql);
             $result = $this->_dbConnection->query($sql);
 
             while ( $row = $result->fetch_array(MYSQLI_ASSOC) ) {
@@ -269,7 +269,7 @@ error_log('read from database!');
                     'SQL_BIG_RESULT SQL_BUFFER_RESULT SQL_NO_CACHE ' .
                     'CONCAT( ' .
                         'DATE_FORMAT(date, "%Y-%m-%d %H:"), '    .
-                        '(MINUTE(date) DIV 30)*30, ' .
+                        'LPAD((MINUTE(date) DIV 30)*30, ' .
                         '":00") AS "bin", ' .
                     'sourceId, ' .
                     'COUNT(id) ' .

@@ -28,7 +28,7 @@ var Timeline = Class.extend(
            $('#timeline-drawer').remove();
         }
 
-        this.timeline_drawer = $('<section id="helioviewer_timeline" class="drawer"><header class="clickme"> Data Coverage Timeline</header><div class="drawer-content"><div class="drawer-items"><div id="data-coverage-timeline"></div><button id="btn-prev">&larr; Prev 3 Months</button><button id="btn-zoom-in">&#10133; Zoom In</button><button id="btn-zoom-out">&#10134; Zoom Out</button><button id="btn-back">&larr; Go Back</button><button id="btn-next">Next 3 Months &rarr;</button></div></div></div></section>').appendTo("#helioviewer-viewport");
+        this.timeline_drawer = $('<section id="helioviewer_timeline" class="drawer"><header class="clickme"> Data Coverage Timeline</header><div class="drawer-content"><div class="drawer-items"><div id="data-coverage-timeline"></div><button id="btn-prev">&larr; Prev 6 Months</button><button id="btn-zoom-in">&#10133; Zoom In</button><button id="btn-zoom-out">&#10134; Zoom Out</button><button id="btn-back">&larr; Go Back</button><button id="btn-next">Next 6 Months &rarr;</button></div></div></div></section>').appendTo("#helioviewer-viewport");
 
         this.timeline_drawer.bind('mousedown',
             function (event) {
@@ -51,7 +51,7 @@ var Timeline = Class.extend(
             showDrawer: true,
             slideTimeout: true,
             slideSpeed: 500,
-            slideTimeoutCount: 2000,
+            slideTimeoutCount: 2500,
             drawerHiddenHeight: -10,
         });
 
@@ -63,15 +63,20 @@ var Timeline = Class.extend(
 
         // Set endDate to the beginning of next month
         dateObj.setMonth(dateObj.getMonth() + 1);
-        dateObj.setDate(1);
+        dateObj.setDate(0);
+        dateObj.setUTCHours(23);
+        dateObj.setMinutes(59);
+        dateObj.setSeconds(59);
+        dateObj.setMilliseconds(999);
+        endDate = dateObj.toISOString();
+
+        // Set startDate to 6 months before endDate
+        dateObj.setMonth(dateObj.getMonth() - 6);
+        dateObj.setDate(0);
         dateObj.setUTCHours(0);
         dateObj.setMinutes(0);
         dateObj.setSeconds(0);
         dateObj.setMilliseconds(0);
-        endDate = dateObj.toISOString();
-
-        // Set startDate to 3 months before endDate
-        dateObj.setMonth(dateObj.getMonth() - 3);
         startDate = dateObj.toISOString();
 
         // Render the Data Coverage Timeline
@@ -85,10 +90,9 @@ var Timeline = Class.extend(
 
         // Event Bindings
         $("header.clickme").bind('click', function (e) {
-            var a = this, b = self;
             $("div#earth-button.minimize").click();
-            $("#morescreen-btn").click();
-            setTimeout(function () { self._chart._timeline.reflow(); }, 501);
+            //$("#morescreen-btn").click();
+            //setTimeout(function () { self._chart._timeline.reflow(); }, 501);
         });
     },
 });

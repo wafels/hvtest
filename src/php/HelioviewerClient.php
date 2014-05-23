@@ -228,7 +228,7 @@ abstract class HelioviewerClient {
 <script src="lib/jquery.json-2.3/jquery.json-2.3.min.js" type="text/javascript" ></script>
 <script src="lib/jquery.cookie/jquery.cookie.min.js" type="text/javascript" ></script>
 <script src="lib/Cookiejar/jquery.cookiejar.pack.js" type="text/javascript"></script>
-<script src="lib/Highstock-2.0.0/js/highstock.js" type="text/javascript"></script>
+<script src="lib/Highstock-2.0.1/js/highstock.js" type="text/javascript"></script>
 <script src="lib/custom_events-master/customEvents.js" type="text/javascript"></script>
 <?php
     }
