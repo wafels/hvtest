@@ -517,7 +517,7 @@ var HelioviewerTimeline = Class.extend({
         }
 
         this._timeline.xAxis[0].addPlotLine({
-            value: 1396000000000,
+            value: Helioviewer.userSettings.get("state.date"),
             width: 1,
             color: '#ccc',
             zIndex: 5,
@@ -560,11 +560,6 @@ var HelioviewerTimeline = Class.extend({
         $('#btn-back').bind('click', $.proxy(this.btnBack, this));
 
 
-        $(document).bind('observation-time-changed', $.proxy(self._updateTimeline, self));
-        $(document).bind('add-new-tile-layer', $.proxy(self._updateTimeline, self));
-        $(document).bind('save-tile-layers', $.proxy(self._updateTimeline, self));
-
-
         container.bind('mousedown',
             function (event) {
                 return false;
@@ -581,11 +576,17 @@ var HelioviewerTimeline = Class.extend({
                 return false;
             }
         );
+
+        $(document).bind('observation-time-changed', $.proxy(self._updateTimeline, self));
+        $(document).bind('add-new-tile-layer', $.proxy(self._updateTimeline, self));
+        $(document).bind('save-tile-layers', $.proxy(self._updateTimeline, self));
+        $(document).bind('toggle-events', $.proxy(self._updateTimeline, self));
+        $(document).bind('toggle-event-labels', $.proxy(self._updateTimeline, self));
     },
 
 
     _updateTimeline: function () {
-        var layers = [];
+        var layers = [], dateObj = new Date(), startDate, endDate;
 
         this.imageLayers = Helioviewer.userSettings.get("state.tileLayers");
 
@@ -594,7 +595,26 @@ var HelioviewerTimeline = Class.extend({
         });
         this.imageLayersStr = layers.join(',');
 
+        startDate = new Date(this.startDate);
+        startDate = new Date(startDate.setMonth(startDate.getMonth() - 6));
+        dateObj.setDate(0);
+        dateObj.setUTCHours(0);
+        dateObj.setMinutes(0);
+        dateObj.setSeconds(0);
+        dateObj.setMilliseconds(0);
+        this.startDate = startDate.toISOString();
 
+        endDate = new Date(this.endDate);
+        endDate = new Date(endDate.setMonth(endDate.getMonth() - 6));
+        dateObj.setDate(0);
+        dateObj.setUTCHours(23);
+        dateObj.setMinutes(59);
+        dateObj.setSeconds(59);
+        dateObj.setMilliseconds(999);
+        this.endDate    = endDate.toISOString();
+
+        this.render();
+        this.drawViewportPlotline();
     },
 
 
@@ -857,7 +877,7 @@ var HelioviewerTimeline = Class.extend({
             startDate = new Date(this.x).toISOString();
             endDate   = new Date(this.x + binSize).toISOString();
 
-            if ( binSize > 12*60*60*1000 ) {
+            if ( binSize > 1*60*60*1000 ) {
                 $('#btn-zoom-in').trigger(
                     'click',
                     {   'binStart' : startDate,
@@ -949,11 +969,6 @@ var HelioviewerTimeline = Class.extend({
                         text: '15m'
                     },
                     {
-                        type: 'minute',
-                        count: 30,
-                        text: '30m'
-                    },
-                    {
                         type: 'all',
                         text: 'All'
                     }]
@@ -975,18 +990,30 @@ var HelioviewerTimeline = Class.extend({
                             symbol: 'circle'
                         }
                     },
-                    // scatter: {
-                    //     point: {
-                    //         events: {
-                    //             click: function () {
-                    //                 $(document).trigger(
-                    //                     "observation-time-changed",
-                    //                     [new Date(this.x)]
-                    //                 );
-                    //             },
-                    //         }
-                    //     }
-                    // }
+                    scatter: {
+                        point: {
+                            events: {
+                                click: function () {
+                                    var date = new Date(this.x), str;
+
+                                    str = date.getUTCFullYear()          + '/'
+                                        + ('00'+date.getUTCMonth()).slice(-2) + '/'
+                                        + ('00'+date.getUTCDate()).slice(-2);
+                                    $('#observation-date-container input#date').attr('value',str);
+
+                                    str = ('00'+date.getUTCHours()).slice(-2)   + ':'
+                                        + ('00'+date.getUTCMinutes()).slice(-2) + ':'
+                                        + ('00'+date.getUTCSeconds()).slice(-2);
+                                    $('#observation-time-container input#time').attr('value',str);
+
+                                    $(document).trigger(
+                                        "observation-time-changed",
+                                        [date]
+                                    );
+                                },
+                            }
+                        }
+                    }
                 },
 
                 legend: {
@@ -996,6 +1023,7 @@ var HelioviewerTimeline = Class.extend({
 
                 series : seriesOptions
             });
+        });
 
             var chart = $('#data-coverage-timeline').highcharts(), mid, dur;
 
@@ -1005,8 +1033,8 @@ var HelioviewerTimeline = Class.extend({
                 - chart.xAxis[0].getExtremes().dataMin;
 
             chart.xAxis[0].setExtremes(
-                mid - dur / 8,
-                mid + dur / 8
+                 mid - 60*5*1000,
+                 mid + 60*5*1000
             );
         });
 

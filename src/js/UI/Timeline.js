@@ -22,7 +22,7 @@ var Timeline = Class.extend(
 
     _initTimeline: function() {
         var url, startDate, endDate, imageLayers, layers=[],
-            dateObj = new Date(), self = this;
+            dateObj, self = this;
 
         if ( $('#timeline-drawer').length > 0 ) {
            $('#timeline-drawer').remove();
@@ -50,7 +50,7 @@ var Timeline = Class.extend(
         this.timeline_drawer.slideDrawer({
             showDrawer: true,
             slideTimeout: true,
-            slideSpeed: 500,
+            slideSpeed: 1000,
             slideTimeoutCount: 2500,
             drawerHiddenHeight: -10,
         });
@@ -61,8 +61,10 @@ var Timeline = Class.extend(
         });
         layers = layers.join(',');
 
-        // Set endDate to the beginning of next month
-        dateObj.setMonth(dateObj.getMonth() + 1);
+        dateObj = new Date(Helioviewer.userSettings.get("state.date"));
+
+        // Set endDate to the beginning 3 months ahead
+        dateObj.setMonth(dateObj.getMonth() + 3);
         dateObj.setDate(0);
         dateObj.setUTCHours(23);
         dateObj.setMinutes(59);

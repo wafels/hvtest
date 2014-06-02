@@ -269,7 +269,7 @@ error_log('read from database!');
                     'SQL_BIG_RESULT SQL_BUFFER_RESULT SQL_NO_CACHE ' .
                     'CONCAT( ' .
                         'DATE_FORMAT(date, "%Y-%m-%d %H:"), '    .
-                        'LPAD((MINUTE(date) DIV 30)*30, ' .
+                        'LPAD((MINUTE(date) DIV 30)*30, 2, "0"), ' .
                         '":00") AS "bin", ' .
                     'sourceId, ' .
                     'COUNT(id) ' .

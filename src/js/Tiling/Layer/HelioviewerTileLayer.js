@@ -98,7 +98,8 @@ var HelioviewerTileLayer = TileLayer.extend(
             "detector"   : this.image.detector,
             "measurement": this.image.measurement,
             "visible"    : this.visible,
-            "opacity"    : this.opacity
+            "opacity"    : this.opacity,
+            "sourceId"   : this.image.sourceId
         };
     },
 
