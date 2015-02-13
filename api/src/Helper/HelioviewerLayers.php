@@ -65,12 +65,6 @@ class Helper_HelioviewerLayers {
         // Store a tree representation of the layers for generating
         // human-readable strings
         $this->_createLayerTree();
-
-        // Check to make sure at least one valid layer was specified
-        if (sizeOf($this->_layers) === 0) {
-            throw new Exception(
-                'No valid and visible layers specified for request.', 20);
-        }
     }
 
     /**

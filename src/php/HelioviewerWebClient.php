@@ -548,7 +548,7 @@ class HelioviewerWebClient extends HelioviewerClient {
         <div id="footer-container-inner">
             <!-- Meta links -->
             <div id="footer-links">
-                <a href="http://helioviewer.org/wiki/Helioviewer.org_User_Guide_2.4.0" class="light" target="_blank">Help</a>
+                <a href="http://wiki.helioviewer.org/wiki/Helioviewer.org_User_Guide_2.4.0" class="light" target="_blank">Help</a>
                 <a id="helioviewer-glossary" class="light" href="dialogs/glossary.html">Glossary</a>
                 <a id="helioviewer-about" class="light" href="dialogs/about.php">About</a>
                 <a id="helioviewer-usage" class="light" href="dialogs/usage.php">Usage Tips</a>
