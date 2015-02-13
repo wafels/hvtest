@@ -10,7 +10,7 @@ set SCRIPTPATH=`dirname "$SCRIPT"`
 
 setenv APP_INCLUDE "$SCRIPTPATH/resque_env.php"
 setenv QUEUE "on_demand_movie"
-setenv COUNT 6
+setenv COUNT 16
 
 setenv MOVIE_QUEUE_STATUS "UNKNOWN"
 
