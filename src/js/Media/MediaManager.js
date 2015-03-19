@@ -39,6 +39,16 @@ var MediaManager = Class.extend(
         $.each(layerArray, function (i, layer) {
             layer = extractLayerName(this);
 
+            if ( layer.length == 1 ) {
+                name += ', data source '+layer[i];
+                // Continue to next iteration of loop
+                return true;
+            }
+            else if ( layer.length == 0 ) {
+                // Break out of loop
+                return false
+            }
+
             observatory = layer[0];
             instrument  = layer[1];
             detector    = layer[2];
