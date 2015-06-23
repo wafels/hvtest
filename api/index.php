@@ -50,7 +50,7 @@ if ( isset($_REQUEST['action']) ) {
 
 // Redirect to API Documentation if no API request is being made.
 if ( !isset($params) || !loadModule($params) ) {
-    header('Location: '.HV_API_URL.'/docs/');
+    header('Location: '.HV_API_URL.'/api/docs/');
 }
 
 /**
@@ -162,7 +162,7 @@ function printHTMLErrorMsg($msg) {
         printf($meta, strftime('%Y-%m-%d %H:%m:%S'), $_SERVER['HTTP_HOST'],
             $_SERVER['REQUEST_URI']);
     ?>
-    <title>Helioviewer.org API - Error</title>
+    <title>Helioviewer.ias.u-psud.fr API - Error</title>
     <link rel="stylesheet" type="text/css" href="<?php echo HV_API_URL; ?>/docs/css/bootstrap-theme.min.css">
     <link rel="stylesheet" type="text/css" href="<?php echo HV_API_URL; ?>/docs/css/bootstrap.min.css">
     <link rel="stylesheet" type="text/css" href="<?php echo HV_API_URL; ?>/docs/css/main.css">
