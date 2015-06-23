@@ -93,6 +93,7 @@ class Config {
      */
     private function _setAdditionalParams() {
 
+        define('HV_CLIENT_URL',      'inf-helio-test.ias.u-psud.fr/helioviewer');
         define('HV_LOG_DIR',      HV_ROOT_DIR     . '/log');
         define('HV_API_DIR',      HV_ROOT_DIR     . '/api');
         define('HV_API_URL',      HV_WEB_ROOT_URL . '/api');
